@@ -119,6 +119,7 @@ export default function () {
   
   
   useEffect(() => {
+    console.log("🏁 Dashboard loader useEffect running!", { readOnlyMode, dashboardId });
     const loadDashboard = async () => {
       if (!readOnlyMode || !dashboardId) return;
   
