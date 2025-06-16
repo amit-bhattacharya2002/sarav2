@@ -414,10 +414,36 @@ export default function () {
       if (!res.ok) throw new Error("Failed to load dashboard");
       const data = await res.json();
   
-      const { title, quadrants, visualizations } = data;
+      const { title, quadrants, visualizations, s_visualizations } = data;
       setDashboardSectionTitle(title || "Untitled Dashboard");
   
-      // Clear previous state
+      // NEW: Use cache if present and non-empty
+      if (Array.isArray(s_visualizations) && s_visualizations.length > 0) {
+        console.log("✅ [EDIT MODE] Loading dashboard from CACHE (s_visualizations)!");
+        setAllVisualizations(s_visualizations);
+  
+        // Map quadrants: match by originalId or sql, fallback to first
+        const quadrantMap: any = {};
+        for (const quadrant in quadrants) {
+          const match = s_visualizations.find(
+            v =>
+              (quadrants[quadrant] && v.originalId && v.originalId === quadrants[quadrant]) ||
+              (quadrants[quadrant] && v.sql && v.sql === (visualizations?.find(old => old.id === quadrants[quadrant])?.sql))
+          ) || s_visualizations[0];
+          quadrantMap[quadrant] = match ? match.id : null;
+        }
+        setQuadrants({
+          topLeft: quadrantMap.topLeft || null,
+          topRight: quadrantMap.topRight || null,
+          bottom: quadrantMap.bottom || null,
+        });
+  
+        setIsGlobalLoading(false);
+        return;
+      }
+  
+      // FALLBACK: re-run SQL for each viz (your current logic)
+      console.log("⏳ [EDIT MODE] No cache found, re-running SQL for all visualizations.");
       setAllVisualizations([]);
       setQuadrants({
         topLeft: null,
@@ -425,11 +451,10 @@ export default function () {
         bottom: null,
       });
   
-      // Load each visualization
       const newVisualizations: any[] = [];
       const quadrantMapping: any = {};
   
-      for (const viz of visualizations) {
+      for (const viz of visualizations || []) {
         try {
           const resultRes = await fetch('/api/query', {
             method: 'POST',
@@ -438,8 +463,7 @@ export default function () {
           });
           const result = await resultRes.json();
           if (!resultRes.ok) throw new Error(result.error || 'Query failed');
-
-          
+  
           const chartData =
             viz.type === 'chart' || viz.type === 'pie'
               ? result.rows.map(row => ({
@@ -447,18 +471,17 @@ export default function () {
                   value: Number(row[result.columns[1]?.key]) || 0,
                 }))
               : result.rows;
-          
+  
           const newViz = {
             id: `viz-${Date.now()}-${Math.random()}`,
             type: viz.type,
             title: viz.title || 'Query Result',
-            data: chartData, // <-- THIS LINE RESTORED
+            data: chartData,
             columns: result.columns || [],
             color: viz.color || 'hsl(var(--chart-4))',
             originalId: viz.id,
             sql: viz.sql,
           };
-          
   
           newVisualizations.push(newViz);
   
@@ -484,7 +507,6 @@ export default function () {
       setIsGlobalLoading(false);
     }
   };
-
   
 
   
