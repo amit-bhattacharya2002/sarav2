@@ -743,10 +743,20 @@ export default function () {
                                 <pre className="whitespace-pre-wrap break-words">{viz.sql}</pre>
                               </>
                             )}
+                            {Array.isArray(data) && data.length > 0 && (
+                              <>
+                                <div className="font-semibold">Output Data (sample):</div>
+                                <pre className="whitespace-pre-wrap break-words">
+                                  {JSON.stringify(data.slice(0, 3), null, 2)}
+                                </pre>
+                              </>
+                            )}
                           </div>
                         );
                       })}
-                    </div>
+                    </div> 
+
+
 
                     
                   </div>
