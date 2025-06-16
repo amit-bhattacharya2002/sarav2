@@ -24,9 +24,15 @@ export default function () {
     bottom: null,
   })
 
+
+
+
+
+  
   
   function handleSaveDashboard() {
     const usedVizIds = Object.values(quadrants).filter(Boolean);
+    // Structure-only (legacy, minimal fields)
     const saveReadyVisualizations = allVisualizations
       .filter(viz => usedVizIds.includes(viz.id))
       .map(({ id, type, title, columns, color, sql }) => ({
@@ -38,10 +44,15 @@ export default function () {
         sql,
       }));
   
+    // Full visualizations including output data
+    const saveReadySVisualizations = allVisualizations
+      .filter(viz => usedVizIds.includes(viz.id));
+  
     const payload = {
       title: dashboardSectionTitle,
       quadrants,
       visualizations: saveReadyVisualizations,
+      s_visualizations: saveReadySVisualizations, // <-- include output data!
     };
   
     // POST to your API
@@ -61,6 +72,9 @@ export default function () {
       alert('Error saving dashboard: ' + err.message);
     });
   }
+
+
+
 
   
   const searchParams = useSearchParams() 
