@@ -16,9 +16,9 @@ export async function GET(req: NextRequest) {
     const connection = await mysql.createConnection(dbConfig)
 
     if (id) {
-      // Fetch a specific dashboard by ID
+      // Fetch a specific dashboard by ID - now including s_visualizations
       const [rows] = await connection.execute(
-        `SELECT title, quadrants, visualizations FROM saved_dashboards WHERE id = ?`,
+        `SELECT title, quadrants, visualizations, s_visualizations FROM saved_dashboards WHERE id = ?`,
         [id]
       )
       await connection.end()
@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
         title: dashboard.title,
         quadrants: JSON.parse(dashboard.quadrants || '{}'),
         visualizations: JSON.parse(dashboard.visualizations || '[]'),
+        s_visualizations: JSON.parse(dashboard.s_visualizations || '[]'), // <-- added
       })
     } else {
       // Fetch all dashboards for user_id=1 and company_id=1
@@ -48,21 +49,21 @@ export async function GET(req: NextRequest) {
   }
 }
 
-
 export async function POST(req: NextRequest) {
   try {
-    const { title, quadrants, visualizations } = await req.json();
+    const { title, quadrants, visualizations, s_visualizations } = await req.json();
 
     const connection = await mysql.createConnection(dbConfig);
 
     await connection.execute(
-      `INSERT INTO saved_dashboards (user_id, company_id, title, quadrants, visualizations) VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO saved_dashboards (user_id, company_id, title, quadrants, visualizations, s_visualizations) VALUES (?, ?, ?, ?, ?, ?)`,
       [
         1, // user_id (hardcoded for now)
         1, // company_id (hardcoded for now)
         title,
         JSON.stringify(quadrants),
         JSON.stringify(visualizations),
+        JSON.stringify(s_visualizations), // <-- added
       ]
     );
 
