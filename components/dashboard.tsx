@@ -115,35 +115,59 @@ export default function () {
 
 
 
+
+  
   
   useEffect(() => {
     const loadDashboard = async () => {
       if (!readOnlyMode || !dashboardId) return;
   
-      setIsGlobalLoading(true); // Start spinner
+      setIsGlobalLoading(true);
   
       try {
         const res = await fetch(`/api/dashboard?id=${dashboardId}`);
         const data = await res.json();
   
-        const { title, quadrants, visualizations } = data;
+        const { title, quadrants, visualizations, s_visualizations } = data;
         setDashboardSectionTitle(title);
   
+        // NEW: Prefer s_visualizations if present (use cache, instant load)
+        if (Array.isArray(s_visualizations) && s_visualizations.length > 0) {
+          setAllVisualizations(s_visualizations);
+  
+          // Map quadrants: try to match by originalId or sql, fallback by order
+          const quadrantMap = {};
+          for (const quadrant in quadrants) {
+            // Try to find a matching viz in s_visualizations by originalId (if present) or SQL
+            const match = s_visualizations.find(
+              v =>
+                (quadrants[quadrant] && v.originalId && v.originalId === quadrants[quadrant]) ||
+                (quadrants[quadrant] && v.sql && v.sql === (visualizations?.find(old => old.id === quadrants[quadrant])?.sql))
+            ) || s_visualizations[0]; // fallback to first if nothing matches
+            quadrantMap[quadrant] = match ? match.id : null;
+          }
+          setQuadrants(quadrantMap);
+  
+          setIsGlobalLoading(false);
+          return;
+        }
+  
+        // FALLBACK: Legacy mode, re-run SQL for each viz
         const quadrantMap = {};
         let loadedCount = 0;
   
         const handleLoaded = () => {
           loadedCount++;
           if (loadedCount === visualizations.length) {
-            setIsGlobalLoading(false); // 👈 Stop spinner only after all are done
+            setIsGlobalLoading(false);
           }
         };
   
-        if (visualizations.length === 0) {
-          setIsGlobalLoading(false); // Edge case: nothing to load
+        if (!visualizations || visualizations.length === 0) {
+          setIsGlobalLoading(false);
         }
   
-        for (const viz of visualizations) {
+        for (const viz of visualizations || []) {
           const fetchAndAddViz = async () => {
             try {
               const resultRes = await fetch('/api/query', {
@@ -162,12 +186,12 @@ export default function () {
                       value: Number(row[result.columns[1]?.key]) || 0,
                     }))
                   : result.rows;
-              
+  
               const newViz = {
                 id: `viz-${Date.now()}-${Math.random()}`,
                 type: viz.type,
                 title: viz.title || 'Query Result',
-                data: chartData, // <-- THIS LINE RESTORED
+                data: chartData,
                 columns: result.columns || [],
                 color: viz.color || 'hsl(var(--chart-4))',
                 originalId: viz.id,
@@ -184,7 +208,7 @@ export default function () {
             } catch (err) {
               console.error('Error loading visualization:', err);
             } finally {
-              handleLoaded(); // ✅ Always mark it done, even on error
+              handleLoaded();
             }
           };
   
@@ -192,14 +216,12 @@ export default function () {
         }
       } catch (err) {
         console.error('Failed to load read-only dashboard:', err);
-        setIsGlobalLoading(false); // Fail safe
+        setIsGlobalLoading(false);
       }
     };
   
     loadDashboard();
   }, [readOnlyMode, dashboardId]);
-  
-
 
 
 
