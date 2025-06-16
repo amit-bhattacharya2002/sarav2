@@ -126,7 +126,7 @@ export function QueryPanel({
 
 {/* // NEW DIAGNOSTICS */}
           
-          {queryResults && queryResults.length > 0 && columns.length >= 1 && (
+{/*           {queryResults && queryResults.length > 0 && columns.length >= 1 && (
             <div className="bg-card border mt-4 rounded p-4 overflow-auto" style={{ minHeight: '200px' }}>
               {outputMode === 'table' && (
                 <TableView
@@ -181,7 +181,7 @@ export function QueryPanel({
                 />
               )}
             </div>
-          )}
+          )} */}
           
           
 {/* // END of NEW DIAGNOSTICS         */}
