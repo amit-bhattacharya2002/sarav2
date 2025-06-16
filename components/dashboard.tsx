@@ -292,6 +292,7 @@ export default function () {
             : [],
         color: 'hsl(var(--chart-4))',
         sql: data.sql, // <-- Always include SQL
+        data: result.rows || [],   // <<< ADD THIS
       }
 
       setAllVisualizations((prev) => [...prev, newViz])
