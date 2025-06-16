@@ -131,19 +131,19 @@ export default function () {
         const { title, quadrants, visualizations, s_visualizations } = data;
         setDashboardSectionTitle(title);
   
-        // NEW: Prefer s_visualizations if present (use cache, instant load)
+        // DEBUG: Are we loading from cache?
         if (Array.isArray(s_visualizations) && s_visualizations.length > 0) {
+          console.log("✅ Loading dashboard from CACHE (s_visualizations)!");
           setAllVisualizations(s_visualizations);
   
-          // Map quadrants: try to match by originalId or sql, fallback by order
+          // (quadrant mapping code...)
           const quadrantMap = {};
           for (const quadrant in quadrants) {
-            // Try to find a matching viz in s_visualizations by originalId (if present) or SQL
             const match = s_visualizations.find(
               v =>
                 (quadrants[quadrant] && v.originalId && v.originalId === quadrants[quadrant]) ||
                 (quadrants[quadrant] && v.sql && v.sql === (visualizations?.find(old => old.id === quadrants[quadrant])?.sql))
-            ) || s_visualizations[0]; // fallback to first if nothing matches
+            ) || s_visualizations[0];
             quadrantMap[quadrant] = match ? match.id : null;
           }
           setQuadrants(quadrantMap);
@@ -152,7 +152,9 @@ export default function () {
           return;
         }
   
-        // FALLBACK: Legacy mode, re-run SQL for each viz
+        // DEBUG: Fallback to SQL
+        console.log("⏳ No cache found, re-running SQL for all visualizations.");
+        // ... legacy SQL rerun logic ...
         const quadrantMap = {};
         let loadedCount = 0;
   
@@ -222,10 +224,7 @@ export default function () {
   
     loadDashboard();
   }, [readOnlyMode, dashboardId]);
-
-
-
-  
+    
 
   
   const togglePanel = (panel: 'left' | 'middle' | 'right') => {
