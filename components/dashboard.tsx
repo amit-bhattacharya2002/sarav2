@@ -425,11 +425,16 @@ export default function () {
         // Map quadrants: match by originalId or sql, fallback to first
         const quadrantMap: any = {};
         for (const quadrant in quadrants) {
+          const expectedOriginalId = quadrants[quadrant];
+          const expectedViz = visualizations?.find(v => v.id === expectedOriginalId);
+          const expectedType = expectedViz?.type;
+        
           const match = s_visualizations.find(
             v =>
-              (quadrants[quadrant] && v.originalId && v.originalId === quadrants[quadrant]) ||
-              (quadrants[quadrant] && v.sql && v.sql === (visualizations?.find(old => old.id === quadrants[quadrant])?.sql))
-          ) || s_visualizations[0];
+              (v.originalId === expectedOriginalId || (v.sql && v.sql === expectedViz?.sql)) &&
+              v.type === expectedType
+          );
+        
           quadrantMap[quadrant] = match ? match.id : null;
         }
         setQuadrants({
