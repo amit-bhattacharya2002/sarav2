@@ -136,19 +136,28 @@ export default function () {
         if (Array.isArray(s_visualizations) && s_visualizations.length > 0) {
           console.log("✅ Loading dashboard from CACHE (s_visualizations)!");
           setAllVisualizations(s_visualizations);
-  
-          // (quadrant mapping code...)
-          const quadrantMap = {};
+        
+          // Improved quadrant mapping
+          const quadrantMap: any = {};
           for (const quadrant in quadrants) {
+            const expectedOriginalId = quadrants[quadrant];
+            const expectedViz = visualizations?.find(v => v.id === expectedOriginalId);
+            const expectedType = expectedViz?.type;
+        
             const match = s_visualizations.find(
               v =>
-                (quadrants[quadrant] && v.originalId && v.originalId === quadrants[quadrant]) ||
-                (quadrants[quadrant] && v.sql && v.sql === (visualizations?.find(old => old.id === quadrants[quadrant])?.sql))
-            ) || s_visualizations[0];
+                (v.originalId === expectedOriginalId || (v.sql && v.sql === expectedViz?.sql)) &&
+                v.type === expectedType
+            );
+        
             quadrantMap[quadrant] = match ? match.id : null;
           }
-          setQuadrants(quadrantMap);
-  
+          setQuadrants({
+            topLeft: quadrantMap.topLeft || null,
+            topRight: quadrantMap.topRight || null,
+            bottom: quadrantMap.bottom || null,
+          });
+        
           setIsGlobalLoading(false);
           return;
         }
