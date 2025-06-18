@@ -148,7 +148,16 @@ export default function () {
   
         const { title, quadrants, visualizations, s_visualizations } = data;
         setDashboardSectionTitle(title);
-  
+
+
+        // Set drop zone titles from loaded visualization titles
+        setDropZoneTitles({
+          topLeft: (s_visualizations?.find(v => v.id === quadrants?.topLeft)?.title) || "Sample Title",
+          topRight: (s_visualizations?.find(v => v.id === quadrants?.topRight)?.title) || "Sample Title",
+          bottom: (s_visualizations?.find(v => v.id === quadrants?.bottom)?.title) || "Sample Title",
+        });
+
+        
         // DEBUG: Are we loading from cache?
         if (Array.isArray(s_visualizations) && s_visualizations.length > 0) {
           console.log("✅ Loading dashboard from CACHE (s_visualizations)!");
