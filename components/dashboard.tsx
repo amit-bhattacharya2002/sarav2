@@ -66,6 +66,7 @@ export default function () {
       });
   
     const payload = {
+      ...(dashboardId ? { id: dashboardId } : {}),
       title: dashboardSectionTitle,
       quadrants,
       visualizations: saveReadyVisualizations,
@@ -892,6 +893,7 @@ export default function () {
                             topRight: "Sample Title",
                             bottom: "Sample Title",
                           });
+                          setDashboardId(null);
                         }}
                         variant="ghost"
                         className="flex items-center gap-2"
