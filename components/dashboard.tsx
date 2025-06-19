@@ -37,32 +37,18 @@ export default function () {
     const saveReadyVisualizations = allVisualizations
       .filter(viz => usedVizIds.includes(viz.id))
       .map(viz => {
-        // Find which quadrant this viz is currently in (if any)
         const quadrant = Object.entries(quadrants).find(([key, value]) => value === viz.id)?.[0];
-        // Use the drop zone title if available, else fallback to the viz's own title
         const title = quadrant ? dropZoneTitles[quadrant] : viz.title;
-        // If you want to ONLY include minimal fields (like your original), use destructuring:
         const { id, type, columns, color, sql } = viz;
-        return {
-          id,
-          type,
-          title,
-          columns,
-          color,
-          sql,
-        };
+        return { id, type, title, columns, color, sql };
       });
   
-    // Full visualizations including output data
     const saveReadySVisualizations = allVisualizations
       .filter(viz => usedVizIds.includes(viz.id))
       .map(viz => {
         const quadrant = Object.entries(quadrants).find(([key, value]) => value === viz.id)?.[0];
         const title = quadrant ? dropZoneTitles[quadrant] : viz.title;
-        return {
-          ...viz,
-          title,
-        };
+        return { ...viz, title };
       });
   
     const payload = {
@@ -73,22 +59,26 @@ export default function () {
       s_visualizations: saveReadySVisualizations,
     };
   
-    // POST to your API
     fetch('/api/dashboard', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-    }).then(res => {
-      if (res.ok) {
-        alert('Dashboard saved!');
-      } else {
-        res.json().then(err => {
-          alert('Error saving dashboard: ' + (err.error || res.statusText));
-        });
-      }
-    }).catch(err => {
-      alert('Error saving dashboard: ' + err.message);
-    });
+    })
+      .then(res => res.json().then(data => ({ ok: res.ok, data })))
+      .then(({ ok, data }) => {
+        if (ok) {
+          alert('Dashboard saved!');
+          // If this was a new dashboard (no id before), update the URL!
+          if (!dashboardId && data.id) {
+            window.history.replaceState(null, '', `/?d=${data.id}`);
+          }
+        } else {
+          alert('Error saving dashboard: ' + (data.error || 'Unknown error'));
+        }
+      })
+      .catch(err => {
+        alert('Error saving dashboard: ' + err.message);
+      });
   }
 
 
