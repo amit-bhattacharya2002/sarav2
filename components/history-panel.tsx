@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { fetchSavedQueries } from "@/app/actions/query-actions"
-import { Save, MoreVertical } from "lucide-react"
 import { Save } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -212,13 +211,10 @@ export function HistoryPanel({
                 <p>No saved dashboards found</p>
               </div>
             )}
-
-
-
-            
             {!dashboardLoading && !dashboardError && dashboards.length > 0 && (
               <div className="space-y-2">
 
+                
               {dashboards.map((dashboard) => (
                 readOnlyMode ? (
                   <button
@@ -229,36 +225,21 @@ export function HistoryPanel({
                     <span className="font-medium">{dashboard.title}</span>
                   </button>
                 ) : (
-                  <div
+                  <button
                     key={dashboard.id}
-                    className={`flex items-center justify-between w-full p-3 rounded-md border border-border hover:bg-muted transition-colors ${
+                    className={`w-full text-left p-3 rounded-md border border-border hover:bg-muted transition-colors ${
                       selectedDashboard?.id === dashboard.id ? "bg-muted" : ""
                     }`}
+                    onClick={() => handleDashboardClick(dashboard)}
                   >
-                    <button
-                      className="flex-1 text-left"
-                      onClick={() => handleDashboardClick(dashboard)}
-                    >
-                      <span className="font-medium">{dashboard.title}</span>
-                    </button>
-                    {/* Icon button for actions, not wired up yet */}
-                    <button
-                      className="ml-2 p-1 rounded hover:bg-accent"
-                      aria-label="Dashboard actions"
-                      type="button"
-                      tabIndex={-1} // So it doesn't take focus away from main button
-                    >
-                      <MoreVertical className="w-5 h-5" />
-                    </button>
-                  </div>
+                    <span className="font-medium">{dashboard.title}</span>
+                  </button>
                 )
               ))}
 
+                
               </div>
             )}
-
-
-            
           </>
         )}
 
