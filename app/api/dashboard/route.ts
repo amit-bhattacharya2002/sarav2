@@ -68,9 +68,11 @@ export async function POST(req: NextRequest) {
           id,
         ]
       );
+      await connection.end();
+      return NextResponse.json({ success: true, id }); // <-- also return id on update
     } else {
       // Insert new dashboard
-      await connection.execute(
+      const [result]: any = await connection.execute(
         `INSERT INTO saved_dashboards (user_id, company_id, title, quadrants, visualizations, s_visualizations) VALUES (?, ?, ?, ?, ?, ?)`,
         [
           1, // user_id (hardcoded for now)
@@ -81,11 +83,9 @@ export async function POST(req: NextRequest) {
           JSON.stringify(s_visualizations),
         ]
       );
+      await connection.end();
+      return NextResponse.json({ success: true, id: result.insertId }); // <-- return new id!
     }
-
-    await connection.end();
-
-    return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error('[DASHBOARD_SAVE_ERROR]', err)
     return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 })
