@@ -186,7 +186,9 @@ export function HistoryPanel({
           </>
         )}
         {/* Dashboards */}
-        {view === "dashboards" && !readOnlyMode && (
+
+        
+        {view === "dashboards" && (
           <>
             {dashboardLoading && (
               <div className="space-y-2 p-1">
@@ -208,20 +210,34 @@ export function HistoryPanel({
             {!dashboardLoading && !dashboardError && dashboards.length > 0 && (
               <div className="space-y-2">
                 {dashboards.map((dashboard) => (
-                  <button
-                    key={dashboard.id}
-                    className={`w-full text-left p-3 rounded-md border border-border hover:bg-muted transition-colors ${
-                      selectedDashboard?.id === dashboard.id ? "bg-muted" : ""
-                    }`}
-                    onClick={() => handleDashboardClick(dashboard)}
-                  >
-                    <span className="font-medium">{dashboard.title}</span>
-                  </button>
+                  readOnlyMode ? (
+                    <a
+                      key={dashboard.id}
+                      href={`?d=${dashboard.id}`}
+                      className="block p-3 rounded-md border border-border hover:bg-muted transition-colors text-left"
+                    >
+                      <span className="font-medium">{dashboard.title}</span>
+                    </a>
+                  ) : (
+                    <button
+                      key={dashboard.id}
+                      className={`w-full text-left p-3 rounded-md border border-border hover:bg-muted transition-colors ${
+                        selectedDashboard?.id === dashboard.id ? "bg-muted" : ""
+                      }`}
+                      onClick={() => handleDashboardClick(dashboard)}
+                    >
+                      <span className="font-medium">{dashboard.title}</span>
+                    </button>
+                  )
                 ))}
               </div>
             )}
           </>
         )}
+
+
+
+        
         {/* (readOnlyMode dashboard UI can remain as before for now) */}
       </div>
     </div>
