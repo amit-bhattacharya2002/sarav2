@@ -148,8 +148,8 @@ export default function () {
         const res = await fetch(`/api/dashboard?id=${dashboardId}`);
         const data = await res.json();
   
-        const { title, quadrants, visualizations, s_visualizations } = data;
-        setDashboardId(dashboard.id);
+        const { id, title, quadrants, visualizations, s_visualizations } = data;
+        setDashboardId(id);
         setDashboardSectionTitle(title);
 
 
@@ -452,7 +452,8 @@ export default function () {
       if (!res.ok) throw new Error("Failed to load dashboard");
       const data = await res.json();
   
-      const { title, quadrants, visualizations, s_visualizations } = data;
+      const { id, title, quadrants, visualizations, s_visualizations } = data;
+      setDashboardId(id);
       setDashboardSectionTitle(title || "Untitled Dashboard");
 
       // Set drop zone titles from loaded visualization titles (edit mode)
