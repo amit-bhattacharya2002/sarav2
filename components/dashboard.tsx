@@ -94,10 +94,11 @@ export default function () {
 
 
   
-  const searchParams = useSearchParams() 
-  const dashboardId = searchParams.get('d')
+  const searchParams = useSearchParams()
+  const dashboardIdParam = searchParams.get('d')
+  const [dashboardId, setDashboardId] = useState(dashboardIdParam)
   const readOnlyMode = !!dashboardId
-  
+    
     
   const [collapsedPanels, setCollapsedPanels] = useState({
     left: false,
@@ -147,6 +148,7 @@ export default function () {
         const data = await res.json();
   
         const { title, quadrants, visualizations, s_visualizations } = data;
+        setDashboardId(dashboard.id);
         setDashboardSectionTitle(title);
 
 
