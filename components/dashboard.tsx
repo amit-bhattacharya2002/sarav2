@@ -866,32 +866,52 @@ export default function () {
                     
                   </div>
                 </div>
-                {/* Save button only in edit mode */}
+
+
+                
+                {/* Save & Clear buttons only in edit mode */}
                 {!readOnlyMode && (
                   <div className="p-4 border-t bg-card">
-                    <Button
-                      onClick={handleSaveDashboard}
-                      variant="default"
-                      className="flex items-center gap-2 w-full justify-center"
-                    >
-                      <Save className="h-5 w-5" />
-                      <span>Save dashboard</span>
-                    </Button>
+                    <div className="flex flex-row items-center justify-between w-full gap-2">
+                      <Button
+                        onClick={handleSaveDashboard}
+                        variant="default"
+                        className="flex items-center gap-2"
+                        disabled={
+                          // Disable if no dashboard content (no quadrants filled)
+                          !Object.values(quadrants).some(Boolean)
+                        }
+                      >
+                        <Save className="h-5 w-5" />
+                        <span>Save</span>
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setQuadrants({ topLeft: null, topRight: null, bottom: null });
+                          setDashboardSectionTitle("Untitled Dashboard");
+                          setDropZoneTitles({
+                            topLeft: "Sample Title",
+                            topRight: "Sample Title",
+                            bottom: "Sample Title",
+                          });
+                        }}
+                        variant="ghost"
+                        className="flex items-center gap-2"
+                      >
+                        {/* Use a broom, trash, or X icon as you prefer. Lucide's 'Eraser' or 'Trash' are nice. */}
+                        {/* Example with 'Eraser': */}
+                        {/* <Eraser className="h-5 w-5" /> */}
+                        {/* Example with Unicode broom if you want: */}
+                        <span style={{ fontSize: "1.2em" }} role="img" aria-label="Clear">🧹</span>
+                        <span>Clear</span>
+                      </Button>
+                    </div>
                   </div>
-                )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute top-2 right-2"
-                  onClick={() => togglePanel('right')}
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
 
+
+
+
+        
         <ShareLinkDialog
           open={shareDialogOpen}
           onOpenChange={setShareDialogOpen}
