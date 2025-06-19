@@ -867,7 +867,6 @@ export default function () {
                   </div>
                 </div>
 
-
                 
                 {/* Save & Clear buttons only in edit mode */}
                 {!readOnlyMode && (
@@ -877,10 +876,7 @@ export default function () {
                         onClick={handleSaveDashboard}
                         variant="default"
                         className="flex items-center gap-2"
-                        disabled={
-                          // Disable if no dashboard content (no quadrants filled)
-                          !Object.values(quadrants).some(Boolean)
-                        }
+                        disabled={!Object.values(quadrants).some(Boolean)}
                       >
                         <Save className="h-5 w-5" />
                         <span>Save</span>
@@ -898,10 +894,6 @@ export default function () {
                         variant="ghost"
                         className="flex items-center gap-2"
                       >
-                        {/* Use a broom, trash, or X icon as you prefer. Lucide's 'Eraser' or 'Trash' are nice. */}
-                        {/* Example with 'Eraser': */}
-                        {/* <Eraser className="h-5 w-5" /> */}
-                        {/* Example with Unicode broom if you want: */}
                         <span style={{ fontSize: "1.2em" }} role="img" aria-label="Clear">🧹</span>
                         <span>Clear</span>
                       </Button>
@@ -910,8 +902,20 @@ export default function () {
                 )}
 
 
+                
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-2 right-2"
+                  onClick={() => togglePanel('right')}
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
 
-        
         <ShareLinkDialog
           open={shareDialogOpen}
           onOpenChange={setShareDialogOpen}
