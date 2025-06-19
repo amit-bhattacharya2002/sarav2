@@ -51,22 +51,43 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { title, quadrants, visualizations, s_visualizations } = await req.json();
+    const { id, title, quadrants, visualizations, s_visualizations } = await req.json();
 
     const connection = await mysql.createConnection(dbConfig);
 
-    await connection.execute(
-      `INSERT INTO saved_dashboards (user_id, company_id, title, quadrants, visualizations, s_visualizations) VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        1, // user_id (hardcoded for now)
-        1, // company_id (hardcoded for now)
-        title,
-        JSON.stringify(quadrants),
-        JSON.stringify(visualizations),
-        JSON.stringify(s_visualizations), // <-- added
-      ]
-    );
 
+
+    
+    if (id) {
+      // Update existing dashboard
+      await connection.execute(
+        `UPDATE saved_dashboards SET title = ?, quadrants = ?, visualizations = ?, s_visualizations = ? WHERE id = ?`,
+        [
+          title,
+          JSON.stringify(quadrants),
+          JSON.stringify(visualizations),
+          JSON.stringify(s_visualizations),
+          id,
+        ]
+      );
+    } else {
+      // Insert new dashboard
+      await connection.execute(
+        `INSERT INTO saved_dashboards (user_id, company_id, title, quadrants, visualizations, s_visualizations) VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          1, // user_id (hardcoded for now)
+          1, // company_id (hardcoded for now)
+          title,
+          JSON.stringify(quadrants),
+          JSON.stringify(visualizations),
+          JSON.stringify(s_visualizations),
+        ]
+      );
+    }
+
+
+
+    
     await connection.end();
 
     return NextResponse.json({ success: true });
