@@ -33,7 +33,6 @@ export default function () {
   function handleSaveDashboard() {
     const usedVizIds = Object.values(quadrants).filter(Boolean);
   
-    // Map each viz to use its quadrant's title (from dropZoneTitles)
     const saveReadyVisualizations = allVisualizations
       .filter(viz => usedVizIds.includes(viz.id))
       .map(viz => {
@@ -68,9 +67,9 @@ export default function () {
       .then(({ ok, data }) => {
         if (ok) {
           alert('Dashboard saved!');
-          // If this was a new dashboard (no id before), update the URL!
+          // If this was a new dashboard (no id before), update the URL with edit=true!
           if (!dashboardId && data.id) {
-            window.history.replaceState(null, '', `/?d=${data.id}`);
+            window.history.replaceState(null, '', `/?d=${data.id}&edit=true`);
           }
         } else {
           alert('Error saving dashboard: ' + (data.error || 'Unknown error'));
