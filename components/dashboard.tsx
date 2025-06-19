@@ -96,9 +96,8 @@ export default function () {
 
   
   const searchParams = useSearchParams();
-  const dashboardIdParam = searchParams.get('d');
-  const [dashboardId, setDashboardId] = useState(dashboardIdParam);
-  const readOnlyMode = !!dashboardIdParam;
+  const dashboardId = searchParams.get('d');
+  const readOnlyMode = !!dashboardId;
     
     
   const [collapsedPanels, setCollapsedPanels] = useState({
