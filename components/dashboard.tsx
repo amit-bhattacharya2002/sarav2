@@ -26,7 +26,9 @@ export default function () {
 
 
 
-
+const dashboardIdParam = searchParams.get('d');
+const [dashboardId, setDashboardId] = useState(dashboardIdParam);
+const readOnlyMode = !!dashboardId;
 
   
   
@@ -66,6 +68,7 @@ export default function () {
       });
   
     const payload = {
+      ...(dashboardId ? { id: dashboardId } : {}),
       title: dashboardSectionTitle,
       quadrants,
       visualizations: saveReadyVisualizations,
@@ -443,6 +446,7 @@ export default function () {
 
   
   const handleSelectDashboard = async (dashboard: { id: number; title: string }) => {
+    setDashboardId(dashboard.id);
     setIsGlobalLoading(true);
     try {
       const res = await fetch(`/api/dashboard?id=${dashboard.id}`);
