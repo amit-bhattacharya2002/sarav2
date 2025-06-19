@@ -88,7 +88,7 @@ export function HistoryPanel({
       }
     }
     // Only load dashboards if not read-only and dashboards view is selected
-    if (!readOnlyMode && view === "dashboards") {
+    if ((readOnlyMode && view === "dashboards") || (!readOnlyMode && view === "dashboards")) {
       loadDashboards()
     }
   }, [readOnlyMode, view])
