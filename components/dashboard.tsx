@@ -148,7 +148,6 @@ export default function () {
         const data = await res.json();
   
         const { id, title, quadrants, visualizations, s_visualizations } = data;
-        setDashboardId(id);
         setDashboardSectionTitle(title);
 
 
