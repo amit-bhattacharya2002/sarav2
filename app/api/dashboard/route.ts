@@ -16,9 +16,9 @@ export async function GET(req: NextRequest) {
     const connection = await mysql.createConnection(dbConfig)
 
     if (id) {
-      // Fetch a specific dashboard by ID - now including s_visualizations
+      // Fetch a specific dashboard by ID, including id in the result
       const [rows] = await connection.execute(
-        `SELECT title, quadrants, visualizations, s_visualizations FROM saved_dashboards WHERE id = ?`,
+        `SELECT id, title, quadrants, visualizations, s_visualizations FROM saved_dashboards WHERE id = ?`,
         [id]
       )
       await connection.end()
@@ -30,10 +30,11 @@ export async function GET(req: NextRequest) {
       const dashboard = rows[0] as any
 
       return NextResponse.json({
+        id: dashboard.id,
         title: dashboard.title,
         quadrants: JSON.parse(dashboard.quadrants || '{}'),
         visualizations: JSON.parse(dashboard.visualizations || '[]'),
-        s_visualizations: JSON.parse(dashboard.s_visualizations || '[]'), // <-- added
+        s_visualizations: JSON.parse(dashboard.s_visualizations || '[]'),
       })
     } else {
       // Fetch all dashboards for user_id=1 and company_id=1
@@ -55,9 +56,6 @@ export async function POST(req: NextRequest) {
 
     const connection = await mysql.createConnection(dbConfig);
 
-
-
-    
     if (id) {
       // Update existing dashboard
       await connection.execute(
@@ -85,9 +83,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-
-
-    
     await connection.end();
 
     return NextResponse.json({ success: true });
