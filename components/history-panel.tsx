@@ -1,5 +1,6 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { fetchSavedQueries } from "@/app/actions/query-actions"
 import { Save } from "lucide-react"
@@ -37,6 +38,8 @@ export function HistoryPanel({
   const [selectedDashboard, setSelectedDashboard] = useState<SavedDashboard | null>(null)
   const [view, setView] = useState<"queries" | "dashboards">(readOnlyMode ? "dashboards" : "queries")
 
+  const router = useRouter();
+  
   // Dashboards state
   const [dashboards, setDashboards] = useState<SavedDashboard[]>([])
   const [dashboardLoading, setDashboardLoading] = useState(false)
@@ -45,6 +48,7 @@ export function HistoryPanel({
   // For demo purposes, using hardcoded user and company IDs
   const userId = 1
   const companyId = 1
+
 
   // Queries loading effect
   useEffect(() => {
@@ -209,27 +213,31 @@ export function HistoryPanel({
             )}
             {!dashboardLoading && !dashboardError && dashboards.length > 0 && (
               <div className="space-y-2">
-                {dashboards.map((dashboard) => (
-                  readOnlyMode ? (
-                    <a
-                      key={dashboard.id}
-                      href={`?d=${dashboard.id}`}
-                      className="block p-3 rounded-md border border-border hover:bg-muted transition-colors text-left"
-                    >
-                      <span className="font-medium">{dashboard.title}</span>
-                    </a>
-                  ) : (
-                    <button
-                      key={dashboard.id}
-                      className={`w-full text-left p-3 rounded-md border border-border hover:bg-muted transition-colors ${
-                        selectedDashboard?.id === dashboard.id ? "bg-muted" : ""
-                      }`}
-                      onClick={() => handleDashboardClick(dashboard)}
-                    >
-                      <span className="font-medium">{dashboard.title}</span>
-                    </button>
-                  )
-                ))}
+
+                
+              {dashboards.map((dashboard) => (
+                readOnlyMode ? (
+                  <button
+                    key={dashboard.id}
+                    className="block w-full text-left p-3 rounded-md border border-border hover:bg-muted transition-colors"
+                    onClick={() => router.push(`?d=${dashboard.id}`)}
+                  >
+                    <span className="font-medium">{dashboard.title}</span>
+                  </button>
+                ) : (
+                  <button
+                    key={dashboard.id}
+                    className={`w-full text-left p-3 rounded-md border border-border hover:bg-muted transition-colors ${
+                      selectedDashboard?.id === dashboard.id ? "bg-muted" : ""
+                    }`}
+                    onClick={() => handleDashboardClick(dashboard)}
+                  >
+                    <span className="font-medium">{dashboard.title}</span>
+                  </button>
+                )
+              ))}
+
+                
               </div>
             )}
           </>
