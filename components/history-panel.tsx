@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { fetchSavedQueries } from "@/app/actions/query-actions"
+import { Save, MoreVertical } from "lucide-react"
 import { Save } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -225,17 +226,31 @@ export function HistoryPanel({
                     <span className="font-medium">{dashboard.title}</span>
                   </button>
                 ) : (
-                  <button
+                  <div
                     key={dashboard.id}
-                    className={`w-full text-left p-3 rounded-md border border-border hover:bg-muted transition-colors ${
+                    className={`flex items-center justify-between w-full p-3 rounded-md border border-border hover:bg-muted transition-colors ${
                       selectedDashboard?.id === dashboard.id ? "bg-muted" : ""
                     }`}
-                    onClick={() => handleDashboardClick(dashboard)}
                   >
-                    <span className="font-medium">{dashboard.title}</span>
-                  </button>
+                    <button
+                      className="flex-1 text-left"
+                      onClick={() => handleDashboardClick(dashboard)}
+                    >
+                      <span className="font-medium">{dashboard.title}</span>
+                    </button>
+                    <button
+                      className="ml-2 p-1 rounded hover:bg-accent"
+                      aria-label="Dashboard actions"
+                      type="button"
+                      // Not wired up yet
+                    >
+                      <MoreVertical className="w-5 h-5" />
+                    </button>
+                  </div>
                 )
               ))}
+
+                
 
                 
               </div>
