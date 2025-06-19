@@ -445,6 +445,14 @@ export default function () {
 
   
   const handleSelectDashboard = async (dashboard: { id: number; title: string }) => {
+    if (readOnlyMode) {
+      // In read-only mode, update the URL to reflect the selected dashboard.
+      window.history.replaceState(null, '', `/?d=${dashboard.id}`);
+      // The useEffect watching [readOnlyMode, dashboardId] will trigger and load the dashboard.
+      return;
+    }
+  
+    // --- Edit mode logic (fetch and update state directly, as before) ---
     setIsGlobalLoading(true);
     try {
       const res = await fetch(`/api/dashboard?id=${dashboard.id}`);
@@ -452,9 +460,8 @@ export default function () {
       const data = await res.json();
   
       const { id, title, quadrants, visualizations, s_visualizations } = data;
-      setDashboardId(id);
       setDashboardSectionTitle(title || "Untitled Dashboard");
-
+  
       // Set drop zone titles from loaded visualization titles (edit mode)
       setDropZoneTitles({
         topLeft: (s_visualizations?.find(v => v.id === quadrants?.topLeft)?.title) || "Sample Title",
@@ -462,7 +469,7 @@ export default function () {
         bottom: (s_visualizations?.find(v => v.id === quadrants?.bottom)?.title) || "Sample Title",
       });
       
-      // NEW: Use cache if present and non-empty
+      // Use cache if present and non-empty
       if (Array.isArray(s_visualizations) && s_visualizations.length > 0) {
         console.log("✅ [EDIT MODE] Loading dashboard from CACHE (s_visualizations)!");
         setAllVisualizations(s_visualizations);
@@ -557,6 +564,7 @@ export default function () {
       setIsGlobalLoading(false);
     }
   };
+
   
 
   
