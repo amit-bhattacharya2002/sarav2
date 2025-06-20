@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
@@ -17,6 +17,7 @@ import { PieGraph } from '@/components/pie-chart'
 
 
 export default function () {
+  const router = useRouter();
   const [allVisualizations, setAllVisualizations] = useState([])
   const [quadrants, setQuadrants] = useState({
     topLeft: null,
@@ -57,6 +58,29 @@ export default function () {
       visualizations: saveReadyVisualizations,
       s_visualizations: saveReadySVisualizations,
     };
+  
+    fetch('/api/dashboard', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+      .then(res => res.json().then(data => ({ ok: res.ok, data })))
+      .then(({ ok, data }) => {
+        if (ok) {
+          alert('Dashboard saved!');
+          // If this was a new dashboard (no id before), update the URL and let the app reload with the new ID!
+          if (!dashboardId && data.id) {
+            router.replace(`/?d=${data.id}&edit=true`);
+            return;
+          }
+        } else {
+          alert('Error saving dashboard: ' + (data.error || 'Unknown error'));
+        }
+      })
+      .catch(err => {
+        alert('Error saving dashboard: ' + err.message);
+      });
+  }
 
 
 
@@ -73,7 +97,9 @@ export default function () {
           alert('Dashboard saved!');
           // If this was a new dashboard (no id before), update the URL with edit=true!
           if (!dashboardId && data.id) {
-            window.history.replaceState(null, '', `/?d=${data.id}&edit=true`);
+            router.replace(`/?d=${data.id}&edit=true`);
+            // IMPORTANT: stop further execution to let the app reload with new dashboardId!
+            return;
           }
         } else {
           alert('Error saving dashboard: ' + (data.error || 'Unknown error'));
@@ -897,7 +923,7 @@ export default function () {
                             topRight: "Sample Title",
                             bottom: "Sample Title",
                           });
-                          setDashboardId(null);
+
                         }}
                         variant="ghost"
                         className="flex items-center gap-2"
