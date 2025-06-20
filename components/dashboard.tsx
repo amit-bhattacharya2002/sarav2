@@ -57,7 +57,11 @@ export default function () {
       visualizations: saveReadyVisualizations,
       s_visualizations: saveReadySVisualizations,
     };
-  
+
+
+
+
+    
     fetch('/api/dashboard', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -82,11 +86,15 @@ export default function () {
 
 
 
+  
+
 
   
   const searchParams = useSearchParams();
   const dashboardId = searchParams.get('d');
-  const readOnlyMode = !!dashboardId;
+  const editParam = searchParams.get('edit');
+  const editMode = editParam === 'true';
+  const readOnlyMode = !editMode;
     
     
   const [collapsedPanels, setCollapsedPanels] = useState({
