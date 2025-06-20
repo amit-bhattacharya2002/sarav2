@@ -29,8 +29,8 @@ export default function () {
 
 
 
-  
-  
+    
+    
   function handleSaveDashboard() {
     const usedVizIds = Object.values(quadrants).filter(Boolean);
   
@@ -59,7 +59,7 @@ export default function () {
       s_visualizations: saveReadySVisualizations,
     };
   
-    fetch('/api/dashboard', fetch('/api/dashboard',{
+    fetch('/api/dashboard', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
