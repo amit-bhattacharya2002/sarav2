@@ -59,7 +59,7 @@ export default function () {
       s_visualizations: saveReadySVisualizations,
     };
   
-    fetch('/api/dashboard', {
+    fetch('/api/dashboard', fetch('/api/dashboard',{
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -82,33 +82,6 @@ export default function () {
       });
   }
 
-
-
-
-    
-    fetch('/api/dashboard', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-      .then(res => res.json().then(data => ({ ok: res.ok, data })))
-      .then(({ ok, data }) => {
-        if (ok) {
-          alert('Dashboard saved!');
-          // If this was a new dashboard (no id before), update the URL with edit=true!
-          if (!dashboardId && data.id) {
-            router.replace(`/?d=${data.id}&edit=true`);
-            // IMPORTANT: stop further execution to let the app reload with new dashboardId!
-            return;
-          }
-        } else {
-          alert('Error saving dashboard: ' + (data.error || 'Unknown error'));
-        }
-      })
-      .catch(err => {
-        alert('Error saving dashboard: ' + err.message);
-      });
-  }
 
 
 
