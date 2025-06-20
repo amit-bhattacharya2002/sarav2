@@ -33,24 +33,30 @@ export default function () {
     
   function handleSaveDashboard() {
     const usedVizIds = Object.values(quadrants).filter(Boolean);
+
+    
+  const saveReadyVisualizations = Object.entries(quadrants)
+    .filter(([_, vizId]) => !!vizId)
+    .map(([quadrant, vizId]) => {
+      const viz = allVisualizations.find(v => v.id === vizId);
+      if (!viz) return null;
+      const title = dropZoneTitles[quadrant] ?? viz.title;
+      const { id, type, columns, color, sql } = viz;
+      return { id, type, title, columns, color, sql, quadrant };
+    })
+    .filter(Boolean);
   
-    const saveReadyVisualizations = allVisualizations
-      .filter(viz => usedVizIds.includes(viz.id))
-      .map(viz => {
-        const quadrant = Object.entries(quadrants).find(([key, value]) => value === viz.id)?.[0];
-        const title = quadrant ? dropZoneTitles[quadrant] : viz.title;
-        const { id, type, columns, color, sql } = viz;
-        return { id, type, title, columns, color, sql };
-      });
-  
-    const saveReadySVisualizations = allVisualizations
-      .filter(viz => usedVizIds.includes(viz.id))
-      .map(viz => {
-        const quadrant = Object.entries(quadrants).find(([key, value]) => value === viz.id)?.[0];
-        const title = quadrant ? dropZoneTitles[quadrant] : viz.title;
-        return { ...viz, title };
-      });
-  
+  const saveReadySVisualizations = Object.entries(quadrants)
+    .filter(([_, vizId]) => !!vizId)
+    .map(([quadrant, vizId]) => {
+      const viz = allVisualizations.find(v => v.id === vizId);
+      if (!viz) return null;
+      const title = dropZoneTitles[quadrant] ?? viz.title;
+      return { ...viz, title, quadrant };
+    })
+    .filter(Boolean);
+
+    
     const payload = {
       ...(dashboardIdNumber ? { id: dashboardIdNumber } : {}),
       title: dashboardSectionTitle,
