@@ -54,9 +54,12 @@ export async function POST(req: NextRequest) {
   try {
     const { id, title, quadrants, visualizations, s_visualizations } = await req.json();
 
+    // Ensure id is only used if it's a positive integer
+    const dashboardIdNumber = id && !isNaN(Number(id)) && Number(id) > 0 ? Number(id) : null;    
+
     const connection = await mysql.createConnection(dbConfig);
 
-    if (id) {
+    if (dashboardIdNumber) {
       // Update existing dashboard
       await connection.execute(
         `UPDATE saved_dashboards SET title = ?, quadrants = ?, visualizations = ?, s_visualizations = ? WHERE id = ?`,
@@ -65,11 +68,11 @@ export async function POST(req: NextRequest) {
           JSON.stringify(quadrants),
           JSON.stringify(visualizations),
           JSON.stringify(s_visualizations),
-          id,
+          dashboardIdNumber,
         ]
       );
       await connection.end();
-      return NextResponse.json({ success: true, id }); // <-- also return id on update
+      return NextResponse.json({ success: true, id: dashboardIdNumber }); // <-- also return id on update
     } else {
       // Insert new dashboard
       const [result]: any = await connection.execute(
