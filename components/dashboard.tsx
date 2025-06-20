@@ -887,6 +887,8 @@ export default function () {
                         <Save className="h-5 w-5" />
                         <span>Save</span>
                       </Button>
+
+                      
                       <Button
                         onClick={() => {
                           setQuadrants({ topLeft: null, topRight: null, bottom: null });
@@ -896,7 +898,8 @@ export default function () {
                             topRight: "Sample Title",
                             bottom: "Sample Title",
                           });
-
+                          // Remove dashboardId from URL and set to new mode
+                          router.replace('/?edit=true');
                         }}
                         variant="ghost"
                         className="flex items-center gap-2"
@@ -904,6 +907,8 @@ export default function () {
                         <span style={{ fontSize: "1.2em" }} role="img" aria-label="Clear">🧹</span>
                         <span>Clear</span>
                       </Button>
+
+                      
                     </div>
                   </div>
                 )}
