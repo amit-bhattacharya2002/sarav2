@@ -52,7 +52,7 @@ export default function () {
       });
   
     const payload = {
-      ...(dashboardId ? { id: dashboardId } : {}),
+      ...(dashboardIdNumber ? { id: dashboardIdNumber } : {}),
       title: dashboardSectionTitle,
       quadrants,
       visualizations: saveReadyVisualizations,
@@ -91,6 +91,10 @@ export default function () {
   
   const searchParams = useSearchParams();
   const dashboardId = searchParams.get('d');
+
+  // Only treat dashboardId as valid if it's a positive integer
+  const dashboardIdNumber = dashboardId && !isNaN(Number(dashboardId)) && Number(dashboardId) > 0 ? Number(dashboardId) : null;
+  
   const editParam = searchParams.get('edit');
   const editMode = editParam === 'true';
   const readOnlyMode = !editMode;
