@@ -871,7 +871,7 @@ export default function () {
                     
                     
                     {/** Diagnostics for all quadrants */}
-                    <div className="mt-4 bg-muted p-2 rounded text-xs border">
+{/*                     <div className="mt-4 bg-muted p-2 rounded text-xs border">
                       <div className="font-semibold mb-2">🛠 Dashboard Quadrant Diagnostics</div>
                       {(['topLeft', 'topRight', 'bottom'] as const).map((pos) => {
                         const vizId = quadrants[pos];
@@ -904,7 +904,7 @@ export default function () {
                           </div>
                         );
                       })}
-                    </div> 
+                    </div>  */}
 
 
 
