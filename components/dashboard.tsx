@@ -63,6 +63,7 @@ export default function () {
       quadrants,
       visualizations: saveReadyVisualizations,
       s_visualizations: saveReadySVisualizations,
+      dropZoneTitles, // <-- add this
     };
   
     fetch('/api/dashboard', {
@@ -157,11 +158,11 @@ export default function () {
         setDashboardSectionTitle(title);
 
 
-        // Set drop zone titles from loaded visualization titles
-        setDropZoneTitles({
-          topLeft: (s_visualizations?.find(v => v.id === quadrants?.topLeft)?.title) || "Sample Title",
-          topRight: (s_visualizations?.find(v => v.id === quadrants?.topRight)?.title) || "Sample Title",
-          bottom: (s_visualizations?.find(v => v.id === quadrants?.bottom)?.title) || "Sample Title",
+        // Set drop zone titles from backend (per-quadrant)
+        setDropZoneTitles(data.dropZoneTitles || {
+          topLeft: "Sample Title",
+          topRight: "Sample Title",
+          bottom: "Sample Title",
         });
 
         
