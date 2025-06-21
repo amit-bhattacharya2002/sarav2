@@ -121,77 +121,9 @@ export function QueryPanel({
       {queryResults && queryResults.length > 0 && columns.length >= 1 && (
         <div className="bg-card border mt-4 rounded p-4 overflow-auto" style={{ minHeight: '200px' }}>
           {outputMode === 'table' && (
-            <TableView
-              data={queryResults}
-              columns={columns}
-              sql={sqlQuery}
-            />
+            <TableView data={queryResults} columns={columns} sql={sqlQuery} />
           )}
-
-
-{/* // NEW DIAGNOSTICS */}
-          
-{/*           {queryResults && queryResults.length > 0 && columns.length >= 1 && (
-            <div className="bg-card border mt-4 rounded p-4 overflow-auto" style={{ minHeight: '200px' }}>
-              {outputMode === 'table' && (
-                <TableView
-                  data={queryResults}
-                  columns={columns}
-                  sql={sqlQuery}
-                />
-              )}
-    
-              {outputMode === 'table' && sqlQuery && (
-                <div className="mt-4 bg-muted p-2 rounded text-xs border">
-                  <div className="font-semibold mb-1">Diagnostics: Table Metadata</div>
-                  <div>
-                    <strong>SQL:</strong>
-                    <pre className="whitespace-pre-wrap break-words">{sqlQuery}</pre>
-                  </div>
-                  <div className="mt-2">
-                    <strong>Columns:</strong>
-                    <pre>{JSON.stringify(columns, null, 2)}</pre>
-                  </div>
-                  {queryResults && queryResults.length > 0 && (
-                    <div className="mt-2">
-                      <strong>Data sample:</strong>
-                      <pre>{JSON.stringify(queryResults.slice(0, 3), null, 2)}</pre>
-                    </div>
-                  )}
-                </div>
-              )}
-    
-              {outputMode === 'chart' && (
-                <DraggableChart
-                  data={queryResults.map((row) => ({
-                    name: row[columns[0].key],
-                    value: Number(row[columns[1].key]) || 0,
-                  }))}
-                  height={200}
-                  type={outputMode}
-                  sql={sqlQuery}
-                  columns={columns}
-                />
-              )}
-    
-              {outputMode === 'pie' && (
-                <DraggablePieChart
-                  data={queryResults.map((row) => ({
-                    name: row[columns[0].key],
-                    value: Number(row[columns[1].key]) || 0,
-                  }))}
-                  height={200}
-                  sql={sqlQuery}
-                  columns={columns}
-                />
-              )}
-            </div>
-          )} */}
-          
-          
-{/* // END of NEW DIAGNOSTICS         */}
-
-          
+      
           {outputMode === 'table' && sqlQuery && (
             <div className="mt-4 bg-muted p-2 rounded text-xs border">
               <div className="font-semibold mb-1">Diagnostics: Table Metadata</div>
@@ -205,7 +137,7 @@ export function QueryPanel({
               </div>
             </div>
           )}
-
+      
           {outputMode === 'chart' && (
             <DraggableChart
               data={queryResults.map((row) => ({
@@ -218,7 +150,7 @@ export function QueryPanel({
               columns={columns}
             />
           )}
-
+      
           {outputMode === 'pie' && (
             <DraggablePieChart
               data={queryResults.map((row) => ({
@@ -230,11 +162,10 @@ export function QueryPanel({
               columns={columns}
             />
           )}
-
-
-          {/* Show/Hide SQL - always inside the results */}
+      
+          {/* Show/Hide SQL -- always at the bottom of the results box */}
           {sqlQuery && (
-            <div className="mt-2">
+            <div className="mt-4">
               <button
                 onClick={() => setShowSql(!showSql)}
                 className="text-left text-sm font-semibold text-primary hover:underline focus:outline-none"
@@ -250,8 +181,7 @@ export function QueryPanel({
           )}
         </div>
       )}
-          
-
+      
 
 
 
