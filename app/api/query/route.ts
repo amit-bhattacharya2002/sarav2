@@ -9,46 +9,55 @@ const dbConfig = {
   port: 3306,
 }
 
-
-
-
-export async function POST(req: NextRequest) {
-  console.time("🔁 TOTAL /api/query")
-
-  try {
-    const { sql } = await req.json()
-    console.log("🚨 Executing SQL:", sql)  // <-- Add here
-
-    if (!sql || typeof sql !== 'string') {
-      return NextResponse.json({ success: false, error: 'Missing or invalid SQL string' }, { status: 400 })
-    }
-
-    console.time("⏳ DB CONNECT")
-    const connection = await mysql.createConnection(dbConfig)
-    console.timeEnd("⏳ DB CONNECT")
-
-    console.time("🕒 SQL EXECUTE")
-    const [rows, fields] = await connection.execute(sql)
-    console.timeEnd("🕒 SQL EXECUTE")
-
-    console.time("🔒 DB CLOSE")
-    await connection.end()
-    console.timeEnd("🔒 DB CLOSE")
-
-    console.time("📦 FORMAT COLUMNS")
-    const columns = fields.map((field: any) => ({
-      key: field.name,
-      name: field.name,
-    }))
-    console.timeEnd("📦 FORMAT COLUMNS")
-
-    console.timeEnd("🔁 TOTAL /api/query")
-    return NextResponse.json({ success: true, rows, columns })
-
-  } catch (error: any) {
-    console.error('[QUERY_ERROR]', error)
-    console.timeEnd("🔁 TOTAL /api/query")
-    return NextResponse.json({ success: false, error: error.message || 'Query error' }, { status: 500 })
-  }
+// Maps string output modes to int (adjust as needed)
+const outputModeMap: Record<string, number> = {
+  table: 1,
+  chart: 2,
+  pie: 3,
 }
 
+export async function POST(req: NextRequest) {
+  try {
+    const {
+      question,
+      sql,
+      outputMode,
+      columns,
+      dataSample,
+      userId = null, // Optional
+      companyId = null, // Optional
+      visualConfig = null, // For future
+      panelPosition = null // For future
+    } = await req.json()
+
+    if (!question || !sql || !outputMode || !columns) {
+      return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 })
+    }
+
+    const output_mode = outputModeMap[outputMode] || 1
+
+    const connection = await mysql.createConnection(dbConfig)
+    const [result] = await connection.execute(
+      `INSERT INTO saved_queries
+        (user_id, company_id, query_text, sql_text, output_mode, created_at, visual_config, panel_position)
+      VALUES (?, ?, ?, ?, ?, NOW(), ?, ?)`,
+      [
+        userId,
+        companyId,
+        question,
+        sql,
+        output_mode,
+        visualConfig ? JSON.stringify(visualConfig) : null,
+        panelPosition
+      ]
+    )
+
+    // Optionally, store columns/dataSample in a separate table or as JSON in visual_config if desired.
+
+    await connection.end()
+    return NextResponse.json({ success: true, id: (result as any).insertId })
+  } catch (error: any) {
+    console.error('[SAVE_QUERY_ERROR]', error)
+    return NextResponse.json({ success: false, error: error.message || 'Save query error' }, { status: 500 })
+  }
+}
