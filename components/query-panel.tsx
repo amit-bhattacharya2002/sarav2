@@ -12,35 +12,7 @@ import { DraggablePieChart } from './draggable-pie'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
-const [saveStatus, setSaveStatus] = useState<null | "success" | "error" | "saving">(null);
 
-async function handleSaveQuery() {
-  setSaveStatus("saving");
-  try {
-    const payload = {
-      question,
-      sql: sqlQuery,
-      outputMode,
-      columns,
-      dataSample: queryResults?.slice(0, 3) || [],
-      // userId, companyId, visualConfig, panelPosition: add if needed
-    };
-    const res = await fetch("/api/save-query", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-    if (res.ok && data.success) {
-      setSaveStatus("success");
-    } else {
-      setSaveStatus("error");
-    }
-  } catch (err) {
-    setSaveStatus("error");
-  }
-  setTimeout(() => setSaveStatus(null), 2000);
-}
 
 interface QueryPanelProps {
   question: string
@@ -73,6 +45,36 @@ export function QueryPanel({
   onSubmit,
 }: QueryPanelProps) {
   const [showSql, setShowSql] = useState(false)
+
+  const [saveStatus, setSaveStatus] = useState<null | "success" | "error" | "saving">(null);
+
+  async function handleSaveQuery() {
+    setSaveStatus("saving");
+    try {
+      const payload = {
+        question,
+        sql: sqlQuery,
+        outputMode,
+        columns,
+        dataSample: queryResults?.slice(0, 3) || [],
+        // userId, companyId, visualConfig, panelPosition: add if needed
+      };
+      const res = await fetch("/api/save-query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSaveStatus("success");
+      } else {
+        setSaveStatus("error");
+      }
+    } catch (err) {
+      setSaveStatus("error");
+    }
+    setTimeout(() => setSaveStatus(null), 2000);
+  }  
 
   return (
     <div className="flex flex-col h-full bg-card rounded-lg shadow-md p-4 border border-border">
