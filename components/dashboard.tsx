@@ -458,15 +458,11 @@ export default function () {
 
 
   
-  const handleSelectDashboard = async (dashboard: { id: number; title: string }) => {
-    if (readOnlyMode) {
-      // In read-only mode, update the URL to reflect the selected dashboard.
-      window.history.replaceState(null, '', `/?d=${dashboard.id}`);
-      // The useEffect watching [readOnlyMode, dashboardId] will trigger and load the dashboard.
-      return;
-    }
   
-    // --- Edit mode logic (fetch and update state directly, as before) ---
+  const handleSelectDashboard = async (dashboard: { id: number; title: string }) => {
+    // Always update the URL to reflect the selected dashboard and edit mode!
+    router.replace(`/?d=${dashboard.id}&edit=true`);
+  
     setIsGlobalLoading(true);
     try {
       const res = await fetch(`/api/dashboard?id=${dashboard.id}`);
@@ -479,10 +475,9 @@ export default function () {
       setTopLeftTitle(data.topLeftTitle || "Sample Title");
       setTopRightTitle(data.topRightTitle || "Sample Title");
       setBottomTitle(data.bottomTitle || "Sample Title");
-      
+  
       // Use cache if present and non-empty
       if (Array.isArray(s_visualizations) && s_visualizations.length > 0) {
-        console.log("✅ [EDIT MODE] Loading dashboard from CACHE (s_visualizations)!");
         setAllVisualizations(s_visualizations);
   
         // Map quadrants: match by originalId or sql, fallback to first
@@ -491,13 +486,13 @@ export default function () {
           const expectedOriginalId = quadrants[quadrant];
           const expectedViz = visualizations?.find(v => v.id === expectedOriginalId);
           const expectedType = expectedViz?.type;
-        
+  
           const match = s_visualizations.find(
             v =>
               (v.originalId === expectedOriginalId || (v.sql && v.sql === expectedViz?.sql)) &&
               v.type === expectedType
           );
-        
+  
           quadrantMap[quadrant] = match ? match.id : null;
         }
         setQuadrants({
@@ -511,7 +506,6 @@ export default function () {
       }
   
       // FALLBACK: re-run SQL for each viz (your current logic)
-      console.log("⏳ [EDIT MODE] No cache found, re-running SQL for all visualizations.");
       setAllVisualizations([]);
       setQuadrants({
         topLeft: null,
@@ -575,8 +569,8 @@ export default function () {
       setIsGlobalLoading(false);
     }
   };
+    
 
-  
 
   
 
