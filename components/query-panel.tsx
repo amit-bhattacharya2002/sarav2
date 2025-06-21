@@ -230,24 +230,30 @@ export function QueryPanel({
               columns={columns}
             />
           )}
-        </div>
-      )}
 
-      {sqlQuery && (
-        <div className="mt-2">
-          <button
-            onClick={() => setShowSql(!showSql)}
-            className="text-left text-sm font-semibold text-primary hover:underline focus:outline-none"
-          >
-            {showSql ? "▼ Hide SQL" : "▶ Show SQL"}
-          </button>
-          {showSql && (
-            <div className="mt-1 bg-muted p-2 rounded text-sm font-mono text-muted-foreground border border-border">
-              <pre className="whitespace-pre-wrap break-words">{sqlQuery}</pre>
+
+          {/* Show/Hide SQL - always inside the results */}
+          {sqlQuery && (
+            <div className="mt-2">
+              <button
+                onClick={() => setShowSql(!showSql)}
+                className="text-left text-sm font-semibold text-primary hover:underline focus:outline-none"
+              >
+                {showSql ? "▼ Hide SQL" : "▶ Show SQL"}
+              </button>
+              {showSql && (
+                <div className="mt-1 bg-muted p-2 rounded text-sm font-mono text-muted-foreground border border-border">
+                  <pre className="whitespace-pre-wrap break-words">{sqlQuery}</pre>
+                </div>
+              )}
             </div>
           )}
         </div>
       )}
+          
+
+
+
 
       {error && <div className="text-red-500 mt-2">{error}</div>}
 
