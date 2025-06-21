@@ -809,17 +809,19 @@ export default function () {
                         onChange={(e) => setTopLeftTitle(e.target.value)}
                         className="text-sm font-medium text-center mt-2 mb-2 bg-transparent outline-none w-full"
                       />
+
                       <DropZone
                         id="topLeft"
                         onDrop={(item) => handleDrop("topLeft", item)}
                         onRemove={() => setQuadrants((prev) => ({ ...prev, topLeft: null }))}
                       >
                         {quadrants.topLeft ? renderDroppedViz(quadrants.topLeft) : (
-                          <div className="h-36 flex items-center justify-center text-muted-foreground">
-                            Drop here
+                          <div className="h-36 flex items-center justify-center font-semibold" style={{ color: "#16a34a" }}>
+                            Drag results here
                           </div>
                         )}
                       </DropZone>
+                      
                     </div>
                     <div className="flex flex-col">
                       <input
@@ -828,17 +830,22 @@ export default function () {
                         onChange={(e) => setTopRightTitle(e.target.value)}
                         className="text-sm font-medium text-center mt-2 mb-2 bg-transparent outline-none w-full"
                       />
+
+                      
                       <DropZone
                         id="topRight"
                         onDrop={(item) => handleDrop("topRight", item)}
                         onRemove={() => setQuadrants((prev) => ({ ...prev, topRight: null }))}
                       >
                         {quadrants.topRight ? renderDroppedViz(quadrants.topRight) : (
-                          <div className="h-36 flex items-center justify-center text-muted-foreground">
-                            Drop here
+                          <div className="h-36 flex items-center justify-center font-semibold" style={{ color: "#16a34a" }}>
+                            Drag results here
                           </div>
                         )}
                       </DropZone>
+
+
+                      
                     </div>
 
 
@@ -855,14 +862,17 @@ export default function () {
                       onChange={(e) => setBottomTitle(e.target.value)}
                       className="text-sm font-medium text-center mb-1 bg-transparent outline-none w-full"
                     />
+
+
+                    
                     <DropZone
                       id="bottom"
                       onDrop={(item) => handleDrop('bottom', item)}
                       onRemove={() => setQuadrants((prev) => ({ ...prev, bottom: null }))}
                     >
                       {quadrants.bottom ? renderDroppedViz(quadrants.bottom) : (
-                        <div className="h-44 flex items-center justify-center text-muted-foreground">
-                          Drop here
+                        <div className="h-44 flex items-center justify-center font-semibold" style={{ color: "#16a34a" }}>
+                          Drag results here
                         </div>
                       )}
                     </DropZone>
