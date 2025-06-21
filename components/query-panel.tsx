@@ -48,10 +48,13 @@ export function QueryPanel({
 
   const [saveStatus, setSaveStatus] = useState<null | "success" | "error" | "saving">(null);
 
+
+  
   async function handleSaveQuery() {
     setSaveStatus("saving");
     try {
       const payload = {
+        action: "save", // <-- This tells the backend to save, not run
         question,
         sql: sqlQuery,
         outputMode,
@@ -59,7 +62,7 @@ export function QueryPanel({
         dataSample: queryResults?.slice(0, 3) || [],
         // userId, companyId, visualConfig, panelPosition: add if needed
       };
-      const res = await fetch("/api/save-query", {
+      const res = await fetch("/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -74,8 +77,10 @@ export function QueryPanel({
       setSaveStatus("error");
     }
     setTimeout(() => setSaveStatus(null), 2000);
-  }  
+  }
 
+
+  
   return (
     <div className="flex flex-col h-full bg-card rounded-lg shadow-md p-4 border border-border">
       <h2 className="text-xl font-semibold mb-2">Current Query</h2>
