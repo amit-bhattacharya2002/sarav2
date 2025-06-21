@@ -56,6 +56,12 @@ export default function () {
     })
     .filter(Boolean);
 
+
+    const fullDropZoneTitles = {
+      topLeft: dropZoneTitles.topLeft ?? "Sample Title",
+      topRight: dropZoneTitles.topRight ?? "Sample Title",
+      bottom: dropZoneTitles.bottom ?? "Sample Title",
+    };
     
     const payload = {
       ...(dashboardIdNumber ? { id: dashboardIdNumber } : {}),
@@ -63,9 +69,9 @@ export default function () {
       quadrants,
       visualizations: saveReadyVisualizations,
       s_visualizations: saveReadySVisualizations,
-      dropZoneTitles, // <-- add this
+      dropZoneTitles: fullDropZoneTitles, // <-- use this instead of dropZoneTitles
     };
-  
+      
     fetch('/api/dashboard', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
