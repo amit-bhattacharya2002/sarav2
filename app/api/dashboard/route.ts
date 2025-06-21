@@ -35,7 +35,10 @@ export async function GET(req: NextRequest) {
         quadrants: JSON.parse(dashboard.quadrants || '{}'),
         visualizations: JSON.parse(dashboard.visualizations || '[]'),
         s_visualizations: JSON.parse(dashboard.s_visualizations || '[]'),
+        dropZoneTitles: JSON.parse(dashboard.dropZoneTitles || '{}'), // new field
       })
+
+      
     } else {
       // Fetch all dashboards for user_id=1 and company_id=1
       const [rows] = await connection.execute(
@@ -52,7 +55,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { id, title, quadrants, visualizations, s_visualizations } = await req.json();
+    const { id, title, quadrants, visualizations, s_visualizations, dropZoneTitles } = await req.json();
 
     // Ensure id is only used if it's a positive integer
     const dashboardIdNumber = id && !isNaN(Number(id)) && Number(id) > 0 ? Number(id) : null;    
@@ -62,12 +65,13 @@ export async function POST(req: NextRequest) {
     if (dashboardIdNumber) {
       // Update existing dashboard
       await connection.execute(
-        `UPDATE saved_dashboards SET title = ?, quadrants = ?, visualizations = ?, s_visualizations = ? WHERE id = ?`,
+        `UPDATE saved_dashboards SET title = ?, quadrants = ?, visualizations = ?, s_visualizations = ?, dropZoneTitles = ? WHERE id = ?`,
         [
           title,
           JSON.stringify(quadrants),
           JSON.stringify(visualizations),
           JSON.stringify(s_visualizations),
+          JSON.stringify(dropZoneTitles), // new field
           dashboardIdNumber,
         ]
       );
@@ -75,8 +79,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, id: dashboardIdNumber }); // <-- also return id on update
     } else {
       // Insert new dashboard
+      
       const [result]: any = await connection.execute(
-        `INSERT INTO saved_dashboards (user_id, company_id, title, quadrants, visualizations, s_visualizations) VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO saved_dashboards (user_id, company_id, title, quadrants, visualizations, s_visualizations, dropZoneTitles) VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
           1, // user_id (hardcoded for now)
           1, // company_id (hardcoded for now)
@@ -84,8 +89,11 @@ export async function POST(req: NextRequest) {
           JSON.stringify(quadrants),
           JSON.stringify(visualizations),
           JSON.stringify(s_visualizations),
+          JSON.stringify(dropZoneTitles), // new field
         ]
       );
+
+      
       await connection.end();
       return NextResponse.json({ success: true, id: result.insertId }); // <-- return new id!
     }
