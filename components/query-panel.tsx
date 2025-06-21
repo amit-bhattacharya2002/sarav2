@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+
 import { Loader2, Save, Trash2, LayoutList, BarChart2, PieChart } from "lucide-react"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { TableView } from "@/components/table-view"
@@ -115,22 +116,16 @@ export function QueryPanel({
       {/* Results Title */}
       <div className="font-bold text-lg mb-2 mt-2" style={{ color: "#16a34a" }}>Results:</div>
       
+
+      
       {queryResults && queryResults.length > 0 && columns.length >= 1 && (
         <div className="bg-card border mt-4 rounded p-4 overflow-auto" style={{ minHeight: '200px' }}>
           {outputMode === 'table' && (
             <TableView data={queryResults} columns={columns} sql={sqlQuery} />
           )}
+      
 
-          {outputMode === 'table' && (
-            <div className="mt-4 bg-muted p-2 rounded text-xs border">
-              <div className="font-semibold mb-1">Diagnostics: Table Metadata</div>
-              <div className="mt-2">
-                <strong>Columns:</strong>
-                <pre>{JSON.stringify(columns, null, 2)}</pre>
-              </div>
-            </div>
-          )}
-
+      
           {outputMode === 'chart' && (
             <DraggableChart
               data={queryResults.map((row) => ({
@@ -143,7 +138,7 @@ export function QueryPanel({
               columns={columns}
             />
           )}
-
+      
           {outputMode === 'pie' && (
             <DraggablePieChart
               data={queryResults.map((row) => ({
@@ -155,8 +150,8 @@ export function QueryPanel({
               columns={columns}
             />
           )}
-
-          {/* Show/Hide SQL -- always at the bottom of the results box, for ALL types */}
+      
+          {/* Show/Hide SQL -- always at the bottom of the results box */}
           {sqlQuery && (
             <div className="mt-4">
               <button
@@ -172,10 +167,30 @@ export function QueryPanel({
               )}
             </div>
           )}
+
+
+          {sqlQuery && (
+            <div className="mt-4 bg-muted p-2 rounded text-xs border">
+              <div className="font-semibold mb-1">Diagnostics: Table Metadata</div>
+              <div>
+                <strong>SQL:</strong>
+                <pre className="whitespace-pre-wrap break-words">{sqlQuery}</pre>
+              </div>
+              <div className="mt-2">
+                <strong>Columns:</strong>
+                <pre>{JSON.stringify(columns, null, 2)}</pre>
+              </div>
+            </div>
+          )}
+          
         </div>
       )}
+      
+
+
 
       {error && <div className="text-red-500 mt-2">{error}</div>}
+
 
       {/* Fixed Save/Clear Button Bar */}
       <div className="absolute bottom-0 left-0 right-0 z-20 p-4 border-t bg-card flex flex-row items-center justify-between gap-2 rounded-b-lg">
@@ -195,7 +210,9 @@ export function QueryPanel({
           <Trash2 className="h-5 w-5" />
           <span>Clear</span>
         </Button>
-      </div>
+      </div>      
+
+      
     </div>
   )
 }
