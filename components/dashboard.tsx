@@ -35,26 +35,40 @@ export default function () {
     const usedVizIds = Object.values(quadrants).filter(Boolean);
 
     
-  const saveReadyVisualizations = Object.entries(quadrants)
-    .filter(([_, vizId]) => !!vizId)
-    .map(([quadrant, vizId]) => {
-      const viz = allVisualizations.find(v => v.id === vizId);
-      if (!viz) return null;
-      const title = dropZoneTitles[quadrant] ?? viz.title;
-      const { id, type, columns, color, sql } = viz;
-      return { id, type, title, columns, color, sql, quadrant };
-    })
-    .filter(Boolean);
-  
-  const saveReadySVisualizations = Object.entries(quadrants)
-    .filter(([_, vizId]) => !!vizId)
-    .map(([quadrant, vizId]) => {
-      const viz = allVisualizations.find(v => v.id === vizId);
-      if (!viz) return null;
-      const title = dropZoneTitles[quadrant] ?? viz.title;
-      return { ...viz, title, quadrant };
-    })
-    .filter(Boolean);
+    const saveReadyVisualizations = Object.entries(quadrants)
+      .filter(([_, vizId]) => !!vizId)
+      .map(([quadrant, vizId]) => {
+        const viz = allVisualizations.find(v => v.id === vizId);
+        if (!viz) return null;
+        const title =
+          quadrant === "topLeft"
+            ? topLeftTitle
+            : quadrant === "topRight"
+            ? topRightTitle
+            : quadrant === "bottom"
+            ? bottomTitle
+            : viz.title;
+        const { id, type, columns, color, sql } = viz;
+        return { id, type, title, columns, color, sql, quadrant };
+      })
+      .filter(Boolean);
+    
+    const saveReadySVisualizations = Object.entries(quadrants)
+      .filter(([_, vizId]) => !!vizId)
+      .map(([quadrant, vizId]) => {
+        const viz = allVisualizations.find(v => v.id === vizId);
+        if (!viz) return null;
+        const title =
+          quadrant === "topLeft"
+            ? topLeftTitle
+            : quadrant === "topRight"
+            ? topRightTitle
+            : quadrant === "bottom"
+            ? bottomTitle
+            : viz.title;
+        return { ...viz, title, quadrant };
+      })
+      .filter(Boolean);
 
 
     const payload = {
@@ -924,11 +938,9 @@ export default function () {
                         onClick={() => {
                           setQuadrants({ topLeft: null, topRight: null, bottom: null });
                           setDashboardSectionTitle("Untitled Dashboard");
-                          setDropZoneTitles({
-                            topLeft: "Sample Title",
-                            topRight: "Sample Title",
-                            bottom: "Sample Title",
-                          });
+                          setTopLeftTitle("Sample Title");
+                          setTopRightTitle("Sample Title");
+                          setBottomTitle("Sample Title");
                           // Remove dashboardId from URL and set to new mode
                           router.replace('/?edit=true');
                         }}
