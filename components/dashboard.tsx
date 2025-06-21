@@ -57,21 +57,18 @@ export default function () {
     .filter(Boolean);
 
 
-    const fullDropZoneTitles = {
-      topLeft: dropZoneTitles.topLeft ?? "Sample Title",
-      topRight: dropZoneTitles.topRight ?? "Sample Title",
-      bottom: dropZoneTitles.bottom ?? "Sample Title",
-    };
-    
     const payload = {
       ...(dashboardIdNumber ? { id: dashboardIdNumber } : {}),
       title: dashboardSectionTitle,
       quadrants,
       visualizations: saveReadyVisualizations,
       s_visualizations: saveReadySVisualizations,
-      dropZoneTitles: fullDropZoneTitles, // <-- use this instead of dropZoneTitles
+      topLeftTitle,
+      topRightTitle,
+      bottomTitle,
     };
-      
+
+    
     fetch('/api/dashboard', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -137,15 +134,9 @@ export default function () {
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
 
   const [dashboardSectionTitle, setDashboardSectionTitle] = useState("Sample Title")
-  const [dropZoneTitles, setDropZoneTitles] = useState({
-    topLeft: "Sample Title",
-    topRight: "Sample Title",
-    bottom: "Sample Title",
-  })
-
-
-
-
+  const [topLeftTitle, setTopLeftTitle] = useState("Sample Title");
+  const [topRightTitle, setTopRightTitle] = useState("Sample Title");
+  const [bottomTitle, setBottomTitle] = useState("Sample Title");
 
   
   
@@ -164,12 +155,9 @@ export default function () {
         setDashboardSectionTitle(title);
 
 
-        // Set drop zone titles from backend (per-quadrant)
-        setDropZoneTitles(data.dropZoneTitles || {
-          topLeft: "Sample Title",
-          topRight: "Sample Title",
-          bottom: "Sample Title",
-        });
+        setTopLeftTitle(data.topLeftTitle || "Sample Title");
+        setTopRightTitle(data.topRightTitle || "Sample Title");
+        setBottomTitle(data.bottomTitle || "Sample Title");
 
         
         // DEBUG: Are we loading from cache?
@@ -474,12 +462,9 @@ export default function () {
       const { id, title, quadrants, visualizations, s_visualizations } = data;
       setDashboardSectionTitle(title || "Untitled Dashboard");
   
-      // Set drop zone titles from backend (per-quadrant)
-      setDropZoneTitles(data.dropZoneTitles || {
-        topLeft: "Sample Title",
-        topRight: "Sample Title",
-        bottom: "Sample Title",
-      });
+      setTopLeftTitle(data.topLeftTitle || "Sample Title");
+      setTopRightTitle(data.topRightTitle || "Sample Title");
+      setBottomTitle(data.bottomTitle || "Sample Title");
       
       // Use cache if present and non-empty
       if (Array.isArray(s_visualizations) && s_visualizations.length > 0) {
@@ -806,33 +791,60 @@ export default function () {
                     className="text-lg font-semibold mt-1 mb-4 bg-transparent outline-none w-full text-center"
                   />
                   <div className="grid grid-cols-2 gap-2 mb-2">
-                    {['topLeft', 'topRight'].map((pos) => (
-                      <div key={pos} className="flex flex-col">
-                        <input
-                          type="text"
-                          value={dropZoneTitles[pos]}
-                          onChange={(e) => setDropZoneTitles(prev => ({ ...prev, [pos]: e.target.value }))}
-                          className="text-sm font-medium text-center mt-2 mb-2 bg-transparent outline-none w-full"
-                        />
-                        <DropZone
-                          id={pos}
-                          onDrop={(item) => handleDrop(pos, item)}
-                          onRemove={() => setQuadrants((prev) => ({ ...prev, [pos]: null }))}
-                        >
-                          {quadrants[pos] ? renderDroppedViz(quadrants[pos]) : (
-                            <div className="h-36 flex items-center justify-center text-muted-foreground">
-                              Drop here
-                            </div>
-                          )}
-                        </DropZone>
-                      </div>
-                    ))}
+
+
+                    
+                    <div className="flex flex-col">
+                      <input
+                        type="text"
+                        value={topLeftTitle}
+                        onChange={(e) => setTopLeftTitle(e.target.value)}
+                        className="text-sm font-medium text-center mt-2 mb-2 bg-transparent outline-none w-full"
+                      />
+                      <DropZone
+                        id="topLeft"
+                        onDrop={(item) => handleDrop("topLeft", item)}
+                        onRemove={() => setQuadrants((prev) => ({ ...prev, topLeft: null }))}
+                      >
+                        {quadrants.topLeft ? renderDroppedViz(quadrants.topLeft) : (
+                          <div className="h-36 flex items-center justify-center text-muted-foreground">
+                            Drop here
+                          </div>
+                        )}
+                      </DropZone>
+                    </div>
+                    <div className="flex flex-col">
+                      <input
+                        type="text"
+                        value={topRightTitle}
+                        onChange={(e) => setTopRightTitle(e.target.value)}
+                        className="text-sm font-medium text-center mt-2 mb-2 bg-transparent outline-none w-full"
+                      />
+                      <DropZone
+                        id="topRight"
+                        onDrop={(item) => handleDrop("topRight", item)}
+                        onRemove={() => setQuadrants((prev) => ({ ...prev, topRight: null }))}
+                      >
+                        {quadrants.topRight ? renderDroppedViz(quadrants.topRight) : (
+                          <div className="h-36 flex items-center justify-center text-muted-foreground">
+                            Drop here
+                          </div>
+                        )}
+                      </DropZone>
+                    </div>
+
+
+
+                    
                   </div>
                   <div className="flex flex-col mt-4">
+
+
+                    
                     <input
                       type="text"
-                      value={dropZoneTitles.bottom}
-                      onChange={(e) => setDropZoneTitles(prev => ({ ...prev, bottom: e.target.value }))}
+                      value={bottomTitle}
+                      onChange={(e) => setBottomTitle(e.target.value)}
                       className="text-sm font-medium text-center mb-1 bg-transparent outline-none w-full"
                     />
                     <DropZone
@@ -847,6 +859,8 @@ export default function () {
                       )}
                     </DropZone>
 
+
+                    
                     
                     {/** Diagnostics for all quadrants */}
                     <div className="mt-4 bg-muted p-2 rounded text-xs border">
