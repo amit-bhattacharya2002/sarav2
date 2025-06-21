@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
 
 //   } catch (error: any) {
 //     console.error('[QUERY_ERROR]', error)
-    console.timeEnd("🔁 TOTAL /api/query")
-    return NextResponse.json({ success: false, error: error.message || 'Query error' }, { status: 500 })
-  }
-}
+//     console.timeEnd("🔁 TOTAL /api/query")
+//     return NextResponse.json({ success: false, error: error.message || 'Query error' }, { status: 500 })
+//   }
+// }
