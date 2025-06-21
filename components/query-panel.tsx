@@ -113,6 +113,26 @@ export function QueryPanel({
         {isLoading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "Search"}
       </Button>
 
+      {/* --- Save & Clear Buttons: Add here just below results, matching dashboard style --- */}
+      <div className="flex flex-row items-center justify-between w-full gap-2 mt-6 mb-2 px-2">
+        <Button
+          variant="default"
+          className="flex items-center gap-2"
+          // onClick={handleSaveQuery} // To be implemented
+        >
+          <Save className="h-5 w-5" />
+          <span>Save</span>
+        </Button>
+        <Button
+          variant="ghost"
+          className="flex items-center gap-2"
+          // onClick={handleClearQuery} // To be implemented
+        >
+          <Trash2 className="h-5 w-5" />
+          <span>Clear</span>
+        </Button>
+      </div>
+      
       {queryResults && queryResults.length > 0 && columns.length >= 1 && (
         <div className="bg-card border mt-4 rounded p-4 overflow-auto" style={{ minHeight: '200px' }}>
           {outputMode === 'table' && (
