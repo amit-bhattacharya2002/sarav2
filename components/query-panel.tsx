@@ -169,19 +169,33 @@ export function QueryPanel({
           )}
 
 
-          {sqlQuery && (
-            <div className="mt-4 bg-muted p-2 rounded text-xs border">
-              <div className="font-semibold mb-1">Diagnostics: Table Metadata</div>
-              <div>
+          {queryResults && queryResults.length > 0 && columns.length >= 1 && (
+            <div className="bg-muted p-2 rounded text-xs border mt-4">
+              <div className="font-semibold mb-1">Diagnostics: What will be saved</div>
+              <div className="mb-2">
+                <strong>Query (question):</strong>
+                <pre className="whitespace-pre-wrap break-words">{question}</pre>
+              </div>
+              <div className="mb-2">
+                <strong>Output Mode:</strong> <span className="font-mono">{outputMode}</span>
+              </div>
+              <div className="mb-2">
                 <strong>SQL:</strong>
                 <pre className="whitespace-pre-wrap break-words">{sqlQuery}</pre>
               </div>
-              <div className="mt-2">
+              <div className="mb-2">
                 <strong>Columns:</strong>
                 <pre>{JSON.stringify(columns, null, 2)}</pre>
               </div>
+              <div className="mb-2">
+                <strong>Data Sample:</strong>
+                <pre>
+                  {JSON.stringify(queryResults.slice(0, 3), null, 2)}
+                </pre>
+              </div>
             </div>
           )}
+          
           
         </div>
       )}
