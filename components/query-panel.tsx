@@ -12,6 +12,36 @@ import { DraggablePieChart } from './draggable-pie'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
+const [saveStatus, setSaveStatus] = useState<null | "success" | "error" | "saving">(null);
+
+async function handleSaveQuery() {
+  setSaveStatus("saving");
+  try {
+    const payload = {
+      question,
+      sql: sqlQuery,
+      outputMode,
+      columns,
+      dataSample: queryResults?.slice(0, 3) || [],
+      // userId, companyId, visualConfig, panelPosition: add if needed
+    };
+    const res = await fetch("/api/save-query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      setSaveStatus("success");
+    } else {
+      setSaveStatus("error");
+    }
+  } catch (err) {
+    setSaveStatus("error");
+  }
+  setTimeout(() => setSaveStatus(null), 2000);
+}
+
 interface QueryPanelProps {
   question: string
   setQuestion: (value: string) => void
@@ -208,14 +238,19 @@ export function QueryPanel({
 
       {/* Fixed Save/Clear Button Bar */}
       <div className="absolute bottom-0 left-0 right-0 z-20 p-4 border-t bg-card flex flex-row items-center justify-between gap-2 rounded-b-lg">
+        
         <Button
           variant="default"
           className="flex items-center gap-2"
-          // onClick={handleSaveQuery}
+          onClick={handleSaveQuery}
+          disabled={
+            !question || !sqlQuery || !outputMode || !columns.length || !queryResults?.length || saveStatus === "saving"
+          }
         >
           <Save className="h-5 w-5" />
-          <span>Save</span>
+          {saveStatus === "saving" ? "Saving..." : saveStatus === "success" ? "Saved!" : saveStatus === "error" ? "Error" : "Save"}
         </Button>
+        
         <Button
           variant="ghost"
           className="flex items-center gap-2"
