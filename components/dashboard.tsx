@@ -652,17 +652,7 @@ export default function () {
       <div className="flex flex-col h-screen">
         <h1 className="text-2xl font-bold text-center py-4"> </h1>
 
-          {/* Filter button in top-left */}
-          <button
-            className="absolute top-4 left-4 z-30 bg-card border border-border rounded-full p-2 hover:bg-muted transition"
-            title="Filter"
-            onClick={() => {
-              // TODO: Open filter modal here (next step)
-              alert('Filter button clicked! (modal coming soon)');
-            }}
-          >
-            <Filter className="h-5 w-5 text-muted-foreground" />
-          </button>        
+       
 
         <div className="flex flex-1 overflow-hidden gap-2 px-2 pb-2">
           {/* Left Panel */}
@@ -934,6 +924,19 @@ export default function () {
                   </div>
                 </div>
 
+                  
+                {/* Filter button in top-left */}
+                <button
+                  className="absolute top-4 left-4 z-30 bg-card border border-border rounded-full p-2 hover:bg-muted transition"
+                  title="Filter"
+                  onClick={() => {
+                    // TODO: Open filter modal here (next step)
+                    alert('Filter button clicked! (modal coming soon)');
+                  }}
+                >
+                  <Filter className="h-5 w-5 text-muted-foreground" />
+                </button> 
+                  
                 
                 {/* Save & Clear buttons only in edit mode */}
                 {!readOnlyMode && (
