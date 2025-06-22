@@ -152,6 +152,8 @@ export default function () {
   const [topRightTitle, setTopRightTitle] = useState("Sample Title");
   const [bottomTitle, setBottomTitle] = useState("Sample Title");
 
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+
   
   
   useEffect(() => {
