@@ -654,39 +654,6 @@ export default function () {
       
       <div className="flex flex-col h-screen relative">
 
-        {/* Filter button in top-left */}
-        <button
-          className="absolute top-4 left-4 z-50 bg-card border border-border rounded-full p-2 hover:bg-muted transition"
-          title="Filter"
-          onClick={() => setFilterModalOpen(true)}
-        >
-          <Filter className="h-5 w-5 text-muted-foreground" />
-        </button>
-
-        {/* Filter Modal */}
-        {filterModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-            <div className="bg-card p-6 rounded-lg shadow-lg w-full max-w-md border border-border relative">
-              <button
-                className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
-                onClick={() => setFilterModalOpen(false)}
-                title="Close"
-              >
-                ✕
-              </button>
-              <h2 className="text-lg font-semibold mb-4">Select Filters</h2>
-              <div className="text-muted-foreground mb-6">
-                (Filter UI coming soon)
-              </div>
-              <button
-                className="bg-primary text-white px-4 py-2 rounded"
-                onClick={() => setFilterModalOpen(false)}
-              >
-                Apply
-              </button>
-            </div>
-          </div>
-        )}
 
         
         <h1 className="text-2xl font-bold text-center py-4"> </h1>
@@ -828,6 +795,45 @@ export default function () {
           
           {/* Right Panel */}
           <div style={{ width: panelWidths.right }} className="relative flex flex-col transition-all duration-500 ease-in-out">
+
+
+            {/* Filter button in top-left */}
+            <button
+              className="absolute top-4 left-4 z-50 bg-card border border-border rounded-full p-2 hover:bg-muted transition"
+              title="Filter"
+              onClick={() => setFilterModalOpen(true)}
+            >
+              <Filter className="h-5 w-5 text-muted-foreground" />
+            </button>
+    
+            {/* Filter Modal */}
+            {filterModalOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+                <div className="bg-card p-6 rounded-lg shadow-lg w-full max-w-md border border-border relative">
+                  <button
+                    className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
+                    onClick={() => setFilterModalOpen(false)}
+                    title="Close"
+                  >
+                    ✕
+                  </button>
+                  <h2 className="text-lg font-semibold mb-4">Select Filters</h2>
+                  <div className="text-muted-foreground mb-6">
+                    (Filter UI coming soon)
+                  </div>
+                  <button
+                    className="bg-primary text-white px-4 py-2 rounded"
+                    onClick={() => setFilterModalOpen(false)}
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            )}
+    
+
+            
+            
             {collapsedPanels.right ? (
               renderCollapsedPanel('right', 'Dashboard')
             ) : (
