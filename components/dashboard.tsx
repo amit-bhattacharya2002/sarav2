@@ -1,6 +1,7 @@
 
 'use client'
 
+import { ChevronLeft, ChevronRight, Save, Filter } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { DndProvider } from 'react-dnd'
@@ -11,7 +12,6 @@ import { DropZone } from '@/components/drop-zone'
 import { HistoryPanel } from '@/components/history-panel'
 import { QueryPanel } from '@/components/query-panel'
 import { ShareLinkDialog } from '@/components/share-link-dialog'
-import { ChevronLeft, ChevronRight, Save, Filter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PieGraph } from '@/components/pie-chart'
 
@@ -652,7 +652,44 @@ export default function () {
       <div className="flex flex-col h-screen">
         <h1 className="text-2xl font-bold text-center py-4"> </h1>
 
-       
+
+        {/* Filter button in top-left */}
+        <button
+          className="absolute top-4 left-4 z-30 bg-card border border-border rounded-full p-2 hover:bg-muted transition"
+          title="Filter"
+          onClick={() => {
+            // TODO: Open filter modal here (next step)
+            alert('Filter button clicked! (modal coming soon)');
+          }}
+        >
+          <Filter className="h-5 w-5 text-muted-foreground" />
+        </button> 
+
+        {/* Filter Modal */}
+        {filterModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+            <div className="bg-card p-6 rounded-lg shadow-lg w-full max-w-md border border-border relative">
+              <button
+                className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
+                onClick={() => setFilterModalOpen(false)}
+                title="Close"
+              >
+                ✕
+              </button>
+              <h2 className="text-lg font-semibold mb-4">Select Filters</h2>
+              <div className="text-muted-foreground mb-6">
+                (Filter UI coming soon)
+              </div>
+              <button
+                className="bg-primary text-white px-4 py-2 rounded"
+                onClick={() => setFilterModalOpen(false)}
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        )}
+        
 
         <div className="flex flex-1 overflow-hidden gap-2 px-2 pb-2">
           {/* Left Panel */}
@@ -925,17 +962,7 @@ export default function () {
                 </div>
 
                   
-                {/* Filter button in top-left */}
-                <button
-                  className="absolute top-4 left-4 z-30 bg-card border border-border rounded-full p-2 hover:bg-muted transition"
-                  title="Filter"
-                  onClick={() => {
-                    // TODO: Open filter modal here (next step)
-                    alert('Filter button clicked! (modal coming soon)');
-                  }}
-                >
-                  <Filter className="h-5 w-5 text-muted-foreground" />
-                </button> 
+
                   
                 
                 {/* Save & Clear buttons only in edit mode */}
