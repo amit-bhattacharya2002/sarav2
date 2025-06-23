@@ -727,6 +727,7 @@ export default function () {
                             : [],
                         color: 'hsl(var(--chart-4))',
                         sql: q.sql_text, // <-- Always include SQL
+                        data: result.rows || [], 
                       }
                     
                       setAllVisualizations((prev) => [...prev, newViz])
