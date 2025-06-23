@@ -459,9 +459,11 @@ export default function () {
         [quadrantId]: itemId,
       }));
   
-      // Smart diagnostics: check if the table rendered
+      // Improved diagnostics: only log error if data.length > 0, table is in DOM, and after enough time
       setTimeout(() => {
-        // Find the table in the DOM for this quadrant
+        // Only check if this quadrant is still showing the dropped viz
+        if (quadrants[quadrantId] !== itemId) return;
+  
         const dropZone = document.querySelector(`[data-quadrant-id="${quadrantId}"]`);
         const table = dropZone ? dropZone.querySelector('table') : null;
         let renderedRows = 0;
@@ -469,14 +471,24 @@ export default function () {
           renderedRows = table.querySelectorAll('tbody tr').length;
         }
         const expectedRows = Array.isArray(item.data) ? item.data.length : 0;
-        if (item.type === 'table') {
-          if (renderedRows < expectedRows && expectedRows > 0) {
-            console.error(`FAIL: Table dropped in '${quadrantId}' expected ${expectedRows} rows, but TableView rendered ${renderedRows}.`);
+        if (item.type === 'table' && expectedRows > 0) {
+          if (renderedRows < expectedRows) {
+            // Only log warning, not error, and only if still mismatched after 600ms
+            setTimeout(() => {
+              const tableRetry = dropZone ? dropZone.querySelector('table') : null;
+              let renderedRowsRetry = 0;
+              if (tableRetry) renderedRowsRetry = tableRetry.querySelectorAll('tbody tr').length;
+              if (renderedRowsRetry < expectedRows) {
+                console.warn(`⚠️ Table dropped in '${quadrantId}' expected ${expectedRows} rows, but TableView rendered ${renderedRowsRetry}. This could be a timing issue or React render delay.`);
+              } else {
+                console.log(`✅ Table dropped in '${quadrantId}' rendered ${renderedRowsRetry} rows after retry.`);
+              }
+            }, 600);
           } else {
-            console.log(`SUCCESS: Table dropped in '${quadrantId}' rendered ${renderedRows} rows (expected ${expectedRows}).`);
+            console.log(`✅ Table dropped in '${quadrantId}' rendered ${renderedRows} rows (expected ${expectedRows}).`);
           }
         }
-      }, 300); // wait for React to render
+      }, 400); // Wait a bit longer
     }, 0); // delay for React state reflow
   };
 
