@@ -438,26 +438,47 @@ export default function () {
   
   const handleDrop = (quadrantId, item) => {
     setLastDroppedItem(item);
-    const itemId = item.id
-    const itemExists = allVisualizations.some((v) => v.id === itemId)
+    console.log('🪄 Diagnostics: Last Dropped Item', item);
+  
+    const itemId = item.id;
+    const itemExists = allVisualizations.some((v) => v.id === itemId);
   
     if (!itemExists) {
-      setAllVisualizations((prev) => [...prev, item])
+      setAllVisualizations((prev) => [...prev, item]);
     }
   
     // Reset and assign to prevent rendering conflicts
     setQuadrants((prev) => ({
       ...prev,
       [quadrantId]: null, // reset first
-    }))
+    }));
   
     setTimeout(() => {
       setQuadrants((prev) => ({
         ...prev,
         [quadrantId]: itemId,
-      }))
-    }, 0) // delay for React state reflow
-  }
+      }));
+  
+      // Smart diagnostics: check if the table rendered
+      setTimeout(() => {
+        // Find the table in the DOM for this quadrant
+        const dropZone = document.querySelector(`[data-quadrant-id="${quadrantId}"]`);
+        const table = dropZone ? dropZone.querySelector('table') : null;
+        let renderedRows = 0;
+        if (table) {
+          renderedRows = table.querySelectorAll('tbody tr').length;
+        }
+        const expectedRows = Array.isArray(item.data) ? item.data.length : 0;
+        if (item.type === 'table') {
+          if (renderedRows < expectedRows && expectedRows > 0) {
+            console.error(`FAIL: Table dropped in '${quadrantId}' expected ${expectedRows} rows, but TableView rendered ${renderedRows}.`);
+          } else {
+            console.log(`SUCCESS: Table dropped in '${quadrantId}' rendered ${renderedRows} rows (expected ${expectedRows}).`);
+          }
+        }
+      }, 300); // wait for React to render
+    }, 0); // delay for React state reflow
+  };
 
 
   
@@ -862,6 +883,7 @@ export default function () {
                         id="topLeft"
                         onDrop={(item) => handleDrop("topLeft", item)}
                         onRemove={() => setQuadrants((prev) => ({ ...prev, topLeft: null }))}
+                        data-quadrant-id="topLeft"
                       >
                         {quadrants.topLeft ? renderDroppedViz(quadrants.topLeft) : (
                           <div className="h-36 flex items-center justify-center font-semibold" style={{ color: "#16a34a" }}>
@@ -884,6 +906,7 @@ export default function () {
                         id="topRight"
                         onDrop={(item) => handleDrop("topRight", item)}
                         onRemove={() => setQuadrants((prev) => ({ ...prev, topRight: null }))}
+                        data-quadrant-id="topRight"
                       >
                         {quadrants.topRight ? renderDroppedViz(quadrants.topRight) : (
                           <div className="h-36 flex items-center justify-center font-semibold" style={{ color: "#16a34a" }}>
@@ -917,6 +940,7 @@ export default function () {
                       id="bottom"
                       onDrop={(item) => handleDrop('bottom', item)}
                       onRemove={() => setQuadrants((prev) => ({ ...prev, bottom: null }))}
+                      data-quadrant-id="bottom"
                     >
                       {quadrants.bottom ? renderDroppedViz(quadrants.bottom) : (
                         <div className="h-44 flex items-center justify-center font-semibold" style={{ color: "#16a34a" }}>
