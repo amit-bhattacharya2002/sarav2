@@ -973,28 +973,7 @@ export default function () {
                   
 
 
-                {lastDroppedItem && (
-                  <div className="bg-yellow-100 text-black p-4 rounded border mt-4 max-w-full overflow-x-auto">
-                    <div className="font-bold mb-2">🪄 Diagnostics: Last Dropped Item</div>
-                    <div>
-                      <b>Type:</b> {lastDroppedItem.type}
-                    </div>
-                    <div>
-                      <b>Rows:</b> {lastDroppedItem.data ? lastDroppedItem.data.length : 0}
-                    </div>
-                    <div>
-                      <b>Columns:</b> {lastDroppedItem.columns ? lastDroppedItem.columns.length : 0}
-                    </div>
-                    <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: '0.9em' }}>
-                      {JSON.stringify(lastDroppedItem, null, 2)}
-                    </pre>
-                    {(!lastDroppedItem.data || lastDroppedItem.data.length === 0) && (
-                      <div className="text-red-700 mt-2 font-bold">
-                        ⚠️ <b>Warning:</b> Dropped item is missing data rows! (Likely from a saved query that was not re-run)
-                      </div>
-                    )}
-                  </div>
-                )}
+
 
                   
                   
