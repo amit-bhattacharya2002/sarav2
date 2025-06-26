@@ -206,7 +206,7 @@ export function QueryPanel({
           )}
 
 
-          {queryResults && queryResults.length > 0 && columns.length >= 1 && (
+{/*           {queryResults && queryResults.length > 0 && columns.length >= 1 && (
             <div className="bg-muted p-2 rounded text-xs border mt-4">
               <div className="font-semibold mb-1">Diagnostics: What will be saved</div>
               <div className="mb-2">
@@ -231,7 +231,7 @@ export function QueryPanel({
                 </pre>
               </div>
             </div>
-          )}
+          )} */}
           
           
         </div>
