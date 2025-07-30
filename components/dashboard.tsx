@@ -16,14 +16,25 @@ import { Button } from '@/components/ui/button'
 import { PieGraph } from '@/components/pie-chart'
 
 
+type Visualization = {
+  id: string;
+  type: string;
+  title: string;
+  columns: any;
+  color: string;
+  sql: string;
+  data?: any;
+  originalId?: string;
+};
+
 export default function () {
   const router = useRouter();
-  const [allVisualizations, setAllVisualizations] = useState([])
-  const [quadrants, setQuadrants] = useState({
+  const [allVisualizations, setAllVisualizations] = useState<Visualization[]>([]);
+  const [quadrants, setQuadrants] = useState<{ topLeft: string | null; topRight: string | null; bottom: string | null }>({
     topLeft: null,
     topRight: null,
     bottom: null,
-  })
+  });
 
   const [lastDroppedItem, setLastDroppedItem] = useState<any>(null);
 
@@ -37,8 +48,8 @@ export default function () {
     
     const saveReadyVisualizations = Object.entries(quadrants)
       .filter(([_, vizId]) => !!vizId)
-      .map(([quadrant, vizId]) => {
-        const viz = allVisualizations.find(v => v.id === vizId);
+      .map(([quadrant, vizId]: [string, string | null]) => {
+        const viz = allVisualizations.find((v: Visualization) => v.id === vizId);
         if (!viz) return null;
         const title =
           quadrant === "topLeft"
@@ -55,8 +66,8 @@ export default function () {
     
     const saveReadySVisualizations = Object.entries(quadrants)
       .filter(([_, vizId]) => !!vizId)
-      .map(([quadrant, vizId]) => {
-        const viz = allVisualizations.find(v => v.id === vizId);
+      .map(([quadrant, vizId]: [string, string | null]) => {
+        const viz = allVisualizations.find((v: Visualization) => v.id === vizId);
         if (!viz) return null;
         const title =
           quadrant === "topLeft"
@@ -124,13 +135,13 @@ export default function () {
   const readOnlyMode = !editMode;
     
     
-  const [collapsedPanels, setCollapsedPanels] = useState({
-    left: false,
+  const [collapsedPanels, setCollapsedPanels] = useState<Record<'left' | 'middle' | 'right', boolean>>({
+    left: !readOnlyMode,
     middle: false,
-    right: false,
+    right: !readOnlyMode,
   })
 
-  const [panelWidths, setPanelWidths] = useState({
+  const [panelWidths, setPanelWidths] = useState<Record<'left' | 'middle' | 'right', string>>({
     left: '20%',
     middle: '40%',
     right: '40%',
@@ -154,6 +165,10 @@ export default function () {
 
   const [filterModalOpen, setFilterModalOpen] = useState(false);
 
+  // Add state for collapsible panels
+  // const [showSavedQueries, setShowSavedQueries] = useState(true);
+  // const [showCreateDashboard, setShowCreateDashboard] = useState(true);
+
   
   
   useEffect(() => {
@@ -169,6 +184,7 @@ export default function () {
   
         const { id, title, quadrants, visualizations, s_visualizations } = data;
         setDashboardSectionTitle(title);
+
 
 
         setTopLeftTitle(data.topLeftTitle || "Sample Title");
@@ -294,43 +310,36 @@ export default function () {
   
   
   useEffect(() => {
+    const collapsedWidth = '100px';
     if (readOnlyMode) {
-      const leftWidth = collapsedPanels.left ? '0%' : '20%'
-      const rightWidth = collapsedPanels.left ? '100%' : '80%'
-  
+      const leftWidth = collapsedPanels.left ? collapsedWidth : '20%';
+      const rightWidth = collapsedPanels.left ? '100%' : (collapsedPanels.right ? collapsedWidth : '80%');
       setPanelWidths({
         left: leftWidth,
         middle: '0%',
         right: rightWidth,
-      })
-      return
+      });
+      return;
     }
-  
     // Regular logic in edit mode
-    const collapsedWidth = '40px'
-    const fullWidth = 100
-  
+    const fullWidth = 100;
     const newPanelWidths = {
       left: collapsedPanels.left ? collapsedWidth : '20%',
       middle: collapsedPanels.middle ? collapsedWidth : '',
       right: collapsedPanels.right ? collapsedWidth : '',
-    }
-  
-    const fixedLeftPercent = collapsedPanels.left ? 3 : 20
-    const collapsedCount = ['middle', 'right'].filter((p) => collapsedPanels[p]).length
-    const collapsedTotal = collapsedCount * 3
-    const availableWidth = fullWidth - fixedLeftPercent - collapsedTotal
-  
-    const proportions = { middle: 40, right: 40 }
-    const visible = ['middle', 'right'].filter((p) => !collapsedPanels[p])
-    const totalVisible = visible.reduce((sum, p) => sum + proportions[p], 0)
-  
+    };
+    const fixedLeftPercent = collapsedPanels.left ? 3 : 20;
+    const collapsedCount = ['middle', 'right'].filter((p) => collapsedPanels[p]).length;
+    const collapsedTotal = collapsedCount * 3;
+    const availableWidth = fullWidth - fixedLeftPercent - collapsedTotal;
+    const proportions: Record<'middle' | 'right', number> = { middle: 40, right: 40 };
+    const visible = (['middle', 'right'] as const).filter((p) => !collapsedPanels[p]);
+    const totalVisible = visible.reduce((sum, p) => sum + proportions[p], 0);
     visible.forEach((panel) => {
-      newPanelWidths[panel] = `${(proportions[panel] / totalVisible) * availableWidth}%`
-    })
-  
-    setPanelWidths(newPanelWidths)
-  }, [collapsedPanels, readOnlyMode])
+      newPanelWidths[panel] = `${(proportions[panel] / totalVisible) * availableWidth}%`;
+    });
+    setPanelWidths(newPanelWidths);
+  }, [collapsedPanels, readOnlyMode]);
   
   
 
@@ -436,7 +445,7 @@ export default function () {
   
 
   
-  const handleDrop = (quadrantId, item) => {
+  const handleDrop = (quadrantId: 'topLeft' | 'topRight' | 'bottom', item: Visualization) => {
     setLastDroppedItem(item);
     console.log('🪄 Diagnostics: Last Dropped Item', item);
   
@@ -610,11 +619,11 @@ export default function () {
 
   
 
-  const getVisualizationById = (id) => allVisualizations.find((v) => v.id === id)
+  const getVisualizationById = (id: string) => allVisualizations.find((v: Visualization) => v.id === id)
 
 
 
-  const renderDroppedViz = (vizId) => {
+  const renderDroppedViz = (vizId: string) => {
     const viz = getVisualizationById(vizId);
     if (!viz) return null;
   
@@ -667,7 +676,8 @@ export default function () {
       className="h-full w-full bg-card border border-border rounded-lg shadow-md flex flex-col items-center justify-center text-muted-foreground"
       onClick={() => togglePanel(panel)}
     >
-      <ChevronRight className="h-4 w-4 mb-1" />
+      {panel === 'right' && <ChevronLeft className="h-4 w-4 mb-1" />}
+      {panel === 'left' && <ChevronRight className="h-4 w-4 mb-1" />}
       <span className="text-xs">{label}</span>
     </button>
   )
@@ -697,87 +707,62 @@ export default function () {
         <div className="flex flex-1 overflow-hidden gap-2 px-2 pb-2">
           {/* Left Panel */}
           <div style={{ width: panelWidths.left }} className="relative transition-all duration-500 ease-in-out">
+            {!collapsedPanels.left && (
+              <button
+                className="absolute top-2 right-2 z-10 bg-card border border-border rounded-full p-1 hover:bg-muted transition"
+                onClick={() => togglePanel('left')}
+                title="Collapse"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+            )}
             {collapsedPanels.left ? (
               renderCollapsedPanel('left', 'Saved')
             ) : (
-              <>
                 <HistoryPanel
                   readOnlyMode={readOnlyMode}   
                   onSelectQuery={async (q) => {
-                    setIsLoading(true)
-                    
-                    setSqlQuery(q.sql_text)
-                    
-                    const mode = q.output_mode === 2
+                  setIsLoading(true);
+                  setSqlQuery(q.sql_text);
+                  const mode = Number(q.output_mode) === 2
                       ? 'chart'
-                      : q.output_mode === 3
+                    : Number(q.output_mode) === 3
                       ? 'pie'
-                      : 'table'
-                    
+                    : 'table';
                     try {
                       const resultRes = await fetch('/api/query', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ sql: q.sql_text }),
-                      })
-                    
-                      const result = await resultRes.json()
-                      if (!resultRes.ok) throw new Error(result.error || 'Query execution error')
-                    
-                      setOutputMode(mode)
-                      setQueryResults(result.rows || [])
-                      setColumns(result.columns || [])
-                    
-                      // Save as draggable visualization -- REMOVE `data`, ADD `sql`
+                    });
+                    const result = await resultRes.json();
+                    if (!resultRes.ok) throw new Error(result.error || 'Query execution error');
+                    setOutputMode(mode);
+                    setQueryResults(result.rows || []);
+                    setColumns(result.columns || []);
                       const newViz = {
                         id: `viz-${Date.now()}`,
                         type: mode,
                         title: 'Query Result',
                         columns:
                           mode === 'table' && result.columns
-                            ? result.columns.map(col => ({ key: col.key, name: col.name }))
+                          ? result.columns.map((col: any) => ({ key: col.key, name: col.name }))
                             : [],
                         color: 'hsl(var(--chart-4))',
-                        sql: q.sql_text, // <-- Always include SQL
+                      sql: q.sql_text,
                         data: result.rows || [], 
-                      }
-                    
-                      setAllVisualizations((prev) => [...prev, newViz])
-
-                      // console.log("📦 Full query object received from HistoryPanel:", q)  
-                      // console.log("🔍 query_text received from HistoryPanel:", q.query_text)
-                      
-                      setQuestion(q.query_text)
-
-                      // console.log("📦 Full query object:", q);
-                      // console.log("🔍 query_text being passed to setQuestion:", q.query_text);
-                      // setQuestion(q.query_text);
-                      // setTimeout(() => {
-                      //   console.log("✅ question state after setting:", q.query_text);
-                      // }, 50);                      
-
-                      
+                    };
+                    setAllVisualizations((prev) => [...prev, newViz]);
+                    setQuestion(q.query_text);
                     } catch (err: any) {
-                      console.error(err)
-                      setError(err.message || 'Unknown error')
+                    console.error(err);
+                    setError(err.message || 'Unknown error');
                     } finally {                      
-                      setIsLoading(false)
+                    setIsLoading(false);
                     }
-
                   }}
                   onSelectDashboard={handleSelectDashboard}
                 />
-
-
-{/*                 <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute top-2 right-2"
-                  onClick={() => togglePanel('left')}
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </Button> */}
-              </>
             )}
           </div>
 
@@ -830,49 +815,17 @@ export default function () {
           
           {/* Right Panel */}
           <div style={{ width: panelWidths.right }} className="relative flex flex-col transition-all duration-500 ease-in-out">
-
-
-            {/* Filter button in top-left */}
-            <button
-              className="absolute top-4 left-4 z-50 bg-card border border-border rounded-full p-2 hover:bg-muted transition"
-              title="Filter"
-              onClick={() => setFilterModalOpen(true)}
-            >
-              <Filter className="h-5 w-5 text-muted-foreground" />
-            </button>
-    
-            {/* Filter Modal */}
-            {filterModalOpen && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-                <div className="bg-card p-6 rounded-lg shadow-lg w-full max-w-md border border-border relative">
-                  <button
-                    className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
-                    onClick={() => setFilterModalOpen(false)}
-                    title="Close"
-                  >
-                    ✕
-                  </button>
-                  <h2 className="text-lg font-semibold mb-4">Select Filters</h2>
-                  <div className="text-muted-foreground mb-6">
-                    (Filter UI coming soon)
-                  </div>
-                  <Button
-                    onClick={() => setFilterModalOpen(false)}
-                    variant="default"
-                  >
-                    Apply
-                  </Button>
-                </div>
-              </div>
-            )}
-    
-
-            
-            
             {collapsedPanels.right ? (
               renderCollapsedPanel('right', 'Dashboard')
             ) : (
               <>
+                <button
+                  className="absolute top-2 left-2 z-10 bg-card border border-border rounded-full p-1 hover:bg-muted transition"
+                  onClick={() => togglePanel('right')}
+                  title="Collapse"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
                 <div className="flex-1 bg-card rounded-lg p-4 border border-border overflow-auto">
                   <input
                     type="text"
@@ -1060,7 +1013,7 @@ export default function () {
                   className="absolute top-2 right-2"
                   onClick={() => togglePanel('right')}
                 >
-                  <ChevronLeft className="h-5 w-5" />
+
                 </Button>
               </>
             )}

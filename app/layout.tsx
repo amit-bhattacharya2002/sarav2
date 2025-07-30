@@ -7,9 +7,9 @@ import { ThemeProvider } from "@/components/theme-provider"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Dashboard Assembly Tool",
+  title: "SARA",
   description: "A tool to assemble sample bar graphs into a dashboard",
-    generator: 'v0.dev'
+
 }
 
 export default function RootLayout({

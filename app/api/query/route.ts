@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import mysql from 'mysql2/promise'
-
-const dbConfig = {
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: 3306,
-}
-
+import { prisma } from '@/lib/prisma'
+import { executeQuery } from '@/lib/mongodb-query'
 
 // Map outputMode string to int for DB (customize as needed)
 const outputModeMap: Record<string, number> = {
@@ -19,7 +11,6 @@ const outputModeMap: Record<string, number> = {
 
 export async function POST(req: NextRequest) {
   console.time("🔁 TOTAL /api/query")
-  let connection
   try {
     const body = await req.json()
 
@@ -43,52 +34,46 @@ export async function POST(req: NextRequest) {
 
       const output_mode = outputModeMap[outputMode] || 1
 
-      connection = await mysql.createConnection(dbConfig)
-
-      const [result] = await connection.execute(
-        `INSERT INTO saved_queries
-          (user_id, company_id, title, query_text, sql_text, output_mode, created_at, visual_config, panel_position)
-        VALUES (?, ?, ?, ?, ?, ?, NOW(), ?, ?)`,
-        [
+      const savedQuery = await prisma.savedQuery.create({
+        data: {
           userId,
           companyId,
-          question,    // <-- this is the title, set to the search query
-          question,
-          sql,
-          output_mode,
-          visualConfig ? JSON.stringify(visualConfig) : null,
+          title: question,
+          queryText: question,
+          sqlText: sql,
+          outputMode: output_mode,
+          visualConfig: visualConfig ? JSON.stringify(visualConfig) : null,
           panelPosition,
-        ]
-      )
+        },
+      })
 
-      await connection.end()
-      return NextResponse.json({ success: true, id: (result as any).insertId })
+      return NextResponse.json({ success: true, id: savedQuery.id })
     }
 
     // ---- 2. Run Query Branch (default) ----
-    const { sql } = body
-    console.log("🚨 Executing SQL:", sql)
+    const { sql, question } = body
+    console.log("🚨 Executing MongoDB aggregation:", sql)
 
     if (!sql || typeof sql !== 'string') {
-      return NextResponse.json({ success: false, error: 'Missing or invalid SQL string' }, { status: 400 })
+      return NextResponse.json({ success: false, error: 'Missing or invalid aggregation pipeline' }, { status: 400 })
     }
 
-    connection = await mysql.createConnection(dbConfig)
-
-    const [rows, fields] = await connection.execute(sql)
-
-    await connection.end()
-
-    const columns = fields.map((field: any) => ({
-      key: field.name,
-      name: field.name,
-    }))
+    // Execute MongoDB aggregation pipeline
+    const result = await executeQuery(question || '', sql)
+    
+    if (!result.success) {
+      return NextResponse.json({ success: false, error: result.error }, { status: 400 })
+    }
 
     console.timeEnd("🔁 TOTAL /api/query")
-    return NextResponse.json({ success: true, rows, columns })
+    return NextResponse.json({ 
+      success: true, 
+      rows: result.rows || [], 
+      columns: result.columns || [] 
+    })
+
   } catch (error: any) {
     console.error('[QUERY_ERROR]', error)
-    if (connection) await connection.end()
     console.timeEnd("🔁 TOTAL /api/query")
     return NextResponse.json({ success: false, error: error.message || 'Query error' }, { status: 500 })
   }

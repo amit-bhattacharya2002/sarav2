@@ -1,62 +1,30 @@
 "use server"
 
-import mysql from "mysql2/promise"
-
-// Database connection configuration
-const dbConfig = {
-  host: "srv688.hstgr.io",
-  port: 3306,
-  user: "u848738634_gbuser2",
-  password: "8DfU%#7gNbFf$U-",
-  database: "u848738634_aitest2",
-}
+import { prisma } from '@/lib/prisma'
 
 export async function executeSqlQuery(sql: string) {
   try {
-    // Create a connection
-    const connection = await mysql.createConnection(dbConfig)
-
-    // Execute the query
-    const [rows, fields] = await connection.execute(sql)
-
-    // Close the connection
-    await connection.end()
-
-    // Process column names
-    const columns = fields
-      ? fields.map((field) => ({
-          key: field.name,
-          name: field.name.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase()),
-        }))
-      : []
-
-    // Clean up data
-    const cleanedRows = Array.isArray(rows)
-      ? rows.map((row) => {
-          const cleanedRow: Record<string, any> = {}
-          Object.entries(row).forEach(([key, value]) => {
-            if (value instanceof Buffer) {
-              cleanedRow[key] = value.readInt8(0) // Convert Buffer to number
-            } else if (typeof value === "string" && value.startsWith("b'") && value.length <= 6) {
-              cleanedRow[key] = value === "b'\\x00'" ? 0 : value === "b'\\x01'" ? 1 : value
-            } else {
-              cleanedRow[key] = value
-            }
-          })
-          return cleanedRow
-        })
-      : []
+    // Note: Prisma doesn't support raw SQL queries directly
+    // For MongoDB, you would need to use MongoDB's aggregation pipeline
+    // This is a placeholder implementation - you'll need to adapt based on your specific needs
+    
+    // For now, return a mock response
+    // In a real implementation, you would:
+    // 1. Parse the SQL query
+    // 2. Convert it to MongoDB aggregation pipeline
+    // 3. Execute it using MongoDB driver or Prisma's $runCommandRaw
+    
+    console.warn('SQL execution not implemented for MongoDB yet. Query:', sql)
 
     return {
-      success: true,
-      data: cleanedRows,
-      columns: columns,
+      success: false,
+      error: 'SQL queries are not supported in MongoDB. Please use MongoDB aggregation pipelines instead.',
     }
   } catch (error) {
     console.error("Database error:", error)
     return {
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error',
     }
   }
 }

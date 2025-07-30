@@ -1,53 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server'
-import mysql from 'mysql2/promise'
-
-const dbConfig = {
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: 3306,
-}
+import { prisma } from '@/lib/prisma'
 
 export async function GET(req: NextRequest) {
   const id = req.nextUrl.searchParams.get('id')
 
   try {
-    const connection = await mysql.createConnection(dbConfig)
-
     if (id) {
       // Fetch a specific dashboard by ID, including id in the result
-      const [rows] = await connection.execute(
-        `SELECT id, title, quadrants, visualizations, s_visualizations, topLeftTitle, topRightTitle, bottomTitle FROM saved_dashboards WHERE id = ?`,
-        [id]
-      )
-      await connection.end()
+      const dashboard = await prisma.savedDashboard.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          title: true,
+          quadrants: true,
+          visualizations: true,
+          sVisualizations: true,
+          topLeftTitle: true,
+          topRightTitle: true,
+          bottomTitle: true,
+        },
+      })
 
-      if (!rows || rows.length === 0) {
+      if (!dashboard) {
         return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 })
       }
-
-      const dashboard = rows[0] as any
 
       return NextResponse.json({
         id: dashboard.id,
         title: dashboard.title,
         quadrants: JSON.parse(dashboard.quadrants || '{}'),
         visualizations: JSON.parse(dashboard.visualizations || '[]'),
-        s_visualizations: JSON.parse(dashboard.s_visualizations || '[]'),
+        s_visualizations: JSON.parse(dashboard.sVisualizations || '[]'),
         topLeftTitle: dashboard.topLeftTitle || "Sample Title",
         topRightTitle: dashboard.topRightTitle || "Sample Title",
         bottomTitle: dashboard.bottomTitle || "Sample Title",
       })
-
       
     } else {
       // Fetch all dashboards for user_id=1 and company_id=1
-      const [rows] = await connection.execute(
-        `SELECT id, title FROM saved_dashboards WHERE user_id = 1 AND company_id = 1 ORDER BY created_at DESC`
-      )
-      await connection.end()
-      return NextResponse.json({ dashboards: rows })
+      const dashboards = await prisma.savedDashboard.findMany({
+        where: {
+          userId: 1,
+          companyId: 1,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        select: {
+          id: true,
+          title: true,
+        },
+      })
+      
+      return NextResponse.json({ dashboards })
     }
   } catch (err: any) {
     console.error('[DASHBOARD_FETCH_ERROR]', err)
@@ -59,49 +64,42 @@ export async function POST(req: NextRequest) {
   try {
     const { id, title, quadrants, visualizations, s_visualizations, topLeftTitle, topRightTitle, bottomTitle } = await req.json();
 
-    // Ensure id is only used if it's a positive integer
-    const dashboardIdNumber = id && !isNaN(Number(id)) && Number(id) > 0 ? Number(id) : null;    
+    // Ensure id is only used if it's a valid ObjectId
+    const dashboardId = id && id.length === 24 ? id : null;    
 
-    const connection = await mysql.createConnection(dbConfig);
-
-    if (dashboardIdNumber) {
+    if (dashboardId) {
       // Update existing dashboard
-      await connection.execute(
-        `UPDATE saved_dashboards SET title = ?, quadrants = ?, visualizations = ?, s_visualizations = ?, topLeftTitle = ?, topRightTitle = ?, bottomTitle = ? WHERE id = ?`,
-        [
+      const updatedDashboard = await prisma.savedDashboard.update({
+        where: { id: dashboardId },
+        data: {
           title,
-          JSON.stringify(quadrants),
-          JSON.stringify(visualizations),
-          JSON.stringify(s_visualizations),
+          quadrants: JSON.stringify(quadrants),
+          visualizations: JSON.stringify(visualizations),
+          sVisualizations: JSON.stringify(s_visualizations),
           topLeftTitle,
           topRightTitle,
           bottomTitle,
-          dashboardIdNumber,
-        ]
-      );
-      await connection.end();
-      return NextResponse.json({ success: true, id: dashboardIdNumber }); // <-- also return id on update
+        },
+      });
+      
+      return NextResponse.json({ success: true, id: updatedDashboard.id });
     } else {
       // Insert new dashboard
-      
-      const [result]: any = await connection.execute(
-        `INSERT INTO saved_dashboards (user_id, company_id, title, quadrants, visualizations, s_visualizations, topLeftTitle, topRightTitle, bottomTitle) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          1, // user_id (hardcoded for now)
-          1, // company_id (hardcoded for now)
+      const newDashboard = await prisma.savedDashboard.create({
+        data: {
+          userId: 1, // user_id (hardcoded for now)
+          companyId: 1, // company_id (hardcoded for now)
           title,
-          JSON.stringify(quadrants),
-          JSON.stringify(visualizations),
-          JSON.stringify(s_visualizations),
+          quadrants: JSON.stringify(quadrants),
+          visualizations: JSON.stringify(visualizations),
+          sVisualizations: JSON.stringify(s_visualizations),
           topLeftTitle,
           topRightTitle,
           bottomTitle,
-        ]
-      );
-
+        },
+      });
       
-      await connection.end();
-      return NextResponse.json({ success: true, id: result.insertId }); // <-- return new id!
+      return NextResponse.json({ success: true, id: newDashboard.id });
     }
   } catch (err: any) {
     console.error('[DASHBOARD_SAVE_ERROR]', err)
