@@ -1,4 +1,4 @@
-// File: /Users/amitbhattacharya/Desktop/SARA/sara-github-3/sara-vercel-3/app/api/query/route.ts
+// File: /Users/amitbhattacharya/Desktop/SARA/sara-1/app/api/query/route.ts
 import * as entry from '../../../../../app/api/query/route.js'
 import type { NextRequest } from 'next/server.js'
 

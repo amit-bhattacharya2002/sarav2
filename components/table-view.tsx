@@ -36,8 +36,8 @@ export function TableView({
   }), [data, columns, outputMode, sql]) // <-- include sql as dependency
 
   return (
-    <div ref={drag} className="h-full w-full overflow-auto cursor-move" style={{ opacity: isDragging ? 0.5 : 1 }}>
-      <table className={`w-full border-collapse ${compact ? "text-xs" : "text-sm"}`}>
+    <div ref={drag} className="h-full w-full overflow-auto cursor-move" style={{ opacity: isDragging ? 0.5 : 1, minWidth: '100%' }}>
+      <table className={`w-full border-collapse ${compact ? "text-xs" : "text-sm"}`} style={{ minWidth: 'max-content' }}>
         <thead>
           <tr className="bg-muted">
             {columns.map((col, i) => {
@@ -64,6 +64,17 @@ export function TableView({
               {columns.map((col, j) => {
                 const cellValue = row[col.key]
                 const displayValue = (() => {
+                  // Handle nested objects (like _id containing {constituentId, name})
+                  if (typeof cellValue === 'object' && cellValue !== null) {
+                    if (cellValue.name) {
+                      return cellValue.name
+                    }
+                    if (cellValue.constituentId) {
+                      return cellValue.constituentId
+                    }
+                    return JSON.stringify(cellValue)
+                  }
+                  
                   if (typeof cellValue === 'number' || (!isNaN(cellValue) && cellValue !== null && cellValue !== '')) {
                     return Math.round(Number(cellValue)).toLocaleString('en-US', { maximumFractionDigits: 0 })
                   }

@@ -48,7 +48,7 @@ export function DropZone({ id, onDrop, onRemove, children, className = '' }: Dro
       >
         <X className="h-4 w-4" />
       </button>
-      <div className="h-full w-full flex items-center justify-center overflow-hidden">{children}</div>
+      <div className="h-full w-full flex items-center justify-center overflow-auto">{children}</div>
     </div>
   )
 }

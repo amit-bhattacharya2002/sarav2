@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback, useRef, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 
-import { Loader2, Save, Trash2, LayoutList, BarChart2, PieChart } from "lucide-react"
+import { Loader2, Save, Trash2, LayoutList, BarChart2, PieChart, X } from "lucide-react"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { TableView } from "@/components/table-view"
 import { DraggableChart } from './draggable-chart'
@@ -28,8 +28,14 @@ interface QueryPanelProps {
   setColumns: (value: { key: string; name: string }[]) => void
   error: string | null
   setError: (value: string | null) => void
-  setKey: (value: number) => void
   onSubmit: () => void
+  isEditingSavedQuery?: boolean
+  handleUpdateSavedQuery?: () => Promise<void>
+  handleCancelEdit?: () => void
+  hasChanges?: () => boolean
+  selectedSavedQueryId?: number | null
+  handleEditSavedQuery?: () => void
+  handleDeleteSavedQuery?: () => Promise<void>
 }
 
 export function QueryPanel({
@@ -43,11 +49,31 @@ export function QueryPanel({
   queryResults,
   columns,
   onSubmit,
+  isEditingSavedQuery = false,
+  handleUpdateSavedQuery,
+  handleCancelEdit,
+  hasChanges,
+  selectedSavedQueryId,
+  handleEditSavedQuery,
+  handleDeleteSavedQuery,
 }: QueryPanelProps) {
   const [showSql, setShowSql] = useState(false)
-
   const [saveStatus, setSaveStatus] = useState<null | "success" | "error" | "saving">(null);
 
+  // Ref for textarea focus
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Stable event handlers
+  const handleQuestionChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setQuestion(e.target.value)
+  }, [setQuestion])
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      onSubmit()
+    }
+  }, [onSubmit])
 
   
   async function handleSaveQuery() {
@@ -86,15 +112,11 @@ export function QueryPanel({
       <h2 className="text-xl font-semibold mb-2">Current Query</h2>
 
       <Textarea
+        ref={textareaRef}
         placeholder="e.g. Show me the top 10 donors of 2024"
         value={question}
-        onChange={(e) => setQuestion(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault()
-            onSubmit()
-          }
-        }}
+        onChange={handleQuestionChange}
+        onKeyDown={handleKeyDown}
         className="mb-2"
       />
 
@@ -146,7 +168,11 @@ export function QueryPanel({
         </ToggleGroup>
       </TooltipProvider>
 
-      <Button onClick={onSubmit} disabled={isLoading} className="mb-2">
+      <Button 
+        onClick={onSubmit} 
+        disabled={isLoading || (isEditingSavedQuery && (!hasChanges || !hasChanges())) || (!!selectedSavedQueryId && !isEditingSavedQuery)} 
+        className="mb-2"
+      >
         {isLoading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "Search"}
       </Button>
 
@@ -156,38 +182,40 @@ export function QueryPanel({
 
       
       {queryResults && queryResults.length > 0 && columns.length >= 1 && (
-        <div className="bg-card border mt-4 rounded p-4 overflow-auto" style={{ minHeight: '200px' }}>
-          {outputMode === 'table' && (
-            <TableView data={queryResults} columns={columns} sql={sqlQuery} />
-          )}
-      
+        <div className="bg-card border mt-4 rounded p-4 overflow-auto" style={{ minHeight: '200px', maxWidth: '100%' }}>
+          <div className="overflow-x-auto">
+            {outputMode === 'table' && (
+              <TableView data={queryResults} columns={columns} sql={sqlQuery || undefined} />
+            )}
+          
 
-      
-          {outputMode === 'chart' && (
-            <DraggableChart
-              data={queryResults.map((row) => ({
-                name: row[columns[0].key],
-                value: Number(row[columns[1].key]) || 0,
-              }))}
-              height={200}
-              type={outputMode}
-              sql={sqlQuery}
-              columns={columns}
-            />
-          )}
-      
-          {outputMode === 'pie' && (
-            <DraggablePieChart
-              data={queryResults.map((row) => ({
-                name: row[columns[0].key],
-                value: Number(row[columns[1].key]) || 0,
-              }))}
-              height={200}
-              sql={sqlQuery}
-              columns={columns}
-            />
-          )}
-      
+          
+            {outputMode === 'chart' && (
+              <DraggableChart
+                data={queryResults.map((row) => ({
+                  name: row.donor || row._id?.name || row[columns[0]?.key] || 'Unknown',
+                  value: Number(row.totalAmount || row[columns[1]?.key]) || 0,
+                }))}
+                height={200}
+                type={outputMode}
+                sql={sqlQuery || undefined}
+                columns={columns}
+              />
+            )}
+          
+            {outputMode === 'pie' && (
+              <DraggablePieChart
+                data={queryResults.map((row) => ({
+                  name: row.donor || row._id?.name || row[columns[0]?.key] || 'Unknown',
+                  value: Number(row.totalAmount || row[columns[1]?.key]) || 0,
+                }))}
+                height={200}
+                sql={sqlQuery || undefined}
+                columns={columns}
+              />
+            )}
+          </div>
+          
           {/* Show/Hide SQL -- always at the bottom of the results box */}
           {sqlQuery && (
             <div className="mt-4">
@@ -198,42 +226,12 @@ export function QueryPanel({
                 {showSql ? "▼ Hide SQL" : "▶ Show SQL"}
               </button>
               {showSql && (
-                <div className="mt-1 bg-muted p-2 rounded text-sm font-mono text-muted-foreground border border-border">
+                <div className="mt-1 bg-muted p-2 rounded text-sm font-mono text-muted-foreground border border-border overflow-x-auto">
                   <pre className="whitespace-pre-wrap break-words">{sqlQuery}</pre>
                 </div>
               )}
             </div>
           )}
-
-
-{/*           {queryResults && queryResults.length > 0 && columns.length >= 1 && (
-            <div className="bg-muted p-2 rounded text-xs border mt-4">
-              <div className="font-semibold mb-1">Diagnostics: What will be saved</div>
-              <div className="mb-2">
-                <strong>Query (question):</strong>
-                <pre className="whitespace-pre-wrap break-words">{question}</pre>
-              </div>
-              <div className="mb-2">
-                <strong>Output Mode:</strong> <span className="font-mono">{outputMode}</span>
-              </div>
-              <div className="mb-2">
-                <strong>SQL:</strong>
-                <pre className="whitespace-pre-wrap break-words">{sqlQuery}</pre>
-              </div>
-              <div className="mb-2">
-                <strong>Columns:</strong>
-                <pre>{JSON.stringify(columns, null, 2)}</pre>
-              </div>
-              <div className="mb-2">
-                <strong>Data Sample:</strong>
-                <pre>
-                  {JSON.stringify(queryResults.slice(0, 3), null, 2)}
-                </pre>
-              </div>
-            </div>
-          )} */}
-          
-          
         </div>
       )}
       
@@ -246,26 +244,77 @@ export function QueryPanel({
       {/* Fixed Save/Clear Button Bar */}
       <div className="absolute bottom-0 left-0 right-0 z-20 p-4 border-t bg-card flex flex-row items-center justify-between gap-2 rounded-b-lg">
         
-        <Button
-          variant="default"
-          className="flex items-center gap-2"
-          onClick={handleSaveQuery}
-          disabled={
-            !question || !sqlQuery || !outputMode || !columns.length || !queryResults?.length || saveStatus === "saving"
-          }
-        >
-          <Save className="h-5 w-5" />
-          {saveStatus === "saving" ? "Saving..." : saveStatus === "success" ? "Saved!" : saveStatus === "error" ? "Error" : "Save"}
-        </Button>
-        
-        <Button
-          variant="ghost"
-          className="flex items-center gap-2"
-          // onClick={handleClearQuery}
-        >
-          <Trash2 className="h-5 w-5" />
-          <span>Clear</span>
-        </Button>
+        {isEditingSavedQuery ? (
+          // Edit mode: Update and Cancel
+          <>
+            <Button
+              variant="default"
+              className="flex items-center gap-2"
+              onClick={handleUpdateSavedQuery}
+              disabled={
+                !question || !sqlQuery || !outputMode || !columns.length || !queryResults?.length || saveStatus === "saving" ||
+                (!hasChanges || !hasChanges())
+              }
+            >
+              <Save className="h-5 w-5" />
+              {saveStatus === "saving" ? "Saving..." : saveStatus === "success" ? "Saved!" : saveStatus === "error" ? "Error" : "Update"}
+            </Button>
+            
+            <Button
+              variant="outline"
+              className="flex items-center gap-2"
+              onClick={handleCancelEdit}
+            >
+              <X className="h-5 w-5" />
+              <span>Cancel</span>
+            </Button>
+          </>
+        ) : selectedSavedQueryId ? (
+          // Selected saved query: Edit and Delete
+          <>
+            <Button
+              variant="default"
+              className="flex items-center gap-2"
+              onClick={handleEditSavedQuery}
+            >
+              <Save className="h-5 w-5" />
+              <span>Edit</span>
+            </Button>
+            
+            <Button
+              variant="destructive"
+              className="flex items-center gap-2"
+              onClick={handleDeleteSavedQuery}
+            >
+              <Trash2 className="h-5 w-5" />
+              <span>Delete</span>
+            </Button>
+          </>
+        ) : (
+          // New query: Save and Clear
+          <>
+            <Button
+              variant="default"
+              className="flex items-center gap-2"
+              onClick={handleSaveQuery}
+              disabled={
+                !question || !sqlQuery || !outputMode || !columns.length || !queryResults?.length || saveStatus === "saving"
+              }
+            >
+              <Save className="h-5 w-5" />
+              {saveStatus === "saving" ? "Saving..." : saveStatus === "success" ? "Saved!" : saveStatus === "error" ? "Error" : "Save"}
+            </Button>
+            
+            <Button
+              variant="ghost"
+              className="flex items-center gap-2"
+              // onClick={handleClearQuery}
+            >
+              <Trash2 className="h-5 w-5" />
+              <span>Clear</span>
+            </Button>
+          </>
+        )}
       </div>      
 
       

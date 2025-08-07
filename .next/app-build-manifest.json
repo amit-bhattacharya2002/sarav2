@@ -11,25 +11,30 @@
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/page.js"
     ],
-    "/api/dashboard/route": [
+    "/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/api/dashboard/route.js"
+      "static/chunks/app/page.js"
     ],
-    "/api/generate-sql/route": [
+    "/api/saved-queries/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/api/generate-sql/route.js"
+      "static/chunks/app/api/saved-queries/route.js"
     ],
     "/api/query/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/api/query/route.js"
     ],
-    "/page": [
+    "/api/generate-sql/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/page.js"
+      "static/chunks/app/api/generate-sql/route.js"
+    ],
+    "/api/dashboard/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/dashboard/route.js"
     ]
   }
 }

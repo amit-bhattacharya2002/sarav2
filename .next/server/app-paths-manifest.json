@@ -1,7 +1,6 @@
 {
-  "/api/generate-sql/route": "app/api/generate-sql/route.js",
+  "/api/saved-queries/route": "app/api/saved-queries/route.js",
   "/api/query/route": "app/api/query/route.js",
   "/api/dashboard/route": "app/api/dashboard/route.js",
-  "/dashboard/page": "app/dashboard/page.js",
-  "/page": "app/page.js"
+  "/dashboard/page": "app/dashboard/page.js"
 }

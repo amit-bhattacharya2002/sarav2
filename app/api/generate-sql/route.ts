@@ -1,6 +1,6 @@
 // File: app/api/generate-sql/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { authPrisma } from '@/lib/auth-prisma'
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,25 +13,34 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Load schema from DB - get the first schema definition (we only have one)
-    const schemaDefinition = await prisma.schemaDefinition.findFirst({
+    const schemaDefinition = await authPrisma.schemaDefinition.findFirst({
       select: { schemaText: true }
     })
 
     const schemaText = schemaDefinition?.schemaText || ''
 
-    // 2. Construct full prompt
+    // 2. Construct full prompt for SQL generation
     const baseInstruction = `
-    You are an assistant that converts natural language questions into MongoDB aggregation pipeline queries.
-    Only use aggregation queries — do not modify the database.
-    Always use proper field names and aliases.
+    You are an assistant that converts natural language questions into SQL queries for a MySQL database.
+    Only use SELECT queries — do not modify the database.
+    Always use proper field names and table aliases.
     You may only reference fields listed in the schema.
-    Do not use $match with empty objects.
-    Respond ONLY with valid MongoDB aggregation pipeline code — no explanation.
+    Respond ONLY with valid SQL query code — no explanation.
 
-    When the user asks for the "top N" of something, ensure that only the $limit changes if the number N changes, and the logic of the aggregation (grouping, aggregation, ordering, etc.) remains otherwise consistent for similar requests.
+    Database Schema:
+    - gifts table: id, ACCOUNTID, GIFTID, GIFTDATE, GIFTAMOUNT, TRANSACTIONTYPE, GIFTTYPE, PAYMENTMETHOD, PLEDGEID, SOFTCREDITINDICATOR, SOFTCREDITAMOUNT, SOFTCREDITID, SOURCECODE, DESIGNATION, UNIT, PURPOSECATEGORY, APPEAL, GIVINGLEVEL, UUID
 
-    If the user specifies "by [field]" (such as "by designation"), group results by that field, order by a relevant aggregate (such as $sum or $count), and apply the $limit.
-    If the user simply says "top N" without "by [field]", return the N largest individual documents according to context.
+    Common patterns:
+    - For "top donors": SELECT ACCOUNTID, SUM(CAST(GIFTAMOUNT AS DECIMAL(15,2))) as totalAmount FROM gifts GROUP BY ACCOUNTID ORDER BY totalAmount DESC LIMIT N
+    - For "gifts by source": SELECT SOURCECODE, COUNT(*) as giftCount, SUM(CAST(GIFTAMOUNT AS DECIMAL(15,2))) as totalAmount FROM gifts GROUP BY SOURCECODE ORDER BY totalAmount DESC
+    - For "gifts by designation": SELECT DESIGNATION, COUNT(*) as giftCount, SUM(CAST(GIFTAMOUNT AS DECIMAL(15,2))) as totalAmount FROM gifts GROUP BY DESIGNATION ORDER BY totalAmount DESC
+    - For "payment methods": SELECT PAYMENTMETHOD, COUNT(*) as giftCount, SUM(CAST(GIFTAMOUNT AS DECIMAL(15,2))) as totalAmount FROM gifts GROUP BY PAYMENTMETHOD ORDER BY totalAmount DESC
+
+    Always use CAST(GIFTAMOUNT AS DECIMAL(15,2)) for amount calculations.
+    Use GROUP BY for aggregations.
+    Use ORDER BY for sorting.
+    Use LIMIT for limiting results.
+    All column names are in UPPERCASE.
     `;
     
     const fullSystemPrompt = `${schemaText}\n\n${baseInstruction}`
@@ -45,8 +54,8 @@ export async function POST(req: NextRequest) {
       temperature: 0,
     })
 
-    const aggregationPipeline = completion.choices[0].message.content?.trim() || ''
-    return NextResponse.json({ sql: aggregationPipeline })
+    const sqlQuery = completion.choices[0].message.content?.trim() || ''
+    return NextResponse.json({ sql: sqlQuery })
   } catch (error: any) {
     console.error('[SQL_GEN_ERROR]', error)
     return NextResponse.json({ error: error.message || 'Unknown error' }, { status: 500 })

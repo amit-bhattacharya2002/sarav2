@@ -265,9 +265,28 @@ Collections:
    - dateAdded (DateTime): When the record was added
    - dateChanged (DateTime): When the record was last changed
 
-IMPORTANT: Keep queries simple. Focus on single collection queries. Avoid complex $lookup operations for now.
+QUERY GUIDELINES:
+1. For donor/constituent queries, use $lookup to join with constituents collection to get meaningful names
+2. When grouping by constituentId, include constituent names using $lookup
+3. For "top donors" queries, join with constituents to show names instead of IDs
+4. Use $project to format names as "firstName lastName" or similar readable format
+5. For meaningful analysis, use aggregation functions like $sum, $count, $avg instead of $push
+6. When grouping by categories (like sourceCode, designation), count or sum the values rather than collecting all objects
 
-For date filtering, use simple date ranges. For amount calculations, use $toDouble to convert string amounts to numbers.
+Example queries with proper joins:
+- Top donors: Use $lookup to join gifts with constituents, then group by constituent and sum amounts
+- Donor analysis: Join gifts with constituents to show donor names in results
+- Gift summaries: Include constituent names when grouping by constituentId
+- Source code analysis: Group by sourceCode and count gifts or sum amounts
+- Designation analysis: Group by designation and sum total amounts
+
+For meaningful aggregations:
+- Count gifts by source code: Use $group with $sum: 1 or $count
+- Sum amounts by designation: Use $group with $sum: { $toDouble: "$giftAmount" }
+- Average gift amounts: Use $group with $avg: { $toDouble: "$giftAmount" }
+- Top categories: Use $sort and $limit after grouping
+
+Avoid using $push to collect all objects unless specifically needed for detailed analysis.
 
 Sample gift dates in database: 2025-01-15, 2025-02-20, 2025-03-10, 2025-01-30, 2025-02-15
 
@@ -281,13 +300,10 @@ Common purpose categories include: "Endowment", "Operating", "Capital Project".
 
 Common giving levels include: "$1-$99.99", "$100-$499.99", "$500-$999.99", "$1,000+".
 
-Example simple queries:
-- Group gifts by designation and sum amounts using $toDouble
-- Count gifts by payment method
-- Show top gifts by amount using $toDouble
-- Filter gifts by source code
-- Sum total donations by constituent
-- Count gifts by payment method
+Example queries with proper joins:
+- Top 3 donors by amount: Use $lookup to join gifts with constituents, group by constituent, sum amounts, sort, limit 3
+- Donors by designation: Join gifts with constituents, group by designation and constituent name
+- Gift analysis by donor: Join gifts with constituents to show donor names in results
       `,
     },
   })

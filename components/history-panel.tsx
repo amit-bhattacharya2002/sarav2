@@ -2,17 +2,17 @@
 
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
-import { fetchSavedQueries } from "@/app/actions/query-actions"
-import { Save, MoreVertical } from "lucide-react"
+import { Save, MoreVertical, Edit } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 interface SavedQuery {
   id: number
   title: string
-  sql_text: string
-  query_text: string
-  output_mode: string
-  created_at: string
+  sqlText: string
+  queryText: string
+  outputMode: number
+  createdAt: Date
 }
 
 interface SavedDashboard {
@@ -22,12 +22,14 @@ interface SavedDashboard {
 
 interface HistoryPanelProps {
   onSelectQuery?: (query: SavedQuery) => void
+  onEditQuery?: (query: SavedQuery) => void
   onSelectDashboard?: (dashboard: SavedDashboard) => void
   readOnlyMode?: boolean
 }
 
 export function HistoryPanel({
   onSelectQuery,
+  onEditQuery,
   onSelectDashboard,
   readOnlyMode = false,
 }: HistoryPanelProps) {
@@ -54,14 +56,14 @@ export function HistoryPanel({
     async function loadQueries() {
       try {
         setLoading(true)
-        const result = await fetchSavedQueries(userId, companyId)
-        if (result.success) {
-          setQueries(result.data)
-        } else {
-          setError(result.error)
-        }
-      } catch (err) {
-        setError("Failed to load saved queries")
+        setError(null)
+        // Fetch from API route
+        const res = await fetch("/api/saved-queries")
+        if (!res.ok) throw new Error("Failed to fetch saved queries")
+        const data = await res.json()
+        setQueries(data.queries || [])
+      } catch (err: any) {
+        setError(err.message || "Failed to load saved queries")
         console.error(err)
       } finally {
         setLoading(false)
@@ -70,6 +72,35 @@ export function HistoryPanel({
     // Only load queries if not read-only and queries view is selected
     if (!readOnlyMode && view === "queries") {
       loadQueries()
+    }
+  }, [readOnlyMode, view])
+
+  // Listen for query updates to refresh the list
+  useEffect(() => {
+    const handleQueryUpdated = () => {
+      // Refresh queries when a query is updated
+      if (!readOnlyMode && view === "queries") {
+        async function refreshQueries() {
+          try {
+            setLoading(true)
+            const res = await fetch("/api/saved-queries")
+            if (!res.ok) throw new Error("Failed to fetch saved queries")
+            const data = await res.json()
+            setQueries(data.queries || [])
+          } catch (err: any) {
+            setError(err.message || "Failed to load saved queries")
+            console.error(err)
+          } finally {
+            setLoading(false)
+          }
+        }
+        refreshQueries()
+      }
+    }
+
+    window.addEventListener('queryUpdated', handleQueryUpdated)
+    return () => {
+      window.removeEventListener('queryUpdated', handleQueryUpdated)
     }
   }, [readOnlyMode, view])
 
@@ -107,6 +138,13 @@ export function HistoryPanel({
     setSelectedDashboard(dashboard)
     if (onSelectDashboard) {
       onSelectDashboard(dashboard)
+    }
+  }
+
+  const handleEditClick = (query: SavedQuery, e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent query selection
+    if (onEditQuery) {
+      onEditQuery(query)
     }
   }
 
@@ -174,15 +212,33 @@ export function HistoryPanel({
             {!loading && !error && queries.length > 0 && (
               <div className="space-y-2">
                 {queries.map((query) => (
-                  <button
-                    key={query.id}
-                    className={`w-full text-left p-3 rounded-md border border-border hover:bg-muted transition-colors ${
-                      selectedQuery?.id === query.id ? "bg-muted" : ""
-                    }`}
-                    onClick={() => handleQueryClick(query)}
-                  >
-                    <span className="font-medium">{query.title}</span>
-                  </button>
+                  <div key={query.id}>
+                    <div
+                      className={`relative group w-full text-left p-3 rounded-md border border-border hover:bg-muted transition-colors ${
+                        selectedQuery?.id === query.id ? "bg-muted" : ""
+                      }`}
+                    >
+                      <button
+                        className="w-full text-left"
+                        onClick={() => handleQueryClick(query)}
+                      >
+                        <span className="font-medium">{query.title}</span>
+                      </button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-background/50">
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={(e) => handleEditClick(query, e)}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}

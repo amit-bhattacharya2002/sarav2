@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { businessPrisma } from '@/lib/mysql-prisma'
 
 export async function GET(req: NextRequest) {
-  const id = req.nextUrl.searchParams.get('id')
-
   try {
+    const { searchParams } = new URL(req.url)
+    const id = searchParams.get('id')
+
     if (id) {
-      // Fetch a specific dashboard by ID, including id in the result
-      const dashboard = await prisma.savedDashboard.findUnique({
-        where: { id },
+      // Get specific dashboard
+      const dashboard = await businessPrisma.savedDashboard.findUnique({
+        where: {
+          id: parseInt(id)
+        },
         select: {
           id: true,
           title: true,
@@ -18,6 +21,7 @@ export async function GET(req: NextRequest) {
           topLeftTitle: true,
           topRightTitle: true,
           bottomTitle: true,
+          createdAt: true,
         },
       })
 
@@ -25,20 +29,10 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 })
       }
 
-      return NextResponse.json({
-        id: dashboard.id,
-        title: dashboard.title,
-        quadrants: JSON.parse(dashboard.quadrants || '{}'),
-        visualizations: JSON.parse(dashboard.visualizations || '[]'),
-        s_visualizations: JSON.parse(dashboard.sVisualizations || '[]'),
-        topLeftTitle: dashboard.topLeftTitle || "Sample Title",
-        topRightTitle: dashboard.topRightTitle || "Sample Title",
-        bottomTitle: dashboard.bottomTitle || "Sample Title",
-      })
-      
+      return NextResponse.json({ dashboard })
     } else {
-      // Fetch all dashboards for user_id=1 and company_id=1
-      const dashboards = await prisma.savedDashboard.findMany({
+      // Get all dashboards
+      const dashboards = await businessPrisma.savedDashboard.findMany({
         where: {
           userId: 1,
           companyId: 1,
@@ -49,60 +43,70 @@ export async function GET(req: NextRequest) {
         select: {
           id: true,
           title: true,
+          quadrants: true,
+          visualizations: true,
+          sVisualizations: true,
+          topLeftTitle: true,
+          topRightTitle: true,
+          bottomTitle: true,
+          createdAt: true,
         },
       })
-      
+
       return NextResponse.json({ dashboards })
     }
-  } catch (err: any) {
-    console.error('[DASHBOARD_FETCH_ERROR]', err)
-    return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 })
+  } catch (error: any) {
+    console.error('[DASHBOARD_ERROR]', error)
+    return NextResponse.json({ error: 'Failed to load dashboard(s)' }, { status: 500 })
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { id, title, quadrants, visualizations, s_visualizations, topLeftTitle, topRightTitle, bottomTitle } = await req.json();
+    const body = await req.json()
+    const { action, dashboardId, title, quadrants, visualizations, sVisualizations, s_visualizations, topLeftTitle, topRightTitle, bottomTitle } = body
 
-    // Ensure id is only used if it's a valid ObjectId
-    const dashboardId = id && id.length === 24 ? id : null;    
+    // Handle both field name formats
+    const sVisualizationsData = sVisualizations || s_visualizations
 
-    if (dashboardId) {
+    if (action === 'update' && dashboardId) {
       // Update existing dashboard
-      const updatedDashboard = await prisma.savedDashboard.update({
-        where: { id: dashboardId },
+      const updatedDashboard = await businessPrisma.savedDashboard.update({
+        where: {
+          id: parseInt(dashboardId)
+        },
         data: {
           title,
           quadrants: JSON.stringify(quadrants),
           visualizations: JSON.stringify(visualizations),
-          sVisualizations: JSON.stringify(s_visualizations),
+          sVisualizations: JSON.stringify(sVisualizationsData),
           topLeftTitle,
           topRightTitle,
           bottomTitle,
         },
-      });
-      
-      return NextResponse.json({ success: true, id: updatedDashboard.id });
+      })
+
+      return NextResponse.json({ success: true, dashboard: updatedDashboard })
     } else {
-      // Insert new dashboard
-      const newDashboard = await prisma.savedDashboard.create({
+      // Create new dashboard
+      const newDashboard = await businessPrisma.savedDashboard.create({
         data: {
-          userId: 1, // user_id (hardcoded for now)
-          companyId: 1, // company_id (hardcoded for now)
+          userId: 1,
+          companyId: 1,
           title,
           quadrants: JSON.stringify(quadrants),
           visualizations: JSON.stringify(visualizations),
-          sVisualizations: JSON.stringify(s_visualizations),
+          sVisualizations: JSON.stringify(sVisualizationsData),
           topLeftTitle,
           topRightTitle,
           bottomTitle,
         },
-      });
-      
-      return NextResponse.json({ success: true, id: newDashboard.id });
+      })
+
+      return NextResponse.json({ success: true, dashboard: newDashboard })
     }
-  } catch (err: any) {
-    console.error('[DASHBOARD_SAVE_ERROR]', err)
-    return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 })
+  } catch (error: any) {
+    console.error('[DASHBOARD_ERROR]', error)
+    return NextResponse.json({ error: 'Failed to save dashboard' }, { status: 500 })
   }
 }

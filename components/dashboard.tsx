@@ -3,7 +3,7 @@
 
 import { ChevronLeft, ChevronRight, Save, Filter } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { BarGraph } from '@/components/bar-graph'
@@ -14,6 +14,11 @@ import { QueryPanel } from '@/components/query-panel'
 import { ShareLinkDialog } from '@/components/share-link-dialog'
 import { Button } from '@/components/ui/button'
 import { PieGraph } from '@/components/pie-chart'
+import { Textarea } from '@/components/ui/textarea'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { LayoutList, BarChart2, PieChart } from 'lucide-react'
+import { DraggableChart } from '@/components/draggable-chart'
+import { DraggablePieChart } from '@/components/draggable-pie'
 
 
 type Visualization = {
@@ -155,8 +160,32 @@ export default function () {
   const [queryResults, setQueryResults] = useState<any[] | null>(null)
   const [columns, setColumns] = useState<{ key: string; name: string }[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [componentKey, setComponentKey] = useState(Date.now())
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
+
+  // Stabilize setQuestion to prevent unnecessary re-renders
+  const stableSetQuestion = useCallback((value: string) => {
+    setQuestion(value)
+  }, [])
+
+  const stableSetOutputMode = useCallback((value: string) => {
+    setOutputMode(value)
+  }, [])
+
+  const stableSetSqlQuery = useCallback((value: string | null) => {
+    setSqlQuery(value)
+  }, [])
+
+  const stableSetQueryResults = useCallback((value: any[]) => {
+    setQueryResults(value)
+  }, [])
+
+  const stableSetColumns = useCallback((value: { key: string; name: string }[]) => {
+    setColumns(value)
+  }, [])
+
+  const stableSetError = useCallback((value: string | null) => {
+    setError(value)
+  }, [])
 
   const [dashboardSectionTitle, setDashboardSectionTitle] = useState("Sample Title")
   const [topLeftTitle, setTopLeftTitle] = useState("Sample Title");
@@ -164,6 +193,28 @@ export default function () {
   const [bottomTitle, setBottomTitle] = useState("Sample Title");
 
   const [filterModalOpen, setFilterModalOpen] = useState(false);
+
+  // Add edit mode state
+  const [isEditingSavedQuery, setIsEditingSavedQuery] = useState(false)
+  const [editingQueryId, setEditingQueryId] = useState<number | null>(null)
+  const [originalQueryData, setOriginalQueryData] = useState<any>(null)
+  const [selectedSavedQueryId, setSelectedSavedQueryId] = useState<number | null>(null)
+
+  // Add tabbed panel state
+  const [activeTabId, setActiveTabId] = useState<string>('active-query')
+  const [tabs, setTabs] = useState<Array<{
+    id: string
+    title: string
+    type: 'active' | 'saved'
+    queryId?: number
+    data?: any
+  }>>([
+    {
+      id: 'active-query',
+      title: 'Active Query',
+      type: 'active'
+    }
+  ])
 
   // Add state for collapsible panels
   // const [showSavedQueries, setShowSavedQueries] = useState(true);
@@ -180,31 +231,59 @@ export default function () {
   
       try {
         const res = await fetch(`/api/dashboard?id=${dashboardId}`);
-        const data = await res.json();
-  
-        const { id, title, quadrants, visualizations, s_visualizations } = data;
-        setDashboardSectionTitle(title);
+        const responseData = await res.json();
+        
+        // Extract dashboard data from the response
+        const data = responseData.dashboard;
+        if (!data) {
+          throw new Error('Dashboard data not found');
+        }
 
-
+        const { id, title, quadrants, visualizations, s_visualizations, sVisualizations } = data;
+        setDashboardSectionTitle(title || "Untitled Dashboard");
 
         setTopLeftTitle(data.topLeftTitle || "Sample Title");
         setTopRightTitle(data.topRightTitle || "Sample Title");
         setBottomTitle(data.bottomTitle || "Sample Title");
 
+        // Parse quadrants JSON string
+        const parsedQuadrants = typeof quadrants === 'string' ? JSON.parse(quadrants) : quadrants;
+        
+        // Parse visualizations JSON string
+        const parsedVizList = typeof visualizations === 'string' ? JSON.parse(visualizations) : visualizations;
+
+        // Handle both field name formats from API
+        const sVisualizationsData = sVisualizations || s_visualizations;
         
         // DEBUG: Are we loading from cache?
-        if (Array.isArray(s_visualizations) && s_visualizations.length > 0) {
-          console.log("✅ Loading dashboard from CACHE (s_visualizations)!");
-          setAllVisualizations(s_visualizations);
+        console.log("🔍 Checking cached data:", { sVisualizationsData, sVisualizations, s_visualizations });
+        
+        // Parse the cached data if it's a string
+        let parsedCachedVisualizations = null;
+        if (sVisualizationsData) {
+          try {
+            parsedCachedVisualizations = typeof sVisualizationsData === 'string' 
+              ? JSON.parse(sVisualizationsData) 
+              : sVisualizationsData;
+            console.log("✅ Parsed cached visualizations:", parsedCachedVisualizations);
+          } catch (error) {
+            console.error("❌ Error parsing cached visualizations:", error);
+            parsedCachedVisualizations = null;
+          }
+        }
+        
+        if (Array.isArray(parsedCachedVisualizations) && parsedCachedVisualizations.length > 0) {
+          console.log("✅ Loading dashboard from CACHE (sVisualizations)!");
+          setAllVisualizations(parsedCachedVisualizations);
         
           // Improved quadrant mapping
           const quadrantMap: any = {};
-          for (const quadrant in quadrants) {
-            const expectedOriginalId = quadrants[quadrant];
-            const expectedViz = visualizations?.find(v => v.id === expectedOriginalId);
+          for (const quadrant in parsedQuadrants) {
+            const expectedOriginalId = parsedQuadrants[quadrant];
+            const expectedViz = parsedVizList?.find(v => v.id === expectedOriginalId);
             const expectedType = expectedViz?.type;
         
-            const match = s_visualizations.find(
+            const match = parsedCachedVisualizations.find(
               v =>
                 (v.originalId === expectedOriginalId || (v.sql && v.sql === expectedViz?.sql)) &&
                 v.type === expectedType
@@ -235,29 +314,36 @@ export default function () {
           }
         };
   
-        if (!visualizations || visualizations.length === 0) {
+        if (!parsedVizList || parsedVizList.length === 0) {
+          console.log("ℹ️ No visualizations to load, skipping SQL execution");
           setIsGlobalLoading(false);
+          return;
         }
   
-        for (const viz of visualizations || []) {
+        for (const viz of parsedVizList || []) {
           const fetchAndAddViz = async () => {
             try {
               const resultRes = await fetch('/api/query', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sql: viz.sql }),
+                body: JSON.stringify({ 
+                  question: 'Dashboard Query',
+                  sql: viz.sql,
+                  outputMode: 'table',
+                  columns: [{ key: 'id', name: 'ID' }] // Provide a default column structure
+                }),
               });
   
               const result = await resultRes.json();
               if (!resultRes.ok) throw new Error(result.error || 'Query failed');
-  
+
               const chartData =
                 viz.type === 'chart' || viz.type === 'pie'
-                  ? result.rows.map(row => ({
+                  ? result.data.map(row => ({
                       name: row[result.columns[0]?.key] || 'Unknown',
                       value: Number(row[result.columns[1]?.key]) || 0,
                     }))
-                  : result.rows;
+                  : result.data;
   
               const newViz = {
                 id: `viz-${Date.now()}-${Math.random()}`,
@@ -272,8 +358,8 @@ export default function () {
   
               setAllVisualizations(prev => [...prev, newViz]);
   
-              for (const quadrant in quadrants) {
-                if (quadrants[quadrant] === viz.id) {
+              for (const quadrant in parsedQuadrants) {
+                if (parsedQuadrants[quadrant] === viz.id) {
                   setQuadrants(prev => ({ ...prev, [quadrant]: newViz.id }));
                 }
               }
@@ -370,13 +456,18 @@ export default function () {
       const resultRes = await fetch('/api/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sql: data.sql }),
+        body: JSON.stringify({ 
+          question: question || 'Query',
+          sql: data.sql,
+          outputMode: outputMode,
+          columns: []
+        }),
       })
 
       const result = await resultRes.json()
       if (!resultRes.ok) throw new Error(result.error || 'Query execution error')
 
-      setQueryResults(result.rows || [])
+      setQueryResults(result.data || [])
       setColumns(result.columns || [])
 
       // Save as draggable visualization -- REMOVE `data`, ADD `sql`
@@ -390,7 +481,7 @@ export default function () {
             : [],
         color: 'hsl(var(--chart-4))',
         sql: data.sql, // <-- Always include SQL
-        data: result.rows || [],   // <<< ADD THIS
+        data: result.data || [],   // <<< ADD THIS
       }
 
       setAllVisualizations((prev) => [...prev, newViz])
@@ -412,13 +503,18 @@ export default function () {
       const resultRes = await fetch('/api/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sql }),
+        body: JSON.stringify({ 
+          question: question || 'Query',
+          sql,
+          outputMode: mode,
+          columns: []
+        }),
       })
   
       const result = await resultRes.json()
       if (!resultRes.ok) throw new Error(result.error || 'Query execution error')
   
-      setQueryResults(result.rows || [])
+      setQueryResults(result.data || [])
       setColumns(result.columns || [])
   
       // Save as draggable visualization -- REMOVE `data`, ADD `sql`
@@ -441,6 +537,82 @@ export default function () {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Handle editing a saved query
+  const handleEditQuery = async (query: any) => {
+    // This function is no longer needed as saved query tabs have their own edit functionality
+    console.log('Edit functionality moved to individual tabs')
+  }
+
+  // Handle updating a saved query
+  const handleUpdateSavedQuery = async () => {
+    // This function is no longer needed as saved query tabs have their own update functionality
+    console.log('Update functionality moved to individual tabs')
+  }
+
+  // Cancel edit mode
+  const handleCancelEdit = () => {
+    // This function is no longer needed as saved query tabs have their own cancel functionality
+    console.log('Cancel functionality moved to individual tabs')
+  }
+
+  // Check if there are changes from original data
+  const hasChanges = () => {
+    // This function is no longer needed as saved query tabs have their own change detection
+    return false
+  }
+
+  // Handle Edit button click for selected saved query
+  const handleEditSavedQuery = () => {
+    // This function is no longer needed as saved query tabs have their own edit functionality
+    console.log('Edit functionality moved to individual tabs')
+  }
+
+  // Handle Delete button click for selected saved query
+  const handleDeleteSavedQuery = async () => {
+    // This function is no longer needed as saved query tabs have their own delete functionality
+    console.log('Delete functionality moved to individual tabs')
+  }
+
+  // Tab management functions
+  const openSavedQueryTab = (query: any) => {
+    const tabId = `saved-query-${query.id}`
+    
+    // Check if tab already exists
+    const existingTab = tabs.find(tab => tab.id === tabId)
+    if (existingTab) {
+      setActiveTabId(tabId)
+      return
+    }
+
+    // Add new tab
+    const newTab = {
+      id: tabId,
+      title: query.title || query.queryText || 'Saved Query',
+      type: 'saved' as const,
+      queryId: query.id,
+      data: query
+    }
+
+    setTabs(prev => [...prev, newTab])
+    setActiveTabId(tabId)
+  }
+
+  const closeTab = (tabId: string) => {
+    if (tabId === 'active-query') return // Cannot close active query tab
+    
+    setTabs(prev => prev.filter(tab => tab.id !== tabId))
+    
+    // If closing the active tab, switch to active query tab
+    if (activeTabId === tabId) {
+      setActiveTabId('active-query')
+    }
+  }
+
+  const getCurrentTabData = () => {
+    const currentTab = tabs.find(tab => tab.id === activeTabId)
+    return currentTab
   }
   
 
@@ -512,32 +684,65 @@ export default function () {
     try {
       const res = await fetch(`/api/dashboard?id=${dashboard.id}`);
       if (!res.ok) throw new Error("Failed to load dashboard");
-      const data = await res.json();
-  
-      const { id, title, quadrants, visualizations, s_visualizations } = data;
+      const responseData = await res.json();
+      
+      // Extract dashboard data from the response
+      const data = responseData.dashboard;
+      if (!data) {
+        throw new Error('Dashboard data not found');
+      }
+
+      const { id, title, quadrants, visualizations, s_visualizations, sVisualizations } = data;
       setDashboardSectionTitle(title || "Untitled Dashboard");
-  
+
       setTopLeftTitle(data.topLeftTitle || "Sample Title");
       setTopRightTitle(data.topRightTitle || "Sample Title");
       setBottomTitle(data.bottomTitle || "Sample Title");
-  
+
+      // Parse quadrants JSON string
+      const parsedQuadrants = typeof quadrants === 'string' ? JSON.parse(quadrants) : quadrants;
+      
+      // Parse visualizations JSON string
+      const parsedVizList = typeof visualizations === 'string' ? JSON.parse(visualizations) : visualizations;
+
+      // Handle both field name formats from API
+      const sVisualizationsData = sVisualizations || s_visualizations;
+
+      // DEBUG: Are we loading from cache?
+      console.log("🔍 handleSelectDashboard - Checking cached data:", { sVisualizationsData, sVisualizations, s_visualizations });
+
+      // Parse the cached data if it's a string
+      let parsedCachedVisualizations = null;
+      if (sVisualizationsData) {
+        try {
+          parsedCachedVisualizations = typeof sVisualizationsData === 'string' 
+            ? JSON.parse(sVisualizationsData) 
+            : sVisualizationsData;
+          console.log("✅ handleSelectDashboard - Parsed cached visualizations:", parsedCachedVisualizations);
+        } catch (error) {
+          console.error("❌ handleSelectDashboard - Error parsing cached visualizations:", error);
+          parsedCachedVisualizations = null;
+        }
+      }
+
       // Use cache if present and non-empty
-      if (Array.isArray(s_visualizations) && s_visualizations.length > 0) {
-        setAllVisualizations(s_visualizations);
-  
+      if (Array.isArray(parsedCachedVisualizations) && parsedCachedVisualizations.length > 0) {
+        console.log("✅ handleSelectDashboard - Loading from CACHE!");
+        setAllVisualizations(parsedCachedVisualizations);
+
         // Map quadrants: match by originalId or sql, fallback to first
         const quadrantMap: any = {};
-        for (const quadrant in quadrants) {
-          const expectedOriginalId = quadrants[quadrant];
-          const expectedViz = visualizations?.find(v => v.id === expectedOriginalId);
+        for (const quadrant in parsedQuadrants) {
+          const expectedOriginalId = parsedQuadrants[quadrant];
+          const expectedViz = parsedVizList?.find(v => v.id === expectedOriginalId);
           const expectedType = expectedViz?.type;
-  
-          const match = s_visualizations.find(
+
+          const match = parsedCachedVisualizations.find(
             v =>
               (v.originalId === expectedOriginalId || (v.sql && v.sql === expectedViz?.sql)) &&
               v.type === expectedType
           );
-  
+
           quadrantMap[quadrant] = match ? match.id : null;
         }
         setQuadrants({
@@ -545,7 +750,7 @@ export default function () {
           topRight: quadrantMap.topRight || null,
           bottom: quadrantMap.bottom || null,
         });
-  
+
         setIsGlobalLoading(false);
         return;
       }
@@ -558,26 +763,37 @@ export default function () {
         bottom: null,
       });
   
+      if (!parsedVizList || parsedVizList.length === 0) {
+        console.log("ℹ️ handleSelectDashboard - No visualizations to load, skipping SQL execution");
+        setIsGlobalLoading(false);
+        return;
+      }
+
       const newVisualizations: any[] = [];
       const quadrantMapping: any = {};
-  
-      for (const viz of visualizations || []) {
+
+      for (const viz of parsedVizList || []) {
         try {
           const resultRes = await fetch('/api/query', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sql: viz.sql }),
+            body: JSON.stringify({ 
+              question: 'Dashboard Query',
+              sql: viz.sql,
+              outputMode: 'table',
+              columns: [{ key: 'id', name: 'ID' }] // Provide a default column structure
+            }),
           });
           const result = await resultRes.json();
           if (!resultRes.ok) throw new Error(result.error || 'Query failed');
   
           const chartData =
             viz.type === 'chart' || viz.type === 'pie'
-              ? result.rows.map(row => ({
+              ? result.data.map(row => ({
                   name: row[result.columns[0]?.key] || 'Unknown',
                   value: Number(row[result.columns[1]?.key]) || 0,
                 }))
-              : result.rows;
+              : result.data;
   
           const newViz = {
             id: `viz-${Date.now()}-${Math.random()}`,
@@ -592,8 +808,8 @@ export default function () {
   
           newVisualizations.push(newViz);
   
-          for (const quadrant in quadrants) {
-            if (quadrants[quadrant] === viz.id) {
+          for (const quadrant in parsedQuadrants) {
+            if (parsedQuadrants[quadrant] === viz.id) {
               quadrantMapping[quadrant] = newViz.id;
             }
           }
@@ -682,6 +898,545 @@ export default function () {
     </button>
   )
 
+  // Tabbed Panel Component - moved outside to prevent recreation
+  const renderTabbedPanel = useCallback(() => {
+    const currentTab = getCurrentTabData()
+    
+    return (
+      <div className="flex flex-col h-full bg-card rounded-lg border border-border overflow-hidden">
+        {/* Tab Headers */}
+        <div className="flex border-b border-border bg-muted/20 relative">
+          {tabs.map((tab) => (
+            <div
+              key={tab.id}
+              className={`
+                flex items-center gap-2 px-4 py-3 cursor-pointer border-r border-border transition-colors
+                ${activeTabId === tab.id 
+                  ? 'bg-background border-b-0 font-medium text-foreground' 
+                  : 'hover:bg-muted/50 text-muted-foreground'
+                }
+              `}
+              onClick={() => setActiveTabId(tab.id)}
+            >
+              <span className="text-sm truncate max-w-[120px]">
+                {tab.title}
+              </span>
+              {tab.type === 'saved' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    closeTab(tab.id)
+                  }}
+                  className="ml-1 p-1 hover:bg-muted rounded text-xs opacity-60 hover:opacity-100 transition-opacity"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          ))}
+          
+          {/* Chevron button positioned in the tab area */}
+          <button
+            className="absolute top-3 right-3 z-10 bg-background/80 backdrop-blur-sm border border-border/50 rounded-full p-1 hover:bg-background/90 transition-all"
+            onClick={() => togglePanel('middle')}
+            title="Collapse"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Tab Content */}
+        <div className="flex-1 overflow-hidden">
+          {currentTab?.type === 'active' ? (
+            <QueryPanel
+              question={question}
+              setQuestion={stableSetQuestion}
+              outputMode={outputMode}
+              setOutputMode={stableSetOutputMode}
+              isLoading={isLoading}
+              sqlQuery={sqlQuery}
+              setSqlQuery={stableSetSqlQuery}
+              queryResults={queryResults}
+              setQueryResults={stableSetQueryResults}
+              columns={columns}
+              setColumns={stableSetColumns}
+              error={error}
+              setError={stableSetError}
+              onSubmit={handleQuerySubmit}
+            />
+          ) : currentTab?.type === 'saved' ? (
+            <SavedQueryTab
+              query={currentTab.data}
+              onClose={() => closeTab(currentTab.id)}
+            />
+          ) : null}
+        </div>
+      </div>
+    )
+  }, [activeTabId, tabs, question, stableSetQuestion, outputMode, stableSetOutputMode, isLoading, sqlQuery, stableSetSqlQuery, queryResults, stableSetQueryResults, columns, stableSetColumns, error, stableSetError, handleQuerySubmit, getCurrentTabData, setActiveTabId, closeTab, togglePanel])
+
+  // Saved Query Tab Component
+  const SavedQueryTab = ({ query, onClose }: { query: any; onClose: () => void }) => {
+    const [tabQueryResults, setTabQueryResults] = useState<any[] | null>(null)
+    const [tabColumns, setTabColumns] = useState<{ key: string; name: string }[]>([])
+    const [tabIsLoading, setTabIsLoading] = useState(false)
+    const [tabError, setTabError] = useState<string | null>(null)
+    
+    // Tab-specific edit state
+    const [tabIsEditing, setTabIsEditing] = useState(false)
+    const [tabOriginalData, setTabOriginalData] = useState<any>(null)
+    const [tabQuestion, setTabQuestion] = useState('')
+    const [tabSqlQuery, setTabSqlQuery] = useState<string | null>(null)
+    const [tabOutputMode, setTabOutputMode] = useState('table')
+    const [tabSaveStatus, setTabSaveStatus] = useState<null | "success" | "error" | "saving">(null)
+    const [tabCurrentTitle, setTabCurrentTitle] = useState(query?.title || query?.queryText || 'Saved Query')
+    const [tabShowSql, setTabShowSql] = useState(false)
+
+    // Ref for textarea focus
+    const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+    // Callback to update tab title and refresh history panel
+    const handleQueryUpdated = useCallback((updatedQuery: any) => {
+      // Update the tab title
+      setTabs(prev => prev.map(tab => 
+        tab.id === `saved-query-${query.id}` 
+          ? { ...tab, title: updatedQuery.title || updatedQuery.queryText || 'Saved Query' }
+          : tab
+      ))
+      
+      // Update the current title state
+      setTabCurrentTitle(updatedQuery.title || updatedQuery.queryText || 'Saved Query')
+      
+      // Force refresh of history panel by triggering a re-render
+      // This will cause the HistoryPanel to reload its queries
+      const event = new CustomEvent('queryUpdated', { detail: { queryId: query.id } })
+      window.dispatchEvent(event)
+    }, [query.id])
+
+    useEffect(() => {
+      const loadSavedQueryData = async () => {
+        if (!query?.id) return
+        
+        setTabIsLoading(true)
+        setTabError(null)
+        
+        try {
+          const resultRes = await fetch('/api/query', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              action: 'fetchSaved',
+              id: query.id
+            }),
+          })
+          
+          const result = await resultRes.json()
+          if (!resultRes.ok) throw new Error(result.error || 'Failed to load saved results')
+          
+          setTabQueryResults(result.data || [])
+          setTabColumns(result.columns || [])
+          setTabQuestion(result.question || '')
+          setTabSqlQuery(result.sql || '')
+          setTabOutputMode(result.outputMode || 'table')
+          setTabCurrentTitle(result.title || result.question || 'Saved Query')
+          
+          // Store original data for edit mode
+          setTabOriginalData({
+            question: result.question,
+            sql: result.sql,
+            outputMode: result.outputMode,
+            data: result.data,
+            columns: result.columns
+          })
+        } catch (err: any) {
+          console.error('Error loading saved query:', err)
+          setTabError(err.message || 'Failed to load saved query')
+        } finally {
+          setTabIsLoading(false)
+        }
+      }
+
+      loadSavedQueryData()
+    }, [query?.id])
+
+    // Initialize tabQuestion when entering edit mode
+    useEffect(() => {
+      if (tabIsEditing && query?.queryText && !tabQuestion) {
+        setTabQuestion(query.queryText)
+      }
+    }, [tabIsEditing, query?.queryText])
+
+    // Focus textarea when entering edit mode
+    useEffect(() => {
+      if (tabIsEditing && textareaRef.current) {
+        setTimeout(() => {
+          textareaRef.current?.focus()
+        }, 100)
+      }
+    }, [tabIsEditing])
+
+    // Tab-specific edit functions
+    const handleTabEdit = useCallback(() => {
+      setTabIsEditing(true)
+    }, [])
+
+    const handleTabSearch = useCallback(async () => {
+      if (!tabQuestion) return
+      
+      setTabIsLoading(true)
+      setTabError(null)
+
+      try {
+        const res = await fetch('/api/generate-sql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: tabQuestion }),
+        })
+
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Server error')
+
+        setTabSqlQuery(data.sql)
+
+        const resultRes = await fetch('/api/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            question: tabQuestion || 'Query',
+            sql: data.sql,
+            outputMode: tabOutputMode,
+            columns: [{ key: 'id', name: 'ID' }]
+          }),
+        })
+
+        const result = await resultRes.json()
+        if (!resultRes.ok) throw new Error(result.error || 'Query execution error')
+
+        setTabQueryResults(result.data || [])
+        setTabColumns(result.columns || [])
+      } catch (err: any) {
+        console.error(err)
+        setTabError(err.message || 'Unknown error')
+      } finally {
+        setTabIsLoading(false)
+      }
+    }, [tabQuestion, tabOutputMode])
+
+    const handleTabUpdate = useCallback(async () => {
+      if (!query?.id) return
+      
+      setTabSaveStatus("saving")
+      try {
+        const response = await fetch('/api/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'update',
+            id: query.id,
+            title: tabQuestion,
+            question: tabQuestion,
+            sql: tabSqlQuery,
+            outputMode: tabOutputMode,
+            columns: tabColumns
+          })
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Failed to update query')
+        }
+
+        setTabIsEditing(false)
+        setTabSaveStatus("success")
+        
+        // Reload the data to show updated results
+        const resultRes = await fetch('/api/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            action: 'fetchSaved',
+            id: query.id
+          }),
+        })
+        
+        const result = await resultRes.json()
+        if (resultRes.ok) {
+          setTabQueryResults(result.data || [])
+          setTabColumns(result.columns || [])
+          setTabOriginalData({
+            question: result.question,
+            sql: result.sql,
+            outputMode: result.outputMode,
+            data: result.data,
+            columns: result.columns
+          })
+          
+          // Update the current title
+          setTabCurrentTitle(result.title || result.question || 'Saved Query')
+          
+          // Notify parent components about the update
+          handleQueryUpdated({
+            id: query.id,
+            title: tabQuestion,
+            queryText: tabQuestion
+          })
+        }
+
+        setTimeout(() => setTabSaveStatus(null), 2000)
+      } catch (err: any) {
+        console.error('Error updating query:', err)
+        setTabSaveStatus("error")
+        setTimeout(() => setTabSaveStatus(null), 2000)
+      }
+    }, [query?.id, tabQuestion, tabSqlQuery, tabOutputMode, tabColumns, handleQueryUpdated])
+
+    const handleTabCancel = useCallback(() => {
+      if (tabOriginalData) {
+        setTabQuestion(tabOriginalData.question)
+        setTabSqlQuery(tabOriginalData.sql)
+        setTabOutputMode(tabOriginalData.outputMode)
+        setTabQueryResults(tabOriginalData.data)
+        setTabColumns(tabOriginalData.columns)
+      }
+      setTabIsEditing(false)
+    }, [tabOriginalData])
+
+    const handleTabDelete = useCallback(async () => {
+      if (!query?.id) return
+      
+      if (!confirm('Are you sure you want to delete this saved query?')) return
+      
+      try {
+        const response = await fetch('/api/query', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: query.id })
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to delete query')
+        }
+
+        onClose() // Close the tab after successful deletion
+      } catch (err: any) {
+        console.error('Error deleting query:', err)
+        alert('Failed to delete query: ' + err.message)
+      }
+    }, [query?.id, onClose])
+
+    const hasTabChanges = useCallback(() => {
+      if (!tabIsEditing || !tabOriginalData) return false
+      
+      return (
+        tabQuestion !== tabOriginalData.question ||
+        tabSqlQuery !== tabOriginalData.sql ||
+        tabOutputMode !== tabOriginalData.outputMode
+      )
+    }, [tabIsEditing, tabOriginalData, tabQuestion, tabSqlQuery, tabOutputMode])
+
+    const handleQuestionChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setTabQuestion(e.target.value)
+    }, [])
+
+    const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        handleTabSearch()
+      }
+    }, [handleTabSearch])
+
+    return (
+      <div className="flex flex-col h-full p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold">{tabCurrentTitle}</h2>
+          <div className="flex items-center gap-2">
+            {tabIsEditing ? (
+              <>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleTabUpdate}
+                  disabled={!tabQuestion || !tabSqlQuery || !tabOutputMode || !tabColumns.length || !tabQueryResults?.length || tabSaveStatus === "saving" || !hasTabChanges()}
+                >
+                  {tabSaveStatus === "saving" ? "Saving..." : tabSaveStatus === "success" ? "Saved!" : tabSaveStatus === "error" ? "Error" : "Update"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleTabCancel}
+                >
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleTabEdit}
+                >
+                  Edit
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleTabDelete}
+                >
+                  Delete
+                </Button>
+              </>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1 hover:bg-muted rounded"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+
+        {tabIsLoading && (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent" />
+          </div>
+        )}
+
+        {tabError && (
+          <div className="text-red-500 p-4 border border-red-200 rounded">
+            {tabError}
+          </div>
+        )}
+
+        {tabIsEditing ? (
+          // Edit mode - show query interface with same layout as Active Query
+          <div key={`edit-mode-${query?.id}`} className="flex flex-col h-full overflow-hidden">
+            <h2 className="text-xl font-semibold mb-2">Edit Query</h2>
+
+            <Textarea
+              ref={textareaRef}
+              key={`tab-edit-${query?.id}`}
+              placeholder="e.g. Show me the top 10 donors of 2024"
+              value={tabQuestion}
+              onChange={handleQuestionChange}
+              onKeyDown={handleKeyDown}
+              className="mb-2"
+            />
+
+            <div className="flex gap-2 mb-2">
+              <ToggleGroup
+                type="single"
+                value={tabOutputMode}
+                onValueChange={(value) => {
+                  if (value) setTabOutputMode(value)
+                }}
+                className="flex gap-2"
+              >
+                <ToggleGroupItem value="table" aria-label="Table View">
+                  <LayoutList className="h-4 w-4" />
+                </ToggleGroupItem>
+                <ToggleGroupItem value="chart" aria-label="Bar Chart View">
+                  <BarChart2 className="h-4 w-4" />
+                </ToggleGroupItem>
+                <ToggleGroupItem value="pie" aria-label="Pie Chart View">
+                  <PieChart className="h-4 w-4" />
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+
+            <Button 
+              className="mb-2"
+              disabled={!tabQuestion || tabIsLoading}
+              onClick={handleTabSearch}
+            >
+              {tabIsLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 mr-2 border-2 border-white border-t-transparent" />
+                  Searching...
+                </>
+              ) : (
+                "Search"
+              )}
+            </Button>
+
+            {/* Results Title */}
+            <div className="font-bold text-lg mb-2 mt-2" style={{ color: "#16a34a" }}>Results:</div>
+
+            {/* Results Panel - Scrollable */}
+            {tabQueryResults && tabQueryResults.length > 0 && tabColumns.length >= 1 && (
+              <div className="flex-1 overflow-auto bg-card border rounded p-4">
+                <div className="overflow-x-auto">
+                  {tabOutputMode === 'table' && (
+                    <TableView data={tabQueryResults} columns={tabColumns} sql={tabSqlQuery || undefined} />
+                  )}
+                  
+                  {tabOutputMode === 'chart' && (
+                    <DraggableChart
+                      data={tabQueryResults.map((row) => ({
+                        name: row.donor || row._id?.name || row[tabColumns[0]?.key] || 'Unknown',
+                        value: Number(row.totalAmount || row[tabColumns[1]?.key]) || 0,
+                      }))}
+                      height={200}
+                      type={tabOutputMode}
+                      sql={tabSqlQuery || undefined}
+                      columns={tabColumns}
+                    />
+                  )}
+                  
+                  {tabOutputMode === 'pie' && (
+                    <DraggablePieChart
+                      data={tabQueryResults.map((row) => ({
+                        name: row.donor || row._id?.name || row[tabColumns[0]?.key] || 'Unknown',
+                        value: Number(row.totalAmount || row[tabColumns[1]?.key]) || 0,
+                      }))}
+                      height={200}
+                      sql={tabSqlQuery || undefined}
+                      columns={tabColumns}
+                    />
+                  )}
+                </div>
+                
+                {/* Show/Hide SQL */}
+                {tabSqlQuery && (
+                  <div className="mt-4">
+                    <button
+                      onClick={() => setTabShowSql(!tabShowSql)}
+                      className="text-left text-sm font-semibold text-primary hover:underline focus:outline-none"
+                    >
+                      {tabShowSql ? "▼ Hide SQL" : "▶ Show SQL"}
+                    </button>
+                    {tabShowSql && (
+                      <div className="mt-1 bg-muted p-2 rounded text-sm font-mono text-muted-foreground border border-border overflow-x-auto">
+                        <pre className="whitespace-pre-wrap break-words">{tabSqlQuery}</pre>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {tabError && <div className="text-red-500 mt-2">{tabError}</div>}
+
+            {/* Action Buttons - REMOVED DUPLICATE BUTTONS */}
+          </div>
+        ) : (
+          // View mode - show results
+          <div className="flex flex-col h-full overflow-hidden">
+            {tabQueryResults && tabQueryResults.length > 0 && tabColumns.length >= 1 && (
+              <div className="flex-1 overflow-auto">
+                <TableView data={tabQueryResults} columns={tabColumns} compact />
+              </div>
+            )}
+
+            {tabQueryResults && tabQueryResults.length === 0 && (
+              <div className="flex items-center justify-center py-8 text-muted-foreground">
+                No results found
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   // if (isGlobalLoading) {
   //   return (
@@ -709,11 +1464,11 @@ export default function () {
           <div style={{ width: panelWidths.left }} className="relative transition-all duration-500 ease-in-out">
             {!collapsedPanels.left && (
               <button
-                className="absolute top-2 right-2 z-10 bg-card border border-border rounded-full p-1 hover:bg-muted transition"
+                className="absolute top-3 right-3 z-10 bg-background/80 backdrop-blur-sm border border-border/50 rounded-full p-1 hover:bg-background/90 transition-all"
                 onClick={() => togglePanel('left')}
                 title="Collapse"
               >
-                <ChevronLeft className="h-5 w-5" />
+                <ChevronLeft className="h-4 w-4" />
               </button>
             )}
             {collapsedPanels.left ? (
@@ -721,47 +1476,9 @@ export default function () {
             ) : (
                 <HistoryPanel
                   readOnlyMode={readOnlyMode}   
-                  onSelectQuery={async (q) => {
-                  setIsLoading(true);
-                  setSqlQuery(q.sql_text);
-                  const mode = Number(q.output_mode) === 2
-                      ? 'chart'
-                    : Number(q.output_mode) === 3
-                      ? 'pie'
-                    : 'table';
-                    try {
-                      const resultRes = await fetch('/api/query', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ sql: q.sql_text }),
-                    });
-                    const result = await resultRes.json();
-                    if (!resultRes.ok) throw new Error(result.error || 'Query execution error');
-                    setOutputMode(mode);
-                    setQueryResults(result.rows || []);
-                    setColumns(result.columns || []);
-                      const newViz = {
-                        id: `viz-${Date.now()}`,
-                        type: mode,
-                        title: 'Query Result',
-                        columns:
-                          mode === 'table' && result.columns
-                          ? result.columns.map((col: any) => ({ key: col.key, name: col.name }))
-                            : [],
-                        color: 'hsl(var(--chart-4))',
-                      sql: q.sql_text,
-                        data: result.rows || [], 
-                    };
-                    setAllVisualizations((prev) => [...prev, newViz]);
-                    setQuestion(q.query_text);
-                    } catch (err: any) {
-                    console.error(err);
-                    setError(err.message || 'Unknown error');
-                    } finally {                      
-                    setIsLoading(false);
-                    }
-                  }}
+                  onSelectQuery={openSavedQueryTab}
                   onSelectDashboard={handleSelectDashboard}
+                  onEditQuery={handleEditQuery}
                 />
             )}
           </div>
@@ -776,36 +1493,10 @@ export default function () {
               {collapsedPanels.middle ? (
                 renderCollapsedPanel('middle', 'Query')
               ) : (
-                <>
-                  <QueryPanel
-                    question={question}
-                    setQuestion={setQuestion}
-                    outputMode={outputMode}
-                    setOutputMode={setOutputMode}
-                    isLoading={isLoading}
-                    setIsLoading={setIsLoading}
-                    sqlQuery={sqlQuery}
-                    setSqlQuery={setSqlQuery}
-                    queryResults={queryResults}
-                    setQueryResults={setQueryResults}
-                    columns={columns}
-                    setColumns={setColumns}
-                    error={error}
-                    setError={setError}
-                    setKey={setComponentKey}
-                    key={componentKey}
-                    onSubmit={handleQuerySubmit}
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute top-2 right-2"
-                    onClick={() => togglePanel('middle')}
-                  >
-                    <ChevronLeft className="h-5 w-5" />
-                  </Button>
-                </>
-              )}
+                  <div className="relative h-full">
+                    {renderTabbedPanel()}
+                  </div>
+                )}
             </div>
           )}
 
@@ -820,16 +1511,16 @@ export default function () {
             ) : (
               <>
                 <button
-                  className="absolute top-2 left-2 z-10 bg-card border border-border rounded-full p-1 hover:bg-muted transition"
+                  className="absolute top-3 left-3 z-10 bg-background/80 backdrop-blur-sm border border-border/50 rounded-full p-1 hover:bg-background/90 transition-all"
                   onClick={() => togglePanel('right')}
                   title="Collapse"
                 >
-                  <ChevronRight className="h-5 w-5" />
+                  <ChevronRight className="h-4 w-4" />
                 </button>
                 <div className="flex-1 bg-card rounded-lg p-4 border border-border overflow-auto">
                   <input
                     type="text"
-                    value={dashboardSectionTitle}
+                    value={dashboardSectionTitle || ""}
                     onChange={(e) => setDashboardSectionTitle(e.target.value)}
                     className="text-lg font-semibold mt-1 mb-4 bg-transparent outline-none w-full text-center"
                   />
@@ -840,7 +1531,7 @@ export default function () {
                     <div className="flex flex-col">
                       <input
                         type="text"
-                        value={topLeftTitle}
+                        value={topLeftTitle || ""}
                         onChange={(e) => setTopLeftTitle(e.target.value)}
                         className="text-sm font-medium text-center mt-2 mb-2 bg-transparent outline-none w-full"
                       />
@@ -862,7 +1553,7 @@ export default function () {
                     <div className="flex flex-col">
                       <input
                         type="text"
-                        value={topRightTitle}
+                        value={topRightTitle || ""}
                         onChange={(e) => setTopRightTitle(e.target.value)}
                         className="text-sm font-medium text-center mt-2 mb-2 bg-transparent outline-none w-full"
                       />
@@ -895,7 +1586,7 @@ export default function () {
                     
                     <input
                       type="text"
-                      value={bottomTitle}
+                      value={bottomTitle || ""}
                       onChange={(e) => setBottomTitle(e.target.value)}
                       className="text-sm font-medium text-center mb-1 bg-transparent outline-none w-full"
                     />
