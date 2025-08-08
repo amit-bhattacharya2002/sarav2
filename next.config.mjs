@@ -17,6 +17,11 @@ const nextConfig = {
   poweredByHeader: false,
   compress: true,
   
+  // Font optimization settings
+  experimental: {
+    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+  },
+
   // Image optimization
   images: {
     remotePatterns: [
@@ -30,11 +35,6 @@ const nextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     formats: ['image/webp', 'image/avif'],
     minimumCacheTTL: 60,
-  },
-
-  // Performance optimizations
-  experimental: {
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
   },
 
   // Security headers
