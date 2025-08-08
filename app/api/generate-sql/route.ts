@@ -1,11 +1,34 @@
 // File: app/api/generate-sql/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { businessPrisma } from '@/lib/mysql-prisma'
+import { openai as openaiConfig, features } from '@/lib/config'
+import { rateLimiters, createRateLimitHeaders, checkRateLimit } from '@/lib/rate-limiter'
 
 export async function POST(req: NextRequest) {
   try {
+    // Apply rate limiting for AI endpoints (strict limit)
+    const rateLimitResult = checkRateLimit(req, 10, 60 * 1000) // 10 requests per minute
+    
+    if (!rateLimitResult.allowed) {
+      return new Response(
+        JSON.stringify({
+          error: 'Too Many Requests',
+          message: 'Rate limit exceeded. Please try again later.',
+          retryAfter: Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000),
+        }),
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            ...createRateLimitHeaders(rateLimitResult),
+            'Retry-After': Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000).toString(),
+          },
+        }
+      )
+    }
+
     const { default: OpenAI } = await import('openai')
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+    const openai = new OpenAI({ apiKey: openaiConfig.apiKey })
 
     const { question } = await req.json()
     if (!question) {
@@ -47,18 +70,33 @@ export async function POST(req: NextRequest) {
     const fullSystemPrompt = `${schemaText}\n\n${baseInstruction}`
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: openaiConfig.model,
       messages: [
         { role: 'system', content: fullSystemPrompt },
         { role: 'user', content: question },
       ],
-      temperature: 0,
+      temperature: openaiConfig.temperature,
+      max_tokens: openaiConfig.maxTokens,
     })
 
     const sqlQuery = completion.choices[0].message.content?.trim() || ''
-    return NextResponse.json({ sql: sqlQuery })
+    
+    // Add rate limit headers to successful response
+    const response = NextResponse.json({ sql: sqlQuery })
+    const headers = createRateLimitHeaders(rateLimitResult)
+    Object.entries(headers).forEach(([key, value]) => {
+      response.headers.set(key, value)
+    })
+    
+    return response
   } catch (error: any) {
     console.error('[SQL_GEN_ERROR]', error)
-    return NextResponse.json({ error: error.message || 'Unknown error' }, { status: 500 })
+    
+    // Don't expose detailed errors in production
+    const errorMessage = features.enableDetailedErrors 
+      ? error.message || 'Unknown error'
+      : 'An error occurred while generating SQL'
+    
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }

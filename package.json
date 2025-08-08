@@ -1,17 +1,27 @@
 {
-  "name": "my-v0-project",
-  "version": "0.1.0",
+  "name": "sara-query-assistant",
+  "version": "1.0.0",
+  "description": "SARA - Smart Analytics & Reporting Assistant for business data querying",
   "private": true,
+  "keywords": ["analytics", "reporting", "sql", "ai", "dashboard"],
+  "author": "Amit Bhattacharya",
+  "license": "MIT",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "lint:fix": "next lint --fix",
+    "type-check": "tsc --noEmit",
+    "build:analyze": "ANALYZE=true npm run build",
+    "preview": "npm run build && npm run start",
+    "clean": "rm -rf .next out dist",
     "db:generate": "prisma generate --schema=prisma/auth-schema.prisma && prisma generate --schema=prisma/business-schema.prisma",
     "db:push:auth": "prisma db push --schema=prisma/auth-schema.prisma",
     "db:push:business": "prisma db push --schema=prisma/business-schema.prisma",
     "db:studio:auth": "prisma studio --schema=prisma/auth-schema.prisma",
-    "db:studio:business": "prisma studio --schema=prisma/business-schema.prisma"
+    "db:studio:business": "prisma studio --schema=prisma/business-schema.prisma",
+    "postinstall": "npm run db:generate"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
@@ -83,5 +93,9 @@
     "eslint-config-next": "15.2.4",
     "postcss": "^8",
     "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   }
 }
