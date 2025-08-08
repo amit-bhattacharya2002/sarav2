@@ -20,6 +20,12 @@ const globalForBusinessPrisma = globalThis as unknown as {
 
 // Create Prisma client with proper configuration for deployment
 const createBusinessPrismaClient = () => {
+  // Set environment variables for Vercel deployment
+  if (process.env.VERCEL) {
+    process.env.PRISMA_QUERY_ENGINE_TYPE = 'binary'
+    process.env.PRISMA_QUERY_ENGINE_LIBRARY = 'binary'
+  }
+
   const client = new BusinessPrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
     errorFormat: 'pretty',

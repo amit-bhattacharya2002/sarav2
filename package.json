@@ -14,7 +14,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/setup-prisma-env.js && npm run db:generate && node scripts/setup-prisma-binaries.js && next build",
+    "build": "node scripts/vercel-build-setup.js && next build",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
@@ -26,6 +26,8 @@
     "fix-prisma": "node scripts/fix-prisma-deployment.js",
     "setup-binaries": "node scripts/setup-prisma-binaries.js",
     "test-db": "node scripts/test-database-connection.js",
+    "debug-prisma": "node scripts/debug-prisma-vercel.js",
+    "vercel-setup": "node scripts/vercel-build-setup.js",
     "deploy": "npm run pre-deploy && npx vercel --prod",
     "db:generate": "prisma generate --schema=prisma/auth-schema.prisma && prisma generate --schema=prisma/business-schema.prisma",
     "db:push:auth": "prisma db push --schema=prisma/auth-schema.prisma",

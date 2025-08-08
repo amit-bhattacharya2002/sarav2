@@ -134,23 +134,29 @@ const nextConfig = {
       config.plugins.push(
         new CopyPlugin({
           patterns: [
-            // Copy Query Engine binaries to multiple locations
+            // Copy Query Engine binaries to multiple locations for Vercel
             {
               from: 'node_modules/.prisma/client/libquery_engine-*',
               to: 'static/chunks/[name].[hash][ext]',
               noErrorOnMissing: true,
             },
+            // Copy to the exact locations Vercel expects
             {
-              from: 'node_modules/.prisma/client/libquery_engine-*',
-              to: 'node_modules/.prisma/business-client/[name].[ext]',
+              from: 'node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
+              to: 'node_modules/.prisma/business-client/libquery_engine-rhel-openssl-3.0.x.so.node',
               noErrorOnMissing: true,
             },
             {
-              from: 'node_modules/.prisma/client/libquery_engine-*',
-              to: 'node_modules/.prisma/auth-client/[name].[ext]',
+              from: 'node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
+              to: 'node_modules/.prisma/auth-client/libquery_engine-rhel-openssl-3.0.x.so.node',
               noErrorOnMissing: true,
             },
-            // Copy the entire Prisma client directory
+            {
+              from: 'node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
+              to: 'node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
+              noErrorOnMissing: true,
+            },
+            // Copy entire Prisma client directories
             {
               from: 'node_modules/.prisma/client',
               to: 'node_modules/.prisma/client',
@@ -164,6 +170,22 @@ const nextConfig = {
             {
               from: 'node_modules/.prisma/auth-client',
               to: 'node_modules/.prisma/auth-client',
+              noErrorOnMissing: true,
+            },
+            // Copy to Vercel's expected locations
+            {
+              from: 'node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
+              to: '.next/server/node_modules/.prisma/business-client/libquery_engine-rhel-openssl-3.0.x.so.node',
+              noErrorOnMissing: true,
+            },
+            {
+              from: 'node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
+              to: '.next/server/node_modules/.prisma/auth-client/libquery_engine-rhel-openssl-3.0.x.so.node',
+              noErrorOnMissing: true,
+            },
+            {
+              from: 'node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
+              to: '.next/server/node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
               noErrorOnMissing: true,
             },
           ],

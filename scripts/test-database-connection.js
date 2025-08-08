@@ -1,6 +1,21 @@
 #!/usr/bin/env node
 
 const mysql = require('mysql2/promise');
+const path = require('path');
+const fs = require('fs');
+
+// Load .env file manually
+const envPath = path.join(__dirname, '../.env');
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, 'utf8');
+  envContent.split('\n').forEach(line => {
+    const [key, ...valueParts] = line.split('=');
+    if (key && valueParts.length > 0) {
+      const value = valueParts.join('=').replace(/^["']|["']$/g, ''); // Remove quotes
+      process.env[key.trim()] = value.trim();
+    }
+  });
+}
 
 console.log('🔍 Testing database connection...');
 

@@ -43,17 +43,17 @@
       "static/chunks/main-app-acb6d6c8f3c61511.js",
       "static/chunks/app/api/query/route-5c32334c6f2e4713.js"
     ],
-    "/page": [
-      "static/chunks/webpack-c122dbc8d9387e6f.js",
-      "static/chunks/vendors-2dba2b4f5b46e2dc.js",
-      "static/chunks/main-app-acb6d6c8f3c61511.js",
-      "static/chunks/app/page-4e97e32bfbb14d98.js"
-    ],
     "/dashboard/page": [
       "static/chunks/webpack-c122dbc8d9387e6f.js",
       "static/chunks/vendors-2dba2b4f5b46e2dc.js",
       "static/chunks/main-app-acb6d6c8f3c61511.js",
       "static/chunks/app/dashboard/page-4ede265457a33703.js"
+    ],
+    "/page": [
+      "static/chunks/webpack-c122dbc8d9387e6f.js",
+      "static/chunks/vendors-2dba2b4f5b46e2dc.js",
+      "static/chunks/main-app-acb6d6c8f3c61511.js",
+      "static/chunks/app/page-4e97e32bfbb14d98.js"
     ]
   }
 }
