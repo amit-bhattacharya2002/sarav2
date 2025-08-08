@@ -11,7 +11,6 @@ const nextConfig = {
   },
   
   // Optimize for Vercel deployment
-  swcMinify: true,
   poweredByHeader: false,
   compress: true,
   
@@ -33,20 +32,6 @@ const nextConfig = {
   // Performance optimizations
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
-    turbo: {
-      rules: {
-        '*.svg': {
-          loaders: ['@svgr/webpack'],
-          as: '*.js',
-        },
-      },
-    },
-  },
-
-  // Environment variables validation
-  env: {
-    NODE_ENV: process.env.NODE_ENV,
-    VERCEL_ENV: process.env.VERCEL_ENV,
   },
 
   // Security headers
@@ -96,15 +81,8 @@ const nextConfig = {
     ]
   },
 
-  // Bundle analyzer (only in development)
-  ...(process.env.ANALYZE === 'true' && {
-    experimental: {
-      bundlePagesRouterDependencies: true,
-    },
-  }),
-
   // Webpack configuration for optimizations
-  webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
+  webpack: (config, { buildId, dev, isServer, webpack }) => {
     // Optimize bundles
     if (!dev && !isServer) {
       config.optimization.splitChunks = {

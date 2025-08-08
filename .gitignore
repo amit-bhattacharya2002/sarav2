@@ -144,5 +144,4 @@ prisma/dev.db*
 next-env.d.ts
 
 # NPM
-package-lock.json
 .npmrc.local

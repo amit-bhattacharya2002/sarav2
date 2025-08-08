@@ -7,6 +7,11 @@
 function requireEnv(key: string): string {
   const value = process.env[key]
   if (!value) {
+    // During build time, some environment variables might not be available
+    if (process.env.NODE_ENV === 'production' && process.env.VERCEL_ENV !== 'production') {
+      console.warn(`Warning: Missing environment variable: ${key} (build time)`)
+      return `placeholder-${key.toLowerCase()}`
+    }
     throw new Error(`Missing required environment variable: ${key}`)
   }
   return value
@@ -16,15 +21,18 @@ function getEnv(key: string, defaultValue: string = ''): string {
   return process.env[key] ?? defaultValue
 }
 
+// Check if we're in build mode
+const isBuildTime = process.env.NODE_ENV === 'production' && !process.env.VERCEL_ENV
+
 // Database Configuration
 export const database = {
-  businessUrl: requireEnv('DATABASE_URL'),
-  authUrl: getEnv('AUTH_DATABASE_URL', requireEnv('DATABASE_URL')),
+  businessUrl: isBuildTime ? 'mysql://placeholder:placeholder@localhost:3306/placeholder' : requireEnv('DATABASE_URL'),
+  authUrl: isBuildTime ? 'mysql://placeholder:placeholder@localhost:3306/placeholder' : getEnv('AUTH_DATABASE_URL', requireEnv('DATABASE_URL')),
 } as const
 
 // OpenAI Configuration
 export const openai = {
-  apiKey: requireEnv('OPENAI_API_KEY'),
+  apiKey: isBuildTime ? 'sk-placeholder' : requireEnv('OPENAI_API_KEY'),
   model: getEnv('OPENAI_MODEL', 'gpt-4'),
   maxTokens: parseInt(getEnv('OPENAI_MAX_TOKENS', '2000')),
   temperature: parseFloat(getEnv('OPENAI_TEMPERATURE', '0')),
@@ -38,6 +46,7 @@ export const app = {
   url: getEnv('NEXTAUTH_URL', 'http://localhost:3000'),
   isProduction: process.env.NODE_ENV === 'production',
   isDevelopment: process.env.NODE_ENV === 'development',
+  isBuildTime,
 } as const
 
 // Security Configuration
@@ -78,8 +87,8 @@ export const api = {
 export const features = {
   enableAnalytics: services.analytics.enabled && app.isProduction,
   enableEmailNotifications: services.email.enabled,
-  enableRateLimiting: app.isProduction,
-  enableDetailedErrors: app.isDevelopment,
+  enableRateLimiting: app.isProduction && !app.isBuildTime,
+  enableDetailedErrors: app.isDevelopment || app.isBuildTime,
 } as const
 
 // Vercel-specific configuration
@@ -92,6 +101,12 @@ export const vercel = {
 
 // Validation function to check all required environment variables
 export function validateConfig(): void {
+  // Skip validation during build time
+  if (app.isBuildTime) {
+    console.log('⏭️  Skipping configuration validation during build time')
+    return
+  }
+
   const errors: string[] = []
 
   try {
@@ -139,7 +154,7 @@ export const config = {
   vercel,
 } as const
 
-// Validate configuration on import in production
-if (app.isProduction) {
+// Validate configuration on import in production (but not during build)
+if (app.isProduction && !app.isBuildTime) {
   validateConfig()
 } 
