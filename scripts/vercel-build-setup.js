@@ -34,16 +34,19 @@ try {
     
     console.log(`🔍 Found ${queryEngineFiles.length} Query Engine binary(ies):`, queryEngineFiles);
 
-    // Copy to business-client directory
-    queryEngineFiles.forEach(file => {
-      const sourcePath = path.join(prismaClientPath, file);
-      const targetPath = path.join(clientPath, file);
+    // Only copy the Linux binary for Vercel deployment
+    const linuxBinary = 'libquery_engine-rhel-openssl-3.0.x.so.node';
+    if (queryEngineFiles.includes(linuxBinary)) {
+      const sourcePath = path.join(prismaClientPath, linuxBinary);
+      const targetPath = path.join(clientPath, linuxBinary);
       
       if (!fs.existsSync(targetPath)) {
-        console.log(`📋 Copying ${file} to client...`);
+        console.log(`📋 Copying ${linuxBinary} to client...`);
         fs.copyFileSync(sourcePath, targetPath);
       }
-    });
+    } else {
+      console.log(`⚠️  Linux binary ${linuxBinary} not found, skipping copy`);
+    }
   }
 
   // Create .next directory structure for Vercel

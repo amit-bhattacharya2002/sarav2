@@ -128,10 +128,7 @@ const nextConfig = {
             {
               from: 'node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
               to: 'node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
-            },
-            {
-              from: 'node_modules/.prisma/client/libquery_engine-darwin-arm64.dylib.node',
-              to: 'node_modules/.prisma/client/libquery_engine-darwin-arm64.dylib.node',
+              noErrorOnMissing: true,
             },
           ],
         })
