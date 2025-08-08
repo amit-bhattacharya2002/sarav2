@@ -34,7 +34,7 @@
     "db:push:business": "prisma db push --schema=prisma/business-schema.prisma",
     "db:studio:auth": "prisma studio --schema=prisma/auth-schema.prisma",
     "db:studio:business": "prisma studio --schema=prisma/business-schema.prisma",
-    "postinstall": "npm run db:generate"
+    "postinstall": "prisma generate --schema=prisma/auth-schema.prisma && prisma generate --schema=prisma/business-schema.prisma"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
