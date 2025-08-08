@@ -10,6 +10,11 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   
+  // Optimize for Vercel deployment
+  swcMinify: true,
+  poweredByHeader: false,
+  compress: true,
+  
   // Image optimization
   images: {
     remotePatterns: [
@@ -21,16 +26,27 @@ const nextConfig = {
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    formats: ['image/webp', 'image/avif'],
+    minimumCacheTTL: 60,
   },
 
   // Performance optimizations
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+    turbo: {
+      rules: {
+        '*.svg': {
+          loaders: ['@svgr/webpack'],
+          as: '*.js',
+        },
+      },
+    },
   },
 
   // Environment variables validation
   env: {
     NODE_ENV: process.env.NODE_ENV,
+    VERCEL_ENV: process.env.VERCEL_ENV,
   },
 
   // Security headers
@@ -54,6 +70,19 @@ const nextConfig = {
           {
             key: 'X-XSS-Protection',
             value: '1; mode=block',
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=()',
+          },
+        ],
+      },
+      {
+        source: '/api/(.*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
           },
         ],
       },
@@ -86,9 +115,21 @@ const nextConfig = {
             name: 'vendors',
             chunks: 'all',
           },
+          common: {
+            name: 'common',
+            minChunks: 2,
+            priority: -10,
+            reuseExistingChunk: true,
+          },
         },
       }
     }
+
+    // Handle SVG imports
+    config.module.rules.push({
+      test: /\.svg$/,
+      use: ['@svgr/webpack'],
+    })
 
     return config
   },
