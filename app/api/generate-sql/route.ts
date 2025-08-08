@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Runtime validation of required environment variables
-    if (!process.env.OPENAI_API_KEY || !process.env.DATABASE_URL) {
+    if (!process.env.OPENAI_API_KEY || !process.env.BUSINESS_DATABASE_URL) {
       return NextResponse.json({ 
         error: 'Service configuration error',
         message: 'Required environment variables are not configured'

@@ -7,7 +7,7 @@
 const isBuildTime = process.env.NODE_ENV === 'production' && (
   !process.env.VERCEL_ENV || 
   process.env.VERCEL_ENV === 'preview' || 
-  typeof window === 'undefined' && !process.env.DATABASE_URL
+  typeof window === 'undefined' && !process.env.BUSINESS_DATABASE_URL
 )
 
 // Environment validation helper
@@ -33,8 +33,8 @@ function getEnv(key: string, defaultValue: string = ''): string {
 
 // Database Configuration
 export const database = {
-  businessUrl: isBuildTime ? 'mysql://placeholder:placeholder@localhost:3306/placeholder' : requireEnv('DATABASE_URL'),
-  authUrl: isBuildTime ? 'mysql://placeholder:placeholder@localhost:3306/placeholder' : getEnv('AUTH_DATABASE_URL', requireEnv('DATABASE_URL')),
+  businessUrl: isBuildTime ? 'mysql://placeholder:placeholder@localhost:3306/placeholder' : requireEnv('BUSINESS_DATABASE_URL'),
+  authUrl: isBuildTime ? 'mysql://placeholder:placeholder@localhost:3306/placeholder' : getEnv('AUTH_DATABASE_URL', requireEnv('BUSINESS_DATABASE_URL')),
 } as const
 
 // OpenAI Configuration
@@ -117,11 +117,11 @@ export function validateConfig(): void {
   const errors: string[] = []
 
   try {
-    if (!process.env.DATABASE_URL) {
-      errors.push('DATABASE_URL is required')
+    if (!process.env.BUSINESS_DATABASE_URL) {
+      errors.push('BUSINESS_DATABASE_URL is required')
     }
   } catch (e) {
-    errors.push('DATABASE_URL is required')
+    errors.push('BUSINESS_DATABASE_URL is required')
   }
 
   try {

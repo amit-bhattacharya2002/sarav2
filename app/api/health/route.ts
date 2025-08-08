@@ -58,10 +58,10 @@ export async function GET(req: NextRequest) {
 async function checkDatabase() {
   try {
     // Runtime check for database URL
-    if (!process.env.DATABASE_URL || process.env.DATABASE_URL.includes('placeholder')) {
+    if (!process.env.BUSINESS_DATABASE_URL || process.env.BUSINESS_DATABASE_URL.includes('placeholder')) {
       return {
         status: 'error',
-        message: 'Database URL not configured',
+        message: 'Business Database URL not configured',
       }
     }
 

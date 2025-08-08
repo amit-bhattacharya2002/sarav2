@@ -42,7 +42,7 @@ cp env.template .env.local
 
 ```env
 # Database (MySQL)
-DATABASE_URL="mysql://username:password@host:port/database"
+BUSINESS_DATABASE_URL="mysql://username:password@host:port/database"
 
 # OpenAI API
 OPENAI_API_KEY="sk-your-openai-api-key"
@@ -97,13 +97,13 @@ vercel
 
 ### Required Variables
 
-| Variable          | Description             | Example                          |
-| ----------------- | ----------------------- | -------------------------------- |
-| `DATABASE_URL`    | MySQL connection string | `mysql://user:pass@host:3306/db` |
-| `OPENAI_API_KEY`  | OpenAI API key          | `sk-...`                         |
-| `NEXTAUTH_SECRET` | NextAuth.js secret      | Random 32+ char string           |
-| `JWT_SECRET`      | JWT signing secret      | Random 32+ char string           |
-| `NEXTAUTH_URL`    | Production URL          | `https://your-app.vercel.app`    |
+| Variable                | Description             | Example                          |
+| ----------------------- | ----------------------- | -------------------------------- |
+| `BUSINESS_DATABASE_URL` | MySQL connection string | `mysql://user:pass@host:3306/db` |
+| `OPENAI_API_KEY`        | OpenAI API key          | `sk-...`                         |
+| `NEXTAUTH_SECRET`       | NextAuth.js secret      | Random 32+ char string           |
+| `JWT_SECRET`            | JWT signing secret      | Random 32+ char string           |
+| `NEXTAUTH_URL`          | Production URL          | `https://your-app.vercel.app`    |
 
 ### Optional Variables
 
