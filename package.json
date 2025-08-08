@@ -25,6 +25,7 @@
     "pre-deploy": "node scripts/pre-deploy.js",
     "fix-prisma": "node scripts/fix-prisma-deployment.js",
     "setup-binaries": "node scripts/setup-prisma-binaries.js",
+    "test-db": "node scripts/test-database-connection.js",
     "deploy": "npm run pre-deploy && npx vercel --prod",
     "db:generate": "prisma generate --schema=prisma/auth-schema.prisma && prisma generate --schema=prisma/business-schema.prisma",
     "db:push:auth": "prisma db push --schema=prisma/auth-schema.prisma",
