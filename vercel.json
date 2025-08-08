@@ -1,8 +1,8 @@
 {
-  "buildCommand": "npm ci && npm run build",
   "outputDirectory": ".next",
   "framework": "nextjs",
-  "installCommand": "npm ci --production=false",
+  "installCommand": "npm ci",
+  "buildCommand": "npm run build",
   "devCommand": "npm run dev",
   "regions": ["iad1"],
   "functions": {
