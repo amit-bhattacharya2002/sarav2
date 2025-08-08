@@ -2,8 +2,9 @@
 // This file contains models for user authentication and application data
 
 generator authClient {
-    provider = "prisma-client-js"
-    output   = "../node_modules/.prisma/auth-client"
+    provider      = "prisma-client-js"
+    output        = "../node_modules/.prisma/auth-client"
+    binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource authDb {

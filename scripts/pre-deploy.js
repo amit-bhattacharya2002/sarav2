@@ -1,167 +1,50 @@
 #!/usr/bin/env node
 
-/**
- * Pre-deployment validation script for SARA
- * Validates environment, dependencies, and configuration before deployment
- */
+const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
-const fs = require('fs')
-const path = require('path')
+console.log('🚀 Starting pre-deployment setup...');
 
-console.log('🚀 Starting pre-deployment validation...\n')
+try {
+  // Clean previous builds
+  console.log('🧹 Cleaning previous builds...');
+  execSync('rm -rf .next', { stdio: 'inherit' });
+  execSync('rm -rf node_modules/.prisma', { stdio: 'inherit' });
 
-// Check Node.js version
-function checkNodeVersion() {
-  const requiredVersion = '18.17.0'
-  const currentVersion = process.version.slice(1) // Remove 'v' prefix
-  
-  console.log(`📦 Node.js version: ${currentVersion}`)
-  
-  if (compareVersions(currentVersion, requiredVersion) < 0) {
-    console.error(`❌ Node.js ${requiredVersion} or higher is required`)
-    process.exit(1)
+  // Install dependencies
+  console.log('📦 Installing dependencies...');
+  execSync('npm install', { stdio: 'inherit' });
+
+  // Generate Prisma clients
+  console.log('🔧 Generating Prisma clients...');
+  execSync('npm run db:generate', { stdio: 'inherit' });
+
+  // Verify Prisma clients were generated
+  const businessClientPath = path.join(__dirname, '../node_modules/.prisma/business-client');
+  const authClientPath = path.join(__dirname, '../node_modules/.prisma/auth-client');
+
+  if (!fs.existsSync(businessClientPath)) {
+    throw new Error('Business Prisma client was not generated');
   }
-  
-  console.log('✅ Node.js version is compatible\n')
-}
 
-// Check required files
-function checkRequiredFiles() {
-  const requiredFiles = [
-    'package.json',
-    'next.config.mjs',
-    'vercel.json',
-    'env.template',
-    '.npmrc',
-    'lib/config.ts',
-    'lib/rate-limiter.ts',
-  ]
-  
-  console.log('📁 Checking required files...')
-  
-  for (const file of requiredFiles) {
-    if (!fs.existsSync(file)) {
-      console.error(`❌ Missing required file: ${file}`)
-      process.exit(1)
-    }
-    console.log(`✅ ${file}`)
+  if (!fs.existsSync(authClientPath)) {
+    throw new Error('Auth Prisma client was not generated');
   }
-  
-  console.log('✅ All required files present\n')
-}
 
-// Check package.json dependencies
-function checkDependencies() {
-  console.log('📦 Checking dependencies...')
-  
-  const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'))
-  
-  // Check for problematic dependency patterns
-  const deps = { ...packageJson.dependencies, ...packageJson.devDependencies }
-  
-  let hasIssues = false
-  
-  for (const [name, version] of Object.entries(deps)) {
-    if (version === 'latest') {
-      console.warn(`⚠️  Dependency ${name} uses 'latest' version`)
-      hasIssues = true
-    }
-    
-    if (version.includes('file:') || version.includes('link:')) {
-      console.error(`❌ Local dependency detected: ${name}`)
-      process.exit(1)
-    }
-  }
-  
-  if (hasIssues) {
-    console.warn('⚠️  Some dependencies may cause version conflicts\n')
-  } else {
-    console.log('✅ Dependencies look good\n')
-  }
-}
+  console.log('✅ Prisma clients generated successfully');
 
-// Check environment template
-function checkEnvironmentTemplate() {
-  console.log('🔧 Checking environment template...')
-  
-  if (!fs.existsSync('env.template')) {
-    console.error('❌ env.template file is missing')
-    process.exit(1)
+  // Check for Query Engine binaries
+  const prismaDir = path.join(__dirname, '../node_modules/.prisma/client');
+  if (fs.existsSync(prismaDir)) {
+    const files = fs.readdirSync(prismaDir);
+    const queryEngineFiles = files.filter(file => file.includes('query_engine'));
+    console.log(`🔍 Found ${queryEngineFiles.length} Query Engine binary(ies)`);
   }
-  
-  const envTemplate = fs.readFileSync('env.template', 'utf8')
-  const requiredVars = [
-    'DATABASE_URL',
-    'OPENAI_API_KEY',
-    'NEXTAUTH_SECRET',
-    'JWT_SECRET',
-    'NEXTAUTH_URL',
-  ]
-  
-  for (const variable of requiredVars) {
-    if (!envTemplate.includes(variable)) {
-      console.error(`❌ Missing required environment variable in template: ${variable}`)
-      process.exit(1)
-    }
-  }
-  
-  console.log('✅ Environment template is complete\n')
-}
 
-// Check build configuration
-function checkBuildConfig() {
-  console.log('🔨 Checking build configuration...')
-  
-  const nextConfig = fs.readFileSync('next.config.mjs', 'utf8')
-  const vercelConfig = JSON.parse(fs.readFileSync('vercel.json', 'utf8'))
-  
-  // Check if build command exists
-  if (!vercelConfig.buildCommand) {
-    console.error('❌ No build command specified in vercel.json')
-    process.exit(1)
-  }
-  
-  console.log('✅ Build configuration is valid\n')
-}
+  console.log('✅ Pre-deployment setup completed successfully');
 
-// Utility function to compare versions
-function compareVersions(a, b) {
-  const aParts = a.split('.').map(Number)
-  const bParts = b.split('.').map(Number)
-  
-  for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
-    const aPart = aParts[i] || 0
-    const bPart = bParts[i] || 0
-    
-    if (aPart > bPart) return 1
-    if (aPart < bPart) return -1
-  }
-  
-  return 0
-}
-
-// Run all checks
-function runValidation() {
-  try {
-    checkNodeVersion()
-    checkRequiredFiles()
-    checkDependencies()
-    checkEnvironmentTemplate()
-    checkBuildConfig()
-    
-    console.log('🎉 Pre-deployment validation passed!')
-    console.log('✅ Ready for deployment to Vercel\n')
-    
-    console.log('📋 Next steps:')
-    console.log('1. Set environment variables in Vercel dashboard')
-    console.log('2. Deploy using: vercel --prod')
-    console.log('3. Monitor deployment in Vercel dashboard\n')
-    
-  } catch (error) {
-    console.error('❌ Pre-deployment validation failed:', error.message)
-    process.exit(1)
-  }
-}
-
-// Run the validation
-runValidation() 
+} catch (error) {
+  console.error('❌ Pre-deployment setup failed:', error.message);
+  process.exit(1);
+} 

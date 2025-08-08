@@ -1,3 +1,5 @@
+import CopyPlugin from 'copy-webpack-plugin'
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Production-ready configurations
@@ -108,6 +110,38 @@ const nextConfig = {
       test: /\.svg$/,
       use: ['@svgr/webpack'],
     })
+
+    // Handle Prisma Query Engine binaries
+    if (isServer) {
+      config.externals = config.externals || []
+      config.externals.push({
+        'prisma-client-js': 'commonjs prisma-client-js',
+      })
+    }
+
+    // Handle Prisma binary files
+    config.module.rules.push({
+      test: /\.(node|so)$/,
+      type: 'asset/resource',
+      generator: {
+        filename: 'static/chunks/[name].[hash][ext]',
+      },
+    })
+
+    // Ensure Prisma binaries are copied to the output
+    if (!dev) {
+      config.plugins.push(
+        new CopyPlugin({
+          patterns: [
+            {
+              from: 'node_modules/.prisma/client/libquery_engine-*',
+              to: 'static/chunks/[name].[hash][ext]',
+              noErrorOnMissing: true,
+            },
+          ],
+        })
+      )
+    }
 
     return config
   },

@@ -4,13 +4,14 @@
 // Schema matches existing database structure
 
 generator client {
-    provider = "prisma-client-js"
-    output   = "../node_modules/.prisma/business-client"
+    provider      = "prisma-client-js"
+    output        = "../node_modules/.prisma/business-client"
+    binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
     provider = "mysql"
-    url      = env("MYSQL_WRITE_DATABASE_URL")
+    url      = env("BUSINESS_DATABASE_URL")
 }
 
 // Main business data models - READ ONLY ACCESS
