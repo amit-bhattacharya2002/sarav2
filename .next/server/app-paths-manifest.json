@@ -1,7 +1,7 @@
 {
   "/api/dashboard/route": "app/api/dashboard/route.js",
-  "/_not-found/page": "app/_not-found/page.js",
   "/api/generate-sql/route": "app/api/generate-sql/route.js",
+  "/_not-found/page": "app/_not-found/page.js",
   "/api/health/route": "app/api/health/route.js",
   "/api/saved-queries/route": "app/api/saved-queries/route.js",
   "/api/query/route": "app/api/query/route.js",

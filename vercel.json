@@ -54,5 +54,10 @@
       "path": "/api/health",
       "schedule": "0 0 * * *"
     }
-  ]
+  ],
+  "build": {
+    "env": {
+      "PRISMA_QUERY_ENGINE_TYPE": "binary"
+    }
+  }
 } 

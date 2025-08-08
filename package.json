@@ -14,7 +14,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/setup-prisma-env.js && npm run db:generate && next build",
+    "build": "node scripts/setup-prisma-env.js && npm run db:generate && node scripts/setup-prisma-binaries.js && next build",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
@@ -24,6 +24,7 @@
     "clean": "rm -rf .next out dist",
     "pre-deploy": "node scripts/pre-deploy.js",
     "fix-prisma": "node scripts/fix-prisma-deployment.js",
+    "setup-binaries": "node scripts/setup-prisma-binaries.js",
     "deploy": "npm run pre-deploy && npx vercel --prod",
     "db:generate": "prisma generate --schema=prisma/auth-schema.prisma && prisma generate --schema=prisma/business-schema.prisma",
     "db:push:auth": "prisma db push --schema=prisma/auth-schema.prisma",

@@ -1,4 +1,5 @@
 import CopyPlugin from 'copy-webpack-plugin'
+import path from 'path'
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -133,9 +134,36 @@ const nextConfig = {
       config.plugins.push(
         new CopyPlugin({
           patterns: [
+            // Copy Query Engine binaries to multiple locations
             {
               from: 'node_modules/.prisma/client/libquery_engine-*',
               to: 'static/chunks/[name].[hash][ext]',
+              noErrorOnMissing: true,
+            },
+            {
+              from: 'node_modules/.prisma/client/libquery_engine-*',
+              to: 'node_modules/.prisma/business-client/[name].[ext]',
+              noErrorOnMissing: true,
+            },
+            {
+              from: 'node_modules/.prisma/client/libquery_engine-*',
+              to: 'node_modules/.prisma/auth-client/[name].[ext]',
+              noErrorOnMissing: true,
+            },
+            // Copy the entire Prisma client directory
+            {
+              from: 'node_modules/.prisma/client',
+              to: 'node_modules/.prisma/client',
+              noErrorOnMissing: true,
+            },
+            {
+              from: 'node_modules/.prisma/business-client',
+              to: 'node_modules/.prisma/business-client',
+              noErrorOnMissing: true,
+            },
+            {
+              from: 'node_modules/.prisma/auth-client',
+              to: 'node_modules/.prisma/auth-client',
               noErrorOnMissing: true,
             },
           ],

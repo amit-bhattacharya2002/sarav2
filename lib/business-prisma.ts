@@ -37,6 +37,9 @@ const createBusinessPrismaClient = () => {
   return client
 }
 
-export const businessPrisma = globalForBusinessPrisma.businessPrisma ?? createBusinessPrismaClient()
+// Create a singleton instance
+const businessPrisma = globalForBusinessPrisma.businessPrisma ?? createBusinessPrismaClient()
 
-if (process.env.NODE_ENV !== 'production') globalForBusinessPrisma.businessPrisma = businessPrisma 
+if (process.env.NODE_ENV !== 'production') globalForBusinessPrisma.businessPrisma = businessPrisma
+
+export { businessPrisma } 

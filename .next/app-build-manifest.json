@@ -12,18 +12,18 @@
       "static/chunks/main-app-acb6d6c8f3c61511.js",
       "static/chunks/app/api/dashboard/route-5c32334c6f2e4713.js"
     ],
+    "/api/generate-sql/route": [
+      "static/chunks/webpack-c122dbc8d9387e6f.js",
+      "static/chunks/vendors-2dba2b4f5b46e2dc.js",
+      "static/chunks/main-app-acb6d6c8f3c61511.js",
+      "static/chunks/app/api/generate-sql/route-5c32334c6f2e4713.js"
+    ],
     "/layout": [
       "static/chunks/webpack-c122dbc8d9387e6f.js",
       "static/chunks/vendors-2dba2b4f5b46e2dc.js",
       "static/chunks/main-app-acb6d6c8f3c61511.js",
       "static/css/2df225400753c8a1.css",
       "static/chunks/app/layout-f1eea061a6504b51.js"
-    ],
-    "/api/generate-sql/route": [
-      "static/chunks/webpack-c122dbc8d9387e6f.js",
-      "static/chunks/vendors-2dba2b4f5b46e2dc.js",
-      "static/chunks/main-app-acb6d6c8f3c61511.js",
-      "static/chunks/app/api/generate-sql/route-5c32334c6f2e4713.js"
     ],
     "/api/health/route": [
       "static/chunks/webpack-c122dbc8d9387e6f.js",
