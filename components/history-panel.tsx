@@ -154,7 +154,7 @@ export function HistoryPanel({
       <div className="bg-card p-4 border-b border-border flex flex-col gap-1">
         <div className="flex items-center gap-2">
           <Save className="h-5 w-5" />
-          <h2 className="text-xl font-bold px-1 py-0.5 bg-black text-white rounded" style={{ letterSpacing: "-0.5px" }}>
+          <h2 className="text-xl font-mono font-bold px-1 py-0.5 bg-black text-white rounded" style={{ letterSpacing: "-0.5px" }}>
             {readOnlyMode ? "Saved Dashboards" : "Saved"}
           </h2>
         </div>
@@ -170,7 +170,7 @@ export function HistoryPanel({
                 onChange={() => setView("queries")}
                 className="form-radio accent-white"
               />
-              <span className="text-sm font-medium">Queries</span>
+              <span className="text-sm font-mono font-medium">Queries</span>
             </label>
             <label className="flex items-center gap-1">
               <input
@@ -181,7 +181,7 @@ export function HistoryPanel({
                 onChange={() => setView("dashboards")}
                 className="form-radio accent-white"
               />
-              <span className="text-sm font-medium">Dashboards</span>
+              <span className="text-sm font-mono font-medium">Dashboards</span>
             </label>
           </div>
         )}
@@ -222,7 +222,7 @@ export function HistoryPanel({
                         className="w-full text-left"
                         onClick={() => handleQueryClick(query)}
                       >
-                        <span className="font-medium">{query.title}</span>
+                        <span className="font-mono font-medium">{query.title}</span>
                       </button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -273,7 +273,7 @@ export function HistoryPanel({
                       className="block w-full text-left p-3 rounded-md border border-border hover:bg-muted transition-colors"
                       onClick={() => router.push(`?d=${dashboard.id}`)}
                     >
-                      <span className="font-medium">{dashboard.title}</span>
+                      <span className="font-mono font-medium">{dashboard.title}</span>
                     </button>
                   ) : (
                     <div
@@ -286,7 +286,7 @@ export function HistoryPanel({
                         className="flex-1 text-left"
                         onClick={() => handleDashboardClick(dashboard)}
                       >
-                        <span className="font-medium">{dashboard.title}</span>
+                        <span className="font-mono font-medium">{dashboard.title}</span>
                       </button>
                       <button
                         className="ml-2 p-1 rounded hover:bg-accent"

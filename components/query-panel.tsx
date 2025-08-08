@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 
-import { Loader2, Save, Trash2, LayoutList, BarChart2, PieChart, X } from "lucide-react"
+import { Loader2, Save, Trash2, LayoutList, BarChart2, PieChart, X, AlertTriangle, AlertCircle, XCircle } from "lucide-react"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { TableView } from "@/components/table-view"
 import { DraggableChart } from './draggable-chart'
@@ -21,9 +21,9 @@ interface QueryPanelProps {
   setOutputMode: (value: string) => void
   isLoading: boolean
   sqlQuery: string | null
-  setSqlQuery: (value: string) => void
+  setSqlQuery: (value: string | null) => void
   queryResults: any[] | null
-  setQueryResults: (value: any[]) => void
+  setQueryResults: (value: any[] | null) => void
   columns: { key: string; name: string }[]
   setColumns: (value: { key: string; name: string }[]) => void
   error: string | null
@@ -45,9 +45,13 @@ export function QueryPanel({
   setOutputMode,
   isLoading,
   sqlQuery,
+  setSqlQuery,
   error,
+  setError,
   queryResults,
+  setQueryResults,
   columns,
+  setColumns,
   onSubmit,
   isEditingSavedQuery = false,
   handleUpdateSavedQuery,
@@ -75,6 +79,20 @@ export function QueryPanel({
     }
   }, [onSubmit])
 
+  // Clear query function
+  const handleClearQuery = useCallback(() => {
+    setQuestion('')
+    setSqlQuery(null)
+    setQueryResults(null)
+    setColumns([])
+    setError(null)
+    setShowSql(false)
+    // Focus the textarea after clearing
+    setTimeout(() => {
+      textareaRef.current?.focus()
+    }, 100)
+  }, [setQuestion, setSqlQuery, setQueryResults, setColumns, setError])
+
   
   async function handleSaveQuery() {
     setSaveStatus("saving");
@@ -96,6 +114,9 @@ export function QueryPanel({
       const data = await res.json();
       if (res.ok && data.success) {
         setSaveStatus("success");
+        // Dispatch event to refresh history panel
+        const event = new CustomEvent('queryUpdated', { detail: { action: 'saved' } });
+        window.dispatchEvent(event);
       } else {
         setSaveStatus("error");
       }
@@ -105,11 +126,53 @@ export function QueryPanel({
     setTimeout(() => setSaveStatus(null), 2000);
   }
 
+  // Function to determine error type and icon
+  const getErrorInfo = (errorMessage: string) => {
+    const lowerError = errorMessage.toLowerCase()
+    
+    if (lowerError.includes('syntax') || lowerError.includes('parse') || lowerError.includes('invalid syntax')) {
+      return {
+        type: 'syntax',
+        icon: XCircle,
+        color: 'text-red-500',
+        bgColor: 'bg-red-50 border-red-200',
+        title: 'Syntax Error',
+        description: 'There seems to be a syntax issue with your query.'
+      }
+    } else if (lowerError.includes('timeout') || lowerError.includes('connection')) {
+      return {
+        type: 'connection',
+        icon: AlertTriangle,
+        color: 'text-orange-500',
+        bgColor: 'bg-orange-50 border-orange-200',
+        title: 'Connection Error',
+        description: 'Unable to connect to the database. Please try again.'
+      }
+    } else if (lowerError.includes('not found') || lowerError.includes('does not exist') || lowerError.includes('unknown')) {
+      return {
+        type: 'notfound',
+        icon: AlertCircle,
+        color: 'text-yellow-600',
+        bgColor: 'bg-yellow-50 border-yellow-200',
+        title: 'Not Found',
+        description: 'The requested data or table could not be found.'
+      }
+    } else {
+      return {
+        type: 'general',
+        icon: AlertTriangle,
+        color: 'text-red-500',
+        bgColor: 'bg-red-50 border-red-200',
+        title: 'Query Error',
+        description: 'An error occurred while processing your query.'
+      }
+    }
+  }
 
   
   return (
     <div className="flex flex-col h-full bg-card rounded-lg shadow-md p-4 border border-border">
-      <h2 className="text-xl font-semibold mb-2">Current Query</h2>
+      <h2 className="text-xl font-mono font-semibold mb-2">Current Query</h2>
 
       <Textarea
         ref={textareaRef}
@@ -177,18 +240,17 @@ export function QueryPanel({
       </Button>
 
       {/* Results Title */}
-      <div className="font-bold text-lg mb-2 mt-2" style={{ color: "#16a34a" }}>Results:</div>
+      {/* <div className="font-mono font-bold text-lg mb-2 mt-2" style={{ color: "#16a34a" }}>Results:</div> */}
       
-
-      
-      {queryResults && queryResults.length > 0 && columns.length >= 1 && (
-        <div className="bg-card border mt-4 rounded p-4 overflow-auto" style={{ minHeight: '200px', maxWidth: '100%' }}>
-          <div className="overflow-x-auto">
+      {/* Results Area - Always visible with border */}
+      <div className="bg-card border-2 border-dashed border-muted-foreground/30 mt-4 rounded p-4 flex-1 overflow-auto mb-20" style={{ minHeight: '400px', maxHeight: '500vh' }}>
+        {queryResults && queryResults.length > 0 && columns.length >= 1 ? (
+          <div className="h-full w-full overflow-hidden">
             {outputMode === 'table' && (
-              <TableView data={queryResults} columns={columns} sql={sqlQuery || undefined} />
+              <div className="h-full w-full overflow-hidden">
+                <TableView data={queryResults} columns={columns} sql={sqlQuery || undefined} />
+              </div>
             )}
-          
-
           
             {outputMode === 'chart' && (
               <DraggableChart
@@ -215,31 +277,66 @@ export function QueryPanel({
               />
             )}
           </div>
-          
-          {/* Show/Hide SQL -- always at the bottom of the results box */}
-          {sqlQuery && (
-            <div className="mt-4">
-              <button
-                onClick={() => setShowSql(!showSql)}
-                className="text-left text-sm font-semibold text-primary hover:underline focus:outline-none"
-              >
-                {showSql ? "▼ Hide SQL" : "▶ Show SQL"}
-              </button>
-              {showSql && (
-                <div className="mt-1 bg-muted p-2 rounded text-sm font-mono text-muted-foreground border border-border overflow-x-auto">
-                  <pre className="whitespace-pre-wrap break-words">{sqlQuery}</pre>
-                </div>
-              )}
+        ) : (
+          <div className="h-full flex items-center justify-center text-muted-foreground font-mono p-8">
+            <div className="text-center">
+              <div className="text-lg mb-2">No results yet</div>
+              <div className="text-sm">Run a query to see results here</div>
             </div>
-          )}
+          </div>
+        )}
+        
+        {/* Show/Hide SQL -- always at the bottom of the results box */}
+        {sqlQuery && (
+          <div className="mt-4 border-t pt-4">
+            <button
+              onClick={() => setShowSql(!showSql)}
+              className="text-left text-sm font-mono font-semibold text-primary hover:underline focus:outline-none"
+            >
+              {showSql ? "▼ Hide SQL" : "▶ Show SQL"}
+            </button>
+            {showSql && (
+              <div className="mt-1 bg-muted p-2 rounded text-sm font-mono text-muted-foreground border border-border overflow-x-auto">
+                <pre className="whitespace-pre-wrap break-words">{sqlQuery}</pre>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {error && (
+        <div className="mt-4">
+          {(() => {
+            const errorInfo = getErrorInfo(error)
+            const IconComponent = errorInfo.icon
+            
+            return (
+              <div className={`p-4 rounded-lg border ${errorInfo.bgColor} flex items-start gap-3`}>
+                <IconComponent className={`h-5 w-5 ${errorInfo.color} flex-shrink-0 mt-0.5`} />
+                <div className="flex-1">
+                  <div className={`font-semibold ${errorInfo.color} mb-1`}>
+                    {errorInfo.title}
+                  </div>
+                  <div className="text-sm text-gray-600 mb-2">
+                    {errorInfo.description}
+                  </div>
+                  <div className="text-sm font-mono bg-white/50 p-2 rounded border text-gray-700">
+                    {error}
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setError(null)}
+                  className="h-6 w-6 p-0 hover:bg-white/50"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )
+          })()}
         </div>
       )}
-      
-
-
-
-      {error && <div className="text-red-500 mt-2">{error}</div>}
-
 
       {/* Fixed Save/Clear Button Bar */}
       <div className="absolute bottom-0 left-0 right-0 z-20 p-4 border-t bg-card flex flex-row items-center justify-between gap-2 rounded-b-lg">
@@ -308,7 +405,7 @@ export function QueryPanel({
             <Button
               variant="ghost"
               className="flex items-center gap-2"
-              // onClick={handleClearQuery}
+              onClick={handleClearQuery}
             >
               <Trash2 className="h-5 w-5" />
               <span>Clear</span>

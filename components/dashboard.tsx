@@ -1,7 +1,7 @@
 
 'use client'
 
-import { ChevronLeft, ChevronRight, Save, Filter } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Save, Filter, Trash2, AlertTriangle, AlertCircle, XCircle, X } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { DndProvider } from 'react-dnd'
@@ -415,7 +415,7 @@ export default function () {
       right: collapsedPanels.right ? collapsedWidth : '',
     };
     const fixedLeftPercent = collapsedPanels.left ? 3 : 20;
-    const collapsedCount = ['middle', 'right'].filter((p) => collapsedPanels[p]).length;
+    const collapsedCount = ['middle', 'right'].filter((p): p is 'middle' | 'right' => collapsedPanels[p as keyof typeof collapsedPanels]).length;
     const collapsedTotal = collapsedCount * 3;
     const availableWidth = fullWidth - fixedLeftPercent - collapsedTotal;
     const proportions: Record<'middle' | 'right', number> = { middle: 40, right: 40 };
@@ -912,7 +912,7 @@ export default function () {
               className={`
                 flex items-center gap-2 px-4 py-3 cursor-pointer border-r border-border transition-colors
                 ${activeTabId === tab.id 
-                  ? 'bg-background border-b-0 font-medium text-foreground' 
+                  ? 'bg-background border-b-0 font-mono font-medium text-foreground' 
                   : 'hover:bg-muted/50 text-muted-foreground'
                 }
               `}
@@ -994,6 +994,49 @@ export default function () {
 
     // Ref for textarea focus
     const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+    // Function to determine error type and icon for tabs
+    const getTabErrorInfo = (errorMessage: string) => {
+      const lowerError = errorMessage.toLowerCase()
+      
+      if (lowerError.includes('syntax') || lowerError.includes('parse') || lowerError.includes('invalid syntax')) {
+        return {
+          type: 'syntax',
+          icon: XCircle,
+          color: 'text-red-500',
+          bgColor: 'bg-red-50 border-red-200',
+          title: 'Syntax Error',
+          description: 'There seems to be a syntax issue with your query.'
+        }
+      } else if (lowerError.includes('timeout') || lowerError.includes('connection')) {
+        return {
+          type: 'connection',
+          icon: AlertTriangle,
+          color: 'text-orange-500',
+          bgColor: 'bg-orange-50 border-orange-200',
+          title: 'Connection Error',
+          description: 'Unable to connect to the database. Please try again.'
+        }
+      } else if (lowerError.includes('not found') || lowerError.includes('does not exist') || lowerError.includes('unknown')) {
+        return {
+          type: 'notfound',
+          icon: AlertCircle,
+          color: 'text-yellow-600',
+          bgColor: 'bg-yellow-50 border-yellow-200',
+          title: 'Not Found',
+          description: 'The requested data or table could not be found.'
+        }
+      } else {
+        return {
+          type: 'general',
+          icon: AlertTriangle,
+          color: 'text-red-500',
+          bgColor: 'bg-red-50 border-red-200',
+          title: 'Query Error',
+          description: 'An error occurred while processing your query.'
+        }
+      }
+    }
 
     // Callback to update tab title and refresh history panel
     const handleQueryUpdated = useCallback((updatedQuery: any) => {
@@ -1217,6 +1260,10 @@ export default function () {
           throw new Error('Failed to delete query')
         }
 
+        // Dispatch event to refresh history panel
+        const event = new CustomEvent('queryUpdated', { detail: { action: 'deleted', queryId: query.id } })
+        window.dispatchEvent(event)
+
         onClose() // Close the tab after successful deletion
       } catch (err: any) {
         console.error('Error deleting query:', err)
@@ -1245,10 +1292,12 @@ export default function () {
       }
     }, [handleTabSearch])
 
+    const errorInfo = getTabErrorInfo(tabError || '');
+
     return (
       <div className="flex flex-col h-full p-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">{tabCurrentTitle}</h2>
+          <h2 className="text-xl font-mono font-semibold">{tabCurrentTitle}</h2>
           <div className="flex items-center gap-2">
             {tabIsEditing ? (
               <>
@@ -1302,15 +1351,43 @@ export default function () {
         )}
 
         {tabError && (
-          <div className="text-red-500 p-4 border border-red-200 rounded">
-            {tabError}
+          <div className="mt-4">
+            {(() => {
+              const errorInfo = getTabErrorInfo(tabError)
+              const IconComponent = errorInfo.icon
+              
+              return (
+                <div className={`p-4 rounded-lg border ${errorInfo.bgColor} flex items-start gap-3`}>
+                  <IconComponent className={`h-5 w-5 ${errorInfo.color} flex-shrink-0 mt-0.5`} />
+                  <div className="flex-1">
+                    <div className={`font-semibold ${errorInfo.color} mb-1`}>
+                      {errorInfo.title}
+                    </div>
+                    <div className="text-sm text-gray-600 mb-2">
+                      {errorInfo.description}
+                    </div>
+                    <div className="text-sm font-mono bg-white/50 p-2 rounded border text-gray-700">
+                      {tabError}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setTabError(null)}
+                    className="h-6 w-6 p-0 hover:bg-white/50"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )
+            })()}
           </div>
         )}
 
         {tabIsEditing ? (
           // Edit mode - show query interface with same layout as Active Query
           <div key={`edit-mode-${query?.id}`} className="flex flex-col h-full overflow-hidden">
-            <h2 className="text-xl font-semibold mb-2">Edit Query</h2>
+            <h2 className="text-xl font-mono font-semibold mb-2">Edit Query</h2>
 
             <Textarea
               ref={textareaRef}
@@ -1359,7 +1436,7 @@ export default function () {
             </Button>
 
             {/* Results Title */}
-            <div className="font-bold text-lg mb-2 mt-2" style={{ color: "#16a34a" }}>Results:</div>
+            <div className="font-mono font-bold text-lg mb-2 mt-2" style={{ color: "#16a34a" }}>Results:</div>
 
             {/* Results Panel - Scrollable */}
             {tabQueryResults && tabQueryResults.length > 0 && tabColumns.length >= 1 && (
@@ -1400,7 +1477,7 @@ export default function () {
                   <div className="mt-4">
                     <button
                       onClick={() => setTabShowSql(!tabShowSql)}
-                      className="text-left text-sm font-semibold text-primary hover:underline focus:outline-none"
+                      className="text-left text-sm font-mono font-semibold text-primary hover:underline focus:outline-none"
                     >
                       {tabShowSql ? "▼ Hide SQL" : "▶ Show SQL"}
                     </button>
@@ -1453,11 +1530,54 @@ export default function () {
       
       <div className="flex flex-col h-screen relative">
 
+        {/* SARA Header */}
+        <header className="flex items-center justify-start py-2 px-6 border-b border-border bg-card mb-4">
+          <h1 
+            className="text-2xl md:text-3xl inter font-semibold bg-gradient-to-r from-green-800 to-green-500 bg-clip-text text-transparent cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={async () => {
+              // Check if there's an active query (question, results, or visualizations)
+              const hasActiveQuery = question || queryResults?.length || allVisualizations.length > 0;
+              
+              if (hasActiveQuery) {
+                const shouldSave = confirm('Save Query? Your current query will be lost if you don\'t save it.');
+                if (shouldSave) {
+                  // Save the current query before navigating
+                  try {
+                    const response = await fetch('/api/query', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        action: 'save',
+                        title: question || 'Saved Query',
+                        question: question,
+                        sql: sqlQuery,
+                        outputMode: outputMode,
+                        columns: columns,
+                        data: queryResults
+                      })
+                    });
 
-        
-        <h1 className="text-2xl font-bold text-center py-4"> </h1>
+                    if (!response.ok) {
+                      const errorData = await response.json();
+                      throw new Error(errorData.error || 'Failed to save query');
+                    }
 
-      
+                    alert('Query saved successfully!');
+                  } catch (err: any) {
+                    console.error('Error saving query:', err);
+                    alert('Failed to save query: ' + err.message);
+                    return; // Don't navigate if save failed
+                  }
+                }
+              }
+              
+              // Navigate to home page
+              router.push('/');
+            }}
+          >
+            SARA
+          </h1>
+        </header>
 
         <div className="flex flex-1 overflow-hidden gap-2 px-2 pb-2">
           {/* Left Panel */}
@@ -1489,11 +1609,11 @@ export default function () {
           
           {/* Middle Panel - hidden in read-only mode */}
           {!readOnlyMode && (
-            <div style={{ width: panelWidths.middle }} className="relative transition-all duration-500 ease-in-out">
+            <div style={{ width: panelWidths.middle }} className="relative transition-all duration-500 ease-in-out overflow-hidden">
               {collapsedPanels.middle ? (
                 renderCollapsedPanel('middle', 'Query')
               ) : (
-                  <div className="relative h-full">
+                  <div className="relative h-full overflow-hidden">
                     {renderTabbedPanel()}
                   </div>
                 )}
@@ -1522,7 +1642,7 @@ export default function () {
                     type="text"
                     value={dashboardSectionTitle || ""}
                     onChange={(e) => setDashboardSectionTitle(e.target.value)}
-                    className="text-lg font-semibold mt-1 mb-4 bg-transparent outline-none w-full text-center"
+                    className="text-lg font-mono font-semibold mt-1 mb-4 bg-transparent outline-none w-full text-center"
                   />
                   <div className="grid grid-cols-2 gap-2 mb-2">
 
@@ -1533,7 +1653,7 @@ export default function () {
                         type="text"
                         value={topLeftTitle || ""}
                         onChange={(e) => setTopLeftTitle(e.target.value)}
-                        className="text-sm font-medium text-center mt-2 mb-2 bg-transparent outline-none w-full"
+                        className="text-sm font-mono font-medium text-center mt-2 mb-2 bg-transparent outline-none w-full"
                       />
 
                       <DropZone
@@ -1543,7 +1663,7 @@ export default function () {
                         data-quadrant-id="topLeft"
                       >
                         {quadrants.topLeft ? renderDroppedViz(quadrants.topLeft) : (
-                          <div className="h-36 flex items-center justify-center font-semibold" style={{ color: "#16a34a" }}>
+                          <div className="h-36 flex items-center justify-center font-mono font-semibold" style={{ color: "#16a34a" }}>
                             Drag results here
                           </div>
                         )}
@@ -1555,7 +1675,7 @@ export default function () {
                         type="text"
                         value={topRightTitle || ""}
                         onChange={(e) => setTopRightTitle(e.target.value)}
-                        className="text-sm font-medium text-center mt-2 mb-2 bg-transparent outline-none w-full"
+                        className="text-sm font-mono font-medium text-center mt-2 mb-2 bg-transparent outline-none w-full"
                       />
 
                       
@@ -1566,7 +1686,7 @@ export default function () {
                         data-quadrant-id="topRight"
                       >
                         {quadrants.topRight ? renderDroppedViz(quadrants.topRight) : (
-                          <div className="h-36 flex items-center justify-center font-semibold" style={{ color: "#16a34a" }}>
+                          <div className="h-36 flex items-center justify-center font-mono font-semibold" style={{ color: "#16a34a" }}>
                             Drag results here
                           </div>
                         )}
@@ -1588,7 +1708,7 @@ export default function () {
                       type="text"
                       value={bottomTitle || ""}
                       onChange={(e) => setBottomTitle(e.target.value)}
-                      className="text-sm font-medium text-center mb-1 bg-transparent outline-none w-full"
+                      className="text-sm font-mono font-medium text-center mb-1 bg-transparent outline-none w-full"
                     />
 
 
@@ -1600,7 +1720,7 @@ export default function () {
                       data-quadrant-id="bottom"
                     >
                       {quadrants.bottom ? renderDroppedViz(quadrants.bottom) : (
-                        <div className="h-44 flex items-center justify-center font-semibold" style={{ color: "#16a34a" }}>
+                        <div className="h-44 flex items-center justify-center font-mono font-semibold" style={{ color: "#16a34a" }}>
                           Drag results here
                         </div>
                       )}
@@ -1687,7 +1807,7 @@ export default function () {
                         variant="ghost"
                         className="flex items-center gap-2"
                       >
-                        <span style={{ fontSize: "1.2em" }} role="img" aria-label="Clear">🧹</span>
+                        <Trash2 className="h-4 w-4" />
                         <span>Clear</span>
                       </Button>
 
