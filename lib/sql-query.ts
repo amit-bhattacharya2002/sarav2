@@ -1,4 +1,4 @@
-import { prisma } from './prisma'
+import { businessPrisma } from './mysql-prisma'
 import { validateSqlQuery, validateAiGeneratedQuery, logValidationResult } from './sql-validator'
 
 export interface QueryResult {
@@ -31,7 +31,7 @@ export async function executeSQLQuery(sql: string, originalQuestion?: string): P
     }
 
     // Execute raw SQL query using Prisma
-    const result = await prisma.$queryRawUnsafe(sql)
+    const result = await businessPrisma.$queryRawUnsafe(sql)
     
     if (!result || (Array.isArray(result) && result.length === 0)) {
       return {

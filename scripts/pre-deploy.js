@@ -21,18 +21,13 @@ try {
   execSync('npm run db:generate', { stdio: 'inherit' });
 
   // Verify Prisma clients were generated
-  const businessClientPath = path.join(__dirname, '../node_modules/.prisma/business-client');
-  const authClientPath = path.join(__dirname, '../node_modules/.prisma/auth-client');
+  const businessClientPath = path.join(__dirname, '../node_modules/.prisma/client');
 
   if (!fs.existsSync(businessClientPath)) {
-    throw new Error('Business Prisma client was not generated');
+    throw new Error('Prisma client was not generated');
   }
 
-  if (!fs.existsSync(authClientPath)) {
-    throw new Error('Auth Prisma client was not generated');
-  }
-
-  console.log('✅ Prisma clients generated successfully');
+  console.log('✅ Prisma client generated successfully');
 
   // Check for Query Engine binaries
   const prismaDir = path.join(__dirname, '../node_modules/.prisma/client');

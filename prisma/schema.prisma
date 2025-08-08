@@ -1,10 +1,6 @@
-// Business Database Schema (MySQL) - READ ONLY
-// This file contains models for business data that will be queried
-// IMPORTANT: This database is read-only. No write operations are allowed.
-// Schema matches existing database structure
-
 generator client {
     provider      = "prisma-client-js"
+    output        = "../node_modules/.prisma/client"
     binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
@@ -13,12 +9,10 @@ datasource db {
     url      = env("BUSINESS_DATABASE_URL")
 }
 
-// Main business data models - READ ONLY ACCESS
-// Schema matches existing database structure
 model Gift {
-    id                  Int       @id @default(autoincrement())
     ACCOUNTID           String    @db.Text
     GIFTID              String    @db.Text
+    id                  Int       @id @default(autoincrement())
     GIFTDATE            DateTime? @db.Date
     GIFTAMOUNT          Decimal?  @db.Decimal(15, 2)
     TRANSACTIONTYPE     String?   @db.VarChar(50)
@@ -39,7 +33,6 @@ model Gift {
     @@map("gifts")
 }
 
-// Application models for saved queries and dashboards (stored in business DB)
 model SavedQuery {
     id            Int      @id @default(autoincrement())
     userId        Int      @default(1)
@@ -50,9 +43,9 @@ model SavedQuery {
     outputMode    Int      @default(1)
     visualConfig  String?  @db.Text
     panelPosition String?  @db.VarChar(100)
-    resultData    String?  @db.LongText // Store query results as JSON
-    resultColumns String?  @db.Text // Store column metadata as JSON
     createdAt     DateTime @default(now())
+    resultColumns String?  @db.Text
+    resultData    String?  @db.LongText
     updatedAt     DateTime @default(now()) @updatedAt
 
     @@map("saved_queries")
@@ -63,9 +56,9 @@ model SavedDashboard {
     userId          Int      @default(1)
     companyId       Int      @default(1)
     title           String   @db.VarChar(255)
-    quadrants       String   @db.Text // JSON string
-    visualizations  String   @db.Text // JSON string
-    sVisualizations String   @db.Text // JSON string
+    quadrants       String   @db.Text
+    visualizations  String   @db.Text
+    sVisualizations String   @db.Text
     topLeftTitle    String   @default("Sample Title") @db.VarChar(255)
     topRightTitle   String   @default("Sample Title") @db.VarChar(255)
     bottomTitle     String   @default("Sample Title") @db.VarChar(255)

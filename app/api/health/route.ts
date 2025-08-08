@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { config, validateConfig, app } from '@/lib/config'
 
-export const runtime = 'nodejs'
-
 export async function GET(req: NextRequest) {
   try {
     // Check if we're in build mode
@@ -68,10 +66,10 @@ async function checkDatabase() {
     }
 
     // Import Prisma client dynamically to avoid circular dependencies
-    const { prisma } = await import('@/lib/prisma')
+    const { businessPrisma } = await import('@/lib/mysql-prisma')
     
     // Simple connection test
-    await prisma.$queryRaw`SELECT 1 as test`
+    await businessPrisma.$queryRaw`SELECT 1 as test`
     
     return {
       status: 'ok',

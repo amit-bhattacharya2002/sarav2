@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-
-export const runtime = 'nodejs'
+import { businessPrisma } from '@/lib/mysql-prisma'
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,7 +8,7 @@ export async function GET(req: NextRequest) {
 
     if (id) {
       // Get specific dashboard
-      const dashboard = await prisma.savedDashboard.findUnique({
+      const dashboard = await businessPrisma.savedDashboard.findUnique({
         where: {
           id: parseInt(id)
         },
@@ -34,7 +32,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ dashboard })
     } else {
       // Get all dashboards
-      const dashboards = await prisma.savedDashboard.findMany({
+      const dashboards = await businessPrisma.savedDashboard.findMany({
         where: {
           userId: 1,
           companyId: 1,
@@ -73,7 +71,7 @@ export async function POST(req: NextRequest) {
 
     if (action === 'update' && dashboardId) {
       // Update existing dashboard
-      const updatedDashboard = await prisma.savedDashboard.update({
+      const updatedDashboard = await businessPrisma.savedDashboard.update({
         where: {
           id: parseInt(dashboardId)
         },
@@ -91,7 +89,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, dashboard: updatedDashboard })
     } else {
       // Create new dashboard
-      const newDashboard = await prisma.savedDashboard.create({
+      const newDashboard = await businessPrisma.savedDashboard.create({
         data: {
           userId: 1,
           companyId: 1,

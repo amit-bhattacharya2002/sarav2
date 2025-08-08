@@ -1,20 +1,35 @@
+import CopyPlugin from 'copy-webpack-plugin'
+import path from 'path'
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  eslint: { ignoreDuringBuilds: true },
-  typescript: { ignoreBuildErrors: true },
-
-  experimental: {
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
-    // 👇 keep Prisma in the server bundle so engines get traced
-    serverComponentsExternalPackages: ['@prisma/client', 'prisma'],
+  // Production-ready configurations
+  eslint: {
+    // Remove this for production - currently needed due to existing linter errors
+    ignoreDuringBuilds: true,
   },
-
+  typescript: {
+    // Remove this for production - currently needed due to existing TypeScript errors
+    ignoreBuildErrors: true,
+  },
+  
   // Optimize for Vercel deployment
   poweredByHeader: false,
   compress: true,
+  
+  // Font optimization settings
+  experimental: {
+    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+  },
 
+  // Image optimization
   images: {
-    remotePatterns: [{ protocol: 'https', hostname: '**' }],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
@@ -69,15 +84,72 @@ const nextConfig = {
     ]
   },
 
-  webpack: (config, { isServer, dev }) => {
+  // Webpack configuration for optimizations
+  webpack: (config, { isServer }) => {
+    // Optimize bundles
+    if (!isServer) {
+      config.optimization.splitChunks = {
+        chunks: 'all',
+        cacheGroups: {
+          vendor: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'vendors',
+            chunks: 'all',
+          },
+          common: {
+            name: 'common',
+            minChunks: 2,
+            priority: -10,
+            reuseExistingChunk: true,
+          },
+        },
+      }
+    }
+
     // Handle SVG imports
     config.module.rules.push({
       test: /\.svg$/,
       use: ['@svgr/webpack'],
     })
 
+    // Handle Prisma binary files
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      net: false,
+      tls: false,
+    }
+
+    // Copy Prisma Query Engine binaries
+    if (isServer) {
+      config.plugins.push(
+        new CopyPlugin({
+          patterns: [
+            {
+              from: 'node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
+              to: 'node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
+            },
+            {
+              from: 'node_modules/.prisma/client/libquery_engine-darwin-arm64.dylib.node',
+              to: 'node_modules/.prisma/client/libquery_engine-darwin-arm64.dylib.node',
+            },
+          ],
+        })
+      )
+    }
+
+    // Handle .node and .so files
+    config.module.rules.push({
+      test: /\.(node|so)$/,
+      type: 'asset/resource',
+    })
+
     return config
   },
+
+  // Output configuration for static export (if needed)
+  // output: 'export',
+  // trailingSlash: true,
 }
 
 export default nextConfig

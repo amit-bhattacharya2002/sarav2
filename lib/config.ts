@@ -34,7 +34,6 @@ function getEnv(key: string, defaultValue: string = ''): string {
 // Database Configuration
 export const database = {
   businessUrl: isBuildTime ? 'mysql://placeholder:placeholder@localhost:3306/placeholder' : requireEnv('BUSINESS_DATABASE_URL'),
-  authUrl: isBuildTime ? 'mysql://placeholder:placeholder@localhost:3306/placeholder' : getEnv('AUTH_DATABASE_URL', requireEnv('BUSINESS_DATABASE_URL')),
 } as const
 
 // OpenAI Configuration
