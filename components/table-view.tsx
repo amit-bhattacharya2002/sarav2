@@ -131,9 +131,9 @@ export function TableView({
 
   return (
     <>
-      <div ref={drag as any} className="h-full w-full cursor-move" style={{ opacity: isDragging ? 0.5 : 1 }}>
+      <div ref={drag as any} className="h-full w-full cursor-move flex flex-col" style={{ opacity: isDragging ? 0.5 : 1 }}>
         {/* Header with Expand Button */}
-        <div className="flex items-center justify-between mb-2 p-2 bg-muted/20 rounded border border-border">
+        <div className="flex items-center justify-between mb-2 p-2 bg-muted/20 rounded border border-border flex-shrink-0">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowColumnSelector(!showColumnSelector)}
@@ -162,7 +162,7 @@ export function TableView({
         </div>
         
         {showColumnSelector && (
-          <div className="mb-2 p-2 bg-muted/20 rounded border border-border">
+          <div className="mb-2 p-2 bg-muted/20 rounded border border-border flex-shrink-0">
             <div className="grid grid-cols-2 gap-2">
               {columns.map((col) => {
                 const readableName = col.name
@@ -185,8 +185,8 @@ export function TableView({
           </div>
         )}
 
-        {/* Table - Scrollable area */}
-        <div className="overflow-auto" style={{ height: 'calc(100% - 120px)' }}>
+        {/* Table - Scrollable area with dynamic height */}
+        <div className="flex-1 overflow-auto min-h-0">
           <table className={`border-collapse ${compact ? "text-xs" : "text-sm"}`} style={{ minWidth: 'max-content' }}>
             <thead>
               <tr className="bg-muted">

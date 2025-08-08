@@ -243,9 +243,9 @@ export function QueryPanel({
       {/* <div className="font-mono font-bold text-lg mb-2 mt-2" style={{ color: "#16a34a" }}>Results:</div> */}
       
       {/* Results Area - Always visible with border */}
-      <div className="bg-card border-2 border-dashed border-muted-foreground/30 mt-4 rounded p-4 flex-1 overflow-auto mb-20" style={{ minHeight: '400px', maxHeight: '500vh' }}>
+      <div className="bg-card border-2 border-dashed border-muted-foreground/30 mt-4 rounded p-4 flex-1 overflow-auto mb-20 flex flex-col" style={{ minHeight: '400px', maxHeight: '500vh' }}>
         {queryResults && queryResults.length > 0 && columns.length >= 1 ? (
-          <div className="h-full w-full overflow-hidden">
+          <div className="h-full w-full overflow-hidden flex-1 min-h-0">
             {outputMode === 'table' && (
               <div className="h-full w-full overflow-hidden">
                 <TableView data={queryResults} columns={columns} sql={sqlQuery || undefined} />
@@ -288,7 +288,7 @@ export function QueryPanel({
         
         {/* Show/Hide SQL -- always at the bottom of the results box */}
         {sqlQuery && (
-          <div className="mt-4 border-t pt-4">
+          <div className="mt-4 border-t pt-4 flex-shrink-0">
             <button
               onClick={() => setShowSql(!showSql)}
               className="text-left text-sm font-mono font-semibold text-primary hover:underline focus:outline-none"
