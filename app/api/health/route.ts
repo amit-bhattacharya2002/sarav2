@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { config, validateConfig } from '@/lib/config'
+import { config, validateConfig, app } from '@/lib/config'
 
 export async function GET(req: NextRequest) {
   try {
+    // Check if we're in build mode
+    if (app.isBuildTime) {
+      return NextResponse.json({
+        status: 'build-mode',
+        timestamp: new Date().toISOString(),
+        message: 'Service is in build mode',
+      }, { status: 200 })
+    }
+
     // Basic health check
     const health = {
       status: 'ok',
@@ -48,6 +57,14 @@ export async function GET(req: NextRequest) {
 
 async function checkDatabase() {
   try {
+    // Runtime check for database URL
+    if (!process.env.DATABASE_URL || process.env.DATABASE_URL.includes('placeholder')) {
+      return {
+        status: 'error',
+        message: 'Database URL not configured',
+      }
+    }
+
     // Import Prisma client dynamically to avoid circular dependencies
     const { businessPrisma } = await import('@/lib/mysql-prisma')
     
@@ -70,7 +87,7 @@ async function checkDatabase() {
 
 function checkOpenAI() {
   try {
-    if (!config.openai.apiKey) {
+    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes('placeholder')) {
       return {
         status: 'error',
         message: 'OpenAI API key not configured',
@@ -100,6 +117,14 @@ function checkOpenAI() {
 
 function checkConfiguration() {
   try {
+    // Runtime environment check
+    if (app.isBuildTime) {
+      return {
+        status: 'build-mode',
+        message: 'Configuration validation skipped during build',
+      }
+    }
+
     validateConfig()
     return {
       status: 'ok',

@@ -3,13 +3,20 @@
  * Handles environment variables, validation, and app constants
  */
 
+// Check if we're in build mode or Vercel build environment
+const isBuildTime = process.env.NODE_ENV === 'production' && (
+  !process.env.VERCEL_ENV || 
+  process.env.VERCEL_ENV === 'preview' || 
+  typeof window === 'undefined' && !process.env.DATABASE_URL
+)
+
 // Environment validation helper
 function requireEnv(key: string): string {
   const value = process.env[key]
   if (!value) {
     // During build time, some environment variables might not be available
-    if (process.env.NODE_ENV === 'production' && process.env.VERCEL_ENV !== 'production') {
-      console.warn(`Warning: Missing environment variable: ${key} (build time)`)
+    if (isBuildTime) {
+      console.warn(`Warning: Missing environment variable: ${key} (build time - using placeholder)`)
       return `placeholder-${key.toLowerCase()}`
     }
     throw new Error(`Missing required environment variable: ${key}`)
@@ -18,11 +25,11 @@ function requireEnv(key: string): string {
 }
 
 function getEnv(key: string, defaultValue: string = ''): string {
+  if (isBuildTime && !process.env[key]) {
+    return defaultValue
+  }
   return process.env[key] ?? defaultValue
 }
-
-// Check if we're in build mode
-const isBuildTime = process.env.NODE_ENV === 'production' && !process.env.VERCEL_ENV
 
 // Database Configuration
 export const database = {
@@ -61,18 +68,18 @@ export const security = {
 export const services = {
   mongodb: {
     uri: getEnv('MONGODB_URI'),
-    enabled: Boolean(getEnv('MONGODB_URI')),
+    enabled: Boolean(getEnv('MONGODB_URI')) && !isBuildTime,
   },
   analytics: {
     googleAnalyticsId: getEnv('GOOGLE_ANALYTICS_ID'),
-    enabled: Boolean(getEnv('GOOGLE_ANALYTICS_ID')),
+    enabled: Boolean(getEnv('GOOGLE_ANALYTICS_ID')) && !isBuildTime,
   },
   email: {
     host: getEnv('SMTP_HOST'),
     port: parseInt(getEnv('SMTP_PORT', '587')),
     user: getEnv('SMTP_USER'),
     pass: getEnv('SMTP_PASS'),
-    enabled: Boolean(getEnv('SMTP_HOST') && getEnv('SMTP_USER')),
+    enabled: Boolean(getEnv('SMTP_HOST') && getEnv('SMTP_USER')) && !isBuildTime,
   },
 } as const
 
@@ -110,18 +117,22 @@ export function validateConfig(): void {
   const errors: string[] = []
 
   try {
-    requireEnv('DATABASE_URL')
+    if (!process.env.DATABASE_URL) {
+      errors.push('DATABASE_URL is required')
+    }
   } catch (e) {
     errors.push('DATABASE_URL is required')
   }
 
   try {
-    requireEnv('OPENAI_API_KEY')
+    if (!process.env.OPENAI_API_KEY) {
+      errors.push('OPENAI_API_KEY is required')
+    }
   } catch (e) {
     errors.push('OPENAI_API_KEY is required')
   }
 
-  if (app.isProduction) {
+  if (app.isProduction && !app.isBuildTime) {
     if (!security.nextAuthSecret || security.nextAuthSecret === 'default-dev-secret') {
       errors.push('NEXTAUTH_SECRET must be set in production')
     }
@@ -154,7 +165,11 @@ export const config = {
   vercel,
 } as const
 
-// Validate configuration on import in production (but not during build)
-if (app.isProduction && !app.isBuildTime) {
-  validateConfig()
+// Only validate configuration at runtime, not during build
+if (typeof window === 'undefined' && !isBuildTime && app.isProduction) {
+  try {
+    validateConfig()
+  } catch (error) {
+    console.warn('Configuration validation warning:', error)
+  }
 } 

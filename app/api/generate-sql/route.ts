@@ -1,11 +1,24 @@
 // File: app/api/generate-sql/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { businessPrisma } from '@/lib/mysql-prisma'
-import { openai as openaiConfig, features } from '@/lib/config'
+import { openai as openaiConfig, features, app } from '@/lib/config'
 import { rateLimiters, createRateLimitHeaders, checkRateLimit } from '@/lib/rate-limiter'
 
 export async function POST(req: NextRequest) {
   try {
+    // Check if we're in build mode
+    if (app.isBuildTime) {
+      return NextResponse.json({ error: 'Service unavailable during build' }, { status: 503 })
+    }
+
+    // Runtime validation of required environment variables
+    if (!process.env.OPENAI_API_KEY || !process.env.DATABASE_URL) {
+      return NextResponse.json({ 
+        error: 'Service configuration error',
+        message: 'Required environment variables are not configured'
+      }, { status: 500 })
+    }
+
     // Apply rate limiting for AI endpoints (strict limit)
     const rateLimitResult = checkRateLimit(req, 10, 60 * 1000) // 10 requests per minute
     
