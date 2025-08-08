@@ -1,35 +1,20 @@
-import CopyPlugin from 'copy-webpack-plugin'
-import path from 'path'
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Production-ready configurations
-  eslint: {
-    // Remove this for production - currently needed due to existing linter errors
-    ignoreDuringBuilds: true,
+  eslint: { ignoreDuringBuilds: true },
+  typescript: { ignoreBuildErrors: true },
+
+  experimental: {
+    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+    // 👇 keep Prisma in the server bundle so engines get traced
+    serverComponentsExternalPackages: ['@prisma/client', 'prisma'],
   },
-  typescript: {
-    // Remove this for production - currently needed due to existing TypeScript errors
-    ignoreBuildErrors: true,
-  },
-  
+
   // Optimize for Vercel deployment
   poweredByHeader: false,
   compress: true,
-  
-  // Font optimization settings
-  experimental: {
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
-  },
 
-  // Image optimization
   images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**',
-      },
-    ],
+    remotePatterns: [{ protocol: 'https', hostname: '**' }],
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
@@ -84,121 +69,15 @@ const nextConfig = {
     ]
   },
 
-  // Webpack configuration for optimizations
-  webpack: (config, { buildId, dev, isServer, webpack }) => {
-    // Optimize bundles
-    if (!dev && !isServer) {
-      config.optimization.splitChunks = {
-        chunks: 'all',
-        cacheGroups: {
-          vendor: {
-            test: /[\\/]node_modules[\\/]/,
-            name: 'vendors',
-            chunks: 'all',
-          },
-          common: {
-            name: 'common',
-            minChunks: 2,
-            priority: -10,
-            reuseExistingChunk: true,
-          },
-        },
-      }
-    }
-
+  webpack: (config, { isServer, dev }) => {
     // Handle SVG imports
     config.module.rules.push({
       test: /\.svg$/,
       use: ['@svgr/webpack'],
     })
 
-    // Handle Prisma Query Engine binaries
-    if (isServer) {
-      config.externals = config.externals || []
-      config.externals.push({
-        'prisma-client-js': 'commonjs prisma-client-js',
-      })
-    }
-
-    // Handle Prisma binary files
-    config.module.rules.push({
-      test: /\.(node|so)$/,
-      type: 'asset/resource',
-      generator: {
-        filename: 'static/chunks/[name].[hash][ext]',
-      },
-    })
-
-    // Ensure Prisma binaries are copied to the output
-    if (!dev) {
-      config.plugins.push(
-        new CopyPlugin({
-          patterns: [
-            // Copy Query Engine binaries to multiple locations for Vercel
-            {
-              from: 'node_modules/.prisma/client/libquery_engine-*',
-              to: 'static/chunks/[name].[hash][ext]',
-              noErrorOnMissing: true,
-            },
-            // Copy to the exact locations Vercel expects
-            {
-              from: 'node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
-              to: 'node_modules/.prisma/business-client/libquery_engine-rhel-openssl-3.0.x.so.node',
-              noErrorOnMissing: true,
-            },
-            {
-              from: 'node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
-              to: 'node_modules/.prisma/auth-client/libquery_engine-rhel-openssl-3.0.x.so.node',
-              noErrorOnMissing: true,
-            },
-            {
-              from: 'node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
-              to: 'node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
-              noErrorOnMissing: true,
-            },
-            // Copy entire Prisma client directories
-            {
-              from: 'node_modules/.prisma/client',
-              to: 'node_modules/.prisma/client',
-              noErrorOnMissing: true,
-            },
-            {
-              from: 'node_modules/.prisma/business-client',
-              to: 'node_modules/.prisma/business-client',
-              noErrorOnMissing: true,
-            },
-            {
-              from: 'node_modules/.prisma/auth-client',
-              to: 'node_modules/.prisma/auth-client',
-              noErrorOnMissing: true,
-            },
-            // Copy to Vercel's expected locations
-            {
-              from: 'node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
-              to: '.next/server/node_modules/.prisma/business-client/libquery_engine-rhel-openssl-3.0.x.so.node',
-              noErrorOnMissing: true,
-            },
-            {
-              from: 'node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
-              to: '.next/server/node_modules/.prisma/auth-client/libquery_engine-rhel-openssl-3.0.x.so.node',
-              noErrorOnMissing: true,
-            },
-            {
-              from: 'node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
-              to: '.next/server/node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
-              noErrorOnMissing: true,
-            },
-          ],
-        })
-      )
-    }
-
     return config
   },
-
-  // Output configuration for static export (if needed)
-  // output: 'export',
-  // trailingSlash: true,
 }
 
 export default nextConfig

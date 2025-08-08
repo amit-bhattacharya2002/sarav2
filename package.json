@@ -14,7 +14,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/vercel-build-setup.js && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
@@ -23,18 +23,14 @@
     "preview": "npm run build && npm run start",
     "clean": "rm -rf .next out dist",
     "pre-deploy": "node scripts/pre-deploy.js",
-    "fix-prisma": "node scripts/fix-prisma-deployment.js",
-    "setup-binaries": "node scripts/setup-prisma-binaries.js",
     "test-db": "node scripts/test-database-connection.js",
-    "debug-prisma": "node scripts/debug-prisma-vercel.js",
-    "vercel-setup": "node scripts/vercel-build-setup.js",
     "deploy": "npm run pre-deploy && npx vercel --prod",
     "db:generate": "prisma generate --schema=prisma/auth-schema.prisma && prisma generate --schema=prisma/business-schema.prisma",
     "db:push:auth": "prisma db push --schema=prisma/auth-schema.prisma",
     "db:push:business": "prisma db push --schema=prisma/business-schema.prisma",
     "db:studio:auth": "prisma studio --schema=prisma/auth-schema.prisma",
     "db:studio:business": "prisma studio --schema=prisma/business-schema.prisma",
-    "postinstall": "prisma generate --schema=prisma/auth-schema.prisma && prisma generate --schema=prisma/business-schema.prisma"
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
@@ -102,7 +98,6 @@
     "@types/node": "^20.17.9",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
-    "copy-webpack-plugin": "^12.0.2",
     "eslint": "^8.57.1",
     "eslint-config-next": "15.2.4",
     "postcss": "^8.5.1",

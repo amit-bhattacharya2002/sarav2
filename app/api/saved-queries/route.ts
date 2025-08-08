@@ -1,13 +1,15 @@
 // File: app/api/saved-queries/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { businessPrisma } from '@/lib/mysql-prisma'
+import { prisma } from '@/lib/prisma'
+
+export const runtime = 'nodejs'
 
 export async function GET(req: NextRequest) {
   try {
     const userId = 1
     const companyId = 1
 
-    const queries = await businessPrisma.savedQuery.findMany({
+    const queries = await prisma.savedQuery.findMany({
       where: {
         userId,
         companyId,

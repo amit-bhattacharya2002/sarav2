@@ -1,8 +1,9 @@
 // File: app/api/generate-sql/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { businessPrisma } from '@/lib/mysql-prisma'
 import { openai as openaiConfig, features, app } from '@/lib/config'
 import { rateLimiters, createRateLimitHeaders, checkRateLimit } from '@/lib/rate-limiter'
+
+export const runtime = 'nodejs'
 
 export async function POST(req: NextRequest) {
   try {

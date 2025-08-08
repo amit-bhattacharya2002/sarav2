@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { businessPrisma } from '@/lib/mysql-prisma'
+import { prisma } from '@/lib/prisma'
 import { executeSQLQuery } from '@/lib/sql-query'
 import { features } from '@/lib/config'
 import { rateLimiters, createRateLimitHeaders, checkRateLimit } from '@/lib/rate-limiter'
+
+export const runtime = 'nodejs'
 
 // Map outputMode string to int for DB (customize as needed)
 const outputModeMap: Record<string, number> = {
@@ -77,7 +79,7 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      const savedQuery = await businessPrisma.savedQuery.create({
+      const savedQuery = await prisma.savedQuery.create({
         data: {
           userId,
           companyId,
@@ -117,7 +119,7 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      const updatedQuery = await businessPrisma.savedQuery.update({
+      const updatedQuery = await prisma.savedQuery.update({
         where: { id: parseInt(id) },
         data: {
           title,
@@ -145,7 +147,7 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      const savedQuery = await businessPrisma.savedQuery.findUnique({
+      const savedQuery = await prisma.savedQuery.findUnique({
         where: { id: parseInt(id) },
         select: {
           resultData: true,
@@ -232,7 +234,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Query ID is required' }, { status: 400 })
     }
 
-    await businessPrisma.savedQuery.delete({
+    await prisma.savedQuery.delete({
       where: { id: parseInt(id) }
     })
 
