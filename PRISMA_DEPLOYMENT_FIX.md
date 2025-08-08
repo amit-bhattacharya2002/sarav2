@@ -66,11 +66,6 @@ Ensure these environment variables are set in your Vercel dashboard:
 # Database URLs
 BUSINESS_DATABASE_URL="mysql://username:password@hostname:port/database_name"
 AUTH_DATABASE_URL="mysql://username:password@hostname:port/auth_database_name"
-
-# Prisma-specific (automatically set by scripts)
-PRISMA_QUERY_ENGINE_TYPE="binary"
-PRISMA_QUERY_ENGINE_LIBRARY="binary"
-PRISMA_GENERATE_DATAPROXY="true"
 ```
 
 ## Deployment Steps
