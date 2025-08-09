@@ -29,6 +29,7 @@ interface QueryPanelProps {
   error: string | null
   setError: (value: string | null) => void
   onSubmit: () => void
+  readOnlyMode?: boolean // Add this prop
   isEditingSavedQuery?: boolean
   handleUpdateSavedQuery?: () => Promise<void>
   handleCancelEdit?: () => void
@@ -53,6 +54,7 @@ export function QueryPanel({
   columns,
   setColumns,
   onSubmit,
+  readOnlyMode,
   isEditingSavedQuery = false,
   handleUpdateSavedQuery,
   handleCancelEdit,
@@ -248,7 +250,7 @@ export function QueryPanel({
           <div className="h-full w-full overflow-hidden flex-1 min-h-0">
             {outputMode === 'table' && (
               <div className="h-full w-full overflow-hidden">
-                <TableView data={queryResults} columns={columns} sql={sqlQuery || undefined} />
+                <TableView data={queryResults} columns={columns} sql={sqlQuery || undefined} readOnlyMode={readOnlyMode} />
               </div>
             )}
           

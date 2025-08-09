@@ -11,12 +11,18 @@ interface BarGraphProps {
 }
 
 export function BarGraph({ data, color = "hsl(var(--chart-1))", height = 200, compact = false }: BarGraphProps) {
+  // Debug: Log the data being passed to BarGraph
+  console.log("🔍 BarGraph received data:", data);
+  
   const isValidData =
     Array.isArray(data) &&
     data.length > 0 &&
     data.every((d) => d && typeof d.name === "string" && typeof d.value === "number")
 
+  console.log("🔍 BarGraph isValidData:", isValidData);
+
   if (!isValidData) {
+    console.log("❌ BarGraph: Invalid data, showing fallback message");
     return <div className="text-sm text-muted-foreground">No bar chart data</div>
   }
 

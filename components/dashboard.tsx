@@ -1,4 +1,3 @@
-
 'use client'
 
 import { ChevronLeft, ChevronRight, Save, Filter, Trash2, AlertTriangle, AlertCircle, XCircle, X } from 'lucide-react'
@@ -11,7 +10,7 @@ import { TableView } from '@/components/table-view'
 import { DropZone } from '@/components/drop-zone'
 import { HistoryPanel } from '@/components/history-panel'
 import { QueryPanel } from '@/components/query-panel'
-import { ShareLinkDialog } from '@/components/share-link-dialog'
+import { ShareLinkDialog } from './share-link-dialog'
 import { Button } from '@/components/ui/button'
 import { PieGraph } from '@/components/pie-chart'
 import { Textarea } from '@/components/ui/textarea'
@@ -19,6 +18,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { LayoutList, BarChart2, PieChart } from 'lucide-react'
 import { DraggableChart } from '@/components/draggable-chart'
 import { DraggablePieChart } from '@/components/draggable-pie'
+import { ShareDashboardSection } from './share-dashboard-section'
 
 
 type Visualization = {
@@ -141,9 +141,9 @@ export default function () {
     
     
   const [collapsedPanels, setCollapsedPanels] = useState<Record<'left' | 'middle' | 'right', boolean>>({
-    left: !readOnlyMode,
+    left: !readOnlyMode, // Collapsed in edit mode, expanded in read-only mode
     middle: false,
-    right: !readOnlyMode,
+    right: !readOnlyMode, // Collapsed in edit mode, expanded in read-only mode
   })
 
   const [panelWidths, setPanelWidths] = useState<Record<'left' | 'middle' | 'right', string>>({
@@ -274,29 +274,78 @@ export default function () {
         
         if (Array.isArray(parsedCachedVisualizations) && parsedCachedVisualizations.length > 0) {
           console.log("✅ Loading dashboard from CACHE (sVisualizations)!");
-          setAllVisualizations(parsedCachedVisualizations);
+          
+          // Transform cached visualizations to ensure chart data is properly formatted
+          const transformedVisualizations = parsedCachedVisualizations.map(viz => {
+            if ((viz.type === 'chart' || viz.type === 'pie') && Array.isArray(viz.data)) {
+              // Check if data is already in chart format (has name/value structure)
+              const isChartFormat = viz.data.length > 0 && 
+                typeof viz.data[0] === 'object' && 
+                'name' in viz.data[0] && 
+                'value' in viz.data[0];
+              
+              console.log(`🔍 Chart ${viz.id} (${viz.type}): isChartFormat=${isChartFormat}, dataLength=${viz.data.length}, columnsLength=${viz.columns?.length || 0}`);
+              
+              if (!isChartFormat && viz.columns && viz.columns.length >= 2) {
+                // Transform raw data to chart format
+                const chartData = viz.data.map(row => ({
+                  name: row[viz.columns[0]?.key] || 'Unknown',
+                  value: Number(row[viz.columns[1]?.key]) || 0,
+                }));
+                
+                console.log(`✅ Transformed chart data for ${viz.id}:`, chartData.slice(0, 3));
+                return { ...viz, data: chartData };
+              }
+            }
+            
+            return viz;
+          });
+          
+          setAllVisualizations(transformedVisualizations);
         
           // Improved quadrant mapping
           const quadrantMap: any = {};
+          console.log("🔍 Quadrant mapping debug:", { parsedQuadrants, parsedVizList, parsedCachedVisualizations });
+          
           for (const quadrant in parsedQuadrants) {
             const expectedOriginalId = parsedQuadrants[quadrant];
             const expectedViz = parsedVizList?.find(v => v.id === expectedOriginalId);
             const expectedType = expectedViz?.type;
+            
+            console.log(`🔍 Mapping ${quadrant}:`, { 
+              expectedOriginalId, 
+              expectedType, 
+              expectedViz: expectedViz ? { id: expectedViz.id, type: expectedViz.type } : null
+            });
         
             const match = parsedCachedVisualizations.find(
-              v =>
-                (v.originalId === expectedOriginalId || (v.sql && v.sql === expectedViz?.sql)) &&
-                v.type === expectedType
+              v => {
+                // Primary match: by originalId or SQL
+                const primaryMatch = (v.originalId === expectedOriginalId || (v.sql && v.sql === expectedViz?.sql)) &&
+                  v.type === expectedType;
+                
+                // Fallback match: by ID directly (for cases where originalId is missing)
+                const fallbackMatch = v.id === expectedOriginalId && v.type === expectedType;
+                
+                return primaryMatch || fallbackMatch;
+              }
             );
-        
+            
+            console.log(`  ✅ Match result for ${quadrant}:`, match ? { id: match.id, type: match.type } : 'NO MATCH');
             quadrantMap[quadrant] = match ? match.id : null;
           }
+          
+          console.log("🔍 Final quadrant mapping:", quadrantMap);
+          
           setQuadrants({
             topLeft: quadrantMap.topLeft || null,
             topRight: quadrantMap.topRight || null,
             bottom: quadrantMap.bottom || null,
           });
         
+          // Expand the right panel to show the loaded dashboard
+          setCollapsedPanels(prev => ({ ...prev, right: false }));
+
           setIsGlobalLoading(false);
           return;
         }
@@ -384,6 +433,11 @@ export default function () {
 
   
   const togglePanel = (panel: 'left' | 'middle' | 'right') => {
+    // Prevent right panel from being collapsed in read-only mode
+    if (readOnlyMode && panel === 'right') {
+      return
+    }
+    
     setCollapsedPanels((prev) => ({
       ...prev,
       [panel]: !prev[panel],
@@ -397,9 +451,23 @@ export default function () {
   
   useEffect(() => {
     const collapsedWidth = '100px';
+    console.log('🔍 Panel state debugging:', { 
+      readOnlyMode, 
+      collapsedPanels, 
+      leftCollapsed: collapsedPanels.left,
+      rightCollapsed: collapsedPanels.right 
+    });
+    
     if (readOnlyMode) {
-      const leftWidth = collapsedPanels.left ? collapsedWidth : '20%';
-      const rightWidth = collapsedPanels.left ? '100%' : (collapsedPanels.right ? collapsedWidth : '80%');
+      // In read-only mode, we only have left (history) and right (dashboard) panels
+      // Calculate proper widths that account for gaps and don't squeeze panels
+      const leftWidth = collapsedPanels.left ? collapsedWidth : '300px'; // Fixed width instead of percentage
+      const rightWidth = collapsedPanels.left 
+        ? `calc(100% - ${collapsedWidth} - 0.5rem)` // Account for gap 
+        : `calc(100% - 300px - 0.5rem)`; // Account for gap
+      
+      console.log('🔍 Read-only mode panel widths:', { leftWidth, rightWidth });
+      
       setPanelWidths({
         left: leftWidth,
         middle: '0%',
@@ -728,7 +796,34 @@ export default function () {
       // Use cache if present and non-empty
       if (Array.isArray(parsedCachedVisualizations) && parsedCachedVisualizations.length > 0) {
         console.log("✅ handleSelectDashboard - Loading from CACHE!");
-        setAllVisualizations(parsedCachedVisualizations);
+        
+        // Transform cached visualizations to ensure chart data is properly formatted
+        const transformedVisualizations = parsedCachedVisualizations.map(viz => {
+          if ((viz.type === 'chart' || viz.type === 'pie') && Array.isArray(viz.data)) {
+            // Check if data is already in chart format (has name/value structure)
+            const isChartFormat = viz.data.length > 0 && 
+              typeof viz.data[0] === 'object' && 
+              'name' in viz.data[0] && 
+              'value' in viz.data[0];
+            
+            console.log(`🔍 handleSelectDashboard Chart ${viz.id} (${viz.type}): isChartFormat=${isChartFormat}, dataLength=${viz.data.length}, columnsLength=${viz.columns?.length || 0}`);
+            
+            if (!isChartFormat && viz.columns && viz.columns.length >= 2) {
+              // Transform raw data to chart format
+              const chartData = viz.data.map(row => ({
+                name: row[viz.columns[0]?.key] || 'Unknown',
+                value: Number(row[viz.columns[1]?.key]) || 0,
+              }));
+              
+              console.log(`✅ handleSelectDashboard Transformed chart data for ${viz.id}:`, chartData.slice(0, 3));
+              return { ...viz, data: chartData };
+            }
+          }
+          
+          return viz;
+        });
+        
+        setAllVisualizations(transformedVisualizations);
 
         // Map quadrants: match by originalId or sql, fallback to first
         const quadrantMap: any = {};
@@ -738,9 +833,16 @@ export default function () {
           const expectedType = expectedViz?.type;
 
           const match = parsedCachedVisualizations.find(
-            v =>
-              (v.originalId === expectedOriginalId || (v.sql && v.sql === expectedViz?.sql)) &&
-              v.type === expectedType
+            v => {
+              // Primary match: by originalId or SQL
+              const primaryMatch = (v.originalId === expectedOriginalId || (v.sql && v.sql === expectedViz?.sql)) &&
+                v.type === expectedType;
+              
+              // Fallback match: by ID directly (for cases where originalId is missing)
+              const fallbackMatch = v.id === expectedOriginalId && v.type === expectedType;
+              
+              return primaryMatch || fallbackMatch;
+            }
           );
 
           quadrantMap[quadrant] = match ? match.id : null;
@@ -824,6 +926,9 @@ export default function () {
         topRight: quadrantMapping.topRight || null,
         bottom: quadrantMapping.bottom || null,
       });
+
+      // Expand the right panel to show the loaded dashboard
+      setCollapsedPanels(prev => ({ ...prev, right: false }));
     } catch (err) {
       console.error('Failed to load dashboard:', err);
     } finally {
@@ -841,13 +946,18 @@ export default function () {
 
   const renderDroppedViz = (vizId: string) => {
     const viz = getVisualizationById(vizId);
+    console.log(`🔍 renderDroppedViz called with vizId: ${vizId}`);
+    console.log(`🔍 Found visualization:`, viz);
+    
     if (!viz) return null;
   
     if (viz.type === 'chart' || viz.type === 'visualization') {
+      console.log(`🔍 Rendering BarGraph with data:`, viz.data);
       return <BarGraph data={viz.data || []} height={150} />;
     }
   
     if (viz.type === 'pie') {
+      console.log(`🔍 Rendering PieGraph with data:`, viz.data);
       let legendScale = 0.75;
     
       const isTopQuadrant = vizId === quadrants.topLeft || vizId === quadrants.topRight;
@@ -877,7 +987,7 @@ export default function () {
     }
   
     if (viz.type === 'table') {
-      return <TableView data={viz.data || []} columns={viz.columns || []} compact />;
+      return <TableView data={viz.data || []} columns={viz.columns || []} compact readOnlyMode={readOnlyMode} />;
     }
   
     return <div className="text-sm text-muted-foreground">Unsupported viz type</div>;
@@ -963,6 +1073,7 @@ export default function () {
               error={error}
               setError={stableSetError}
               onSubmit={handleQuerySubmit}
+              readOnlyMode={readOnlyMode}
             />
           ) : currentTab?.type === 'saved' ? (
             <SavedQueryTab
@@ -1443,7 +1554,7 @@ export default function () {
               <div className="flex-1 overflow-auto bg-card border rounded p-4">
                 <div className="overflow-x-auto">
                   {tabOutputMode === 'table' && (
-                    <TableView data={tabQueryResults} columns={tabColumns} sql={tabSqlQuery || undefined} />
+                    <TableView data={tabQueryResults} columns={tabColumns} sql={tabSqlQuery || undefined} readOnlyMode={readOnlyMode} />
                   )}
                   
                   {tabOutputMode === 'chart' && (
@@ -1500,7 +1611,7 @@ export default function () {
           <div className="flex flex-col h-full overflow-hidden">
             {tabQueryResults && tabQueryResults.length > 0 && tabColumns.length >= 1 && (
               <div className="flex-1 overflow-auto">
-                <TableView data={tabQueryResults} columns={tabColumns} compact />
+                <TableView data={tabQueryResults} columns={tabColumns} compact readOnlyMode={readOnlyMode} />
               </div>
             )}
 
@@ -1535,6 +1646,12 @@ export default function () {
           <h1 
             className="text-2xl md:text-3xl inter font-semibold bg-gradient-to-r from-green-800 to-green-500 bg-clip-text text-transparent cursor-pointer hover:opacity-80 transition-opacity"
             onClick={async () => {
+              // In read-only mode, navigate directly without save prompt
+              if (readOnlyMode) {
+                router.push('/');
+                return;
+              }
+              
               // Check if there's an active query (question, results, or visualizations)
               const hasActiveQuery = question || queryResults?.length || allVisualizations.length > 0;
               
@@ -1581,7 +1698,7 @@ export default function () {
 
         <div className="flex flex-1 overflow-hidden gap-2 px-2 pb-2">
           {/* Left Panel */}
-          <div style={{ width: panelWidths.left }} className="relative transition-all duration-500 ease-in-out">
+          <div style={{ width: panelWidths.left }} className="relative transition-all duration-500 ease-in-out h-full">
             {!collapsedPanels.left && (
               <button
                 className="absolute top-3 right-3 z-10 bg-background/80 backdrop-blur-sm border border-border/50 rounded-full p-1 hover:bg-background/90 transition-all"
@@ -1625,151 +1742,199 @@ export default function () {
 
           
           {/* Right Panel */}
-          <div style={{ width: panelWidths.right }} className="relative flex flex-col transition-all duration-500 ease-in-out">
+          <div style={{ width: panelWidths.right }} className="relative flex flex-col transition-all duration-500 ease-in-out h-full">
             {collapsedPanels.right ? (
               renderCollapsedPanel('right', 'Dashboard')
             ) : (
               <>
-                <button
-                  className="absolute top-3 left-3 z-10 bg-background/80 backdrop-blur-sm border border-border/50 rounded-full p-1 hover:bg-background/90 transition-all"
-                  onClick={() => togglePanel('right')}
-                  title="Collapse"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-                <div className="flex-1 bg-card rounded-lg p-4 border border-border overflow-auto">
-                  <input
-                    type="text"
-                    value={dashboardSectionTitle || ""}
-                    onChange={(e) => setDashboardSectionTitle(e.target.value)}
-                    className="text-lg font-mono font-semibold mt-1 mb-4 bg-transparent outline-none w-full text-center"
-                  />
-                  <div className="grid grid-cols-2 gap-2 mb-2">
-
-
-                    
-                    <div className="flex flex-col">
-                      <input
-                        type="text"
-                        value={topLeftTitle || ""}
-                        onChange={(e) => setTopLeftTitle(e.target.value)}
-                        className="text-sm font-mono font-medium text-center mt-2 mb-2 bg-transparent outline-none w-full"
-                      />
-
-                      <DropZone
-                        id="topLeft"
-                        onDrop={(item) => handleDrop("topLeft", item)}
-                        onRemove={() => setQuadrants((prev) => ({ ...prev, topLeft: null }))}
-                        data-quadrant-id="topLeft"
-                      >
-                        {quadrants.topLeft ? renderDroppedViz(quadrants.topLeft) : (
-                          <div className="h-36 flex items-center justify-center font-mono font-semibold" style={{ color: "#16a34a" }}>
-                            Drag results here
+                {!readOnlyMode && (
+                  <button
+                    className="absolute top-3 left-3 z-10 bg-background/80 backdrop-blur-sm border border-border/50 rounded-full p-1 hover:bg-background/90 transition-all"
+                    onClick={() => togglePanel('right')}
+                    title="Collapse"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                )}
+                
+                {/* Show placeholder when in read-only mode with no dashboard selected */}
+                {readOnlyMode && !dashboardIdNumber ? (
+                  <div className="flex-1 bg-card rounded-lg border border-border overflow-auto">
+                    <div className="h-full flex items-center justify-center p-8">
+                      <div className="text-center">
+                        <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-12 max-w-md">
+                          <div className="flex flex-col items-center gap-4">
+                            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                              <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <h3 className="text-lg font-mono font-semibold text-foreground mb-2">
+                                No Dashboard Selected
+                              </h3>
+                              <p className="text-sm text-muted-foreground mb-1">
+                                Click on a saved dashboard to view it here
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Select from the "Saved Dashboards" panel on the left
+                              </p>
+                            </div>
                           </div>
-                        )}
-                      </DropZone>
-                      
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex flex-col">
-                      <input
-                        type="text"
-                        value={topRightTitle || ""}
-                        onChange={(e) => setTopRightTitle(e.target.value)}
-                        className="text-sm font-mono font-medium text-center mt-2 mb-2 bg-transparent outline-none w-full"
-                      />
-
-                      
-                      <DropZone
-                        id="topRight"
-                        onDrop={(item) => handleDrop("topRight", item)}
-                        onRemove={() => setQuadrants((prev) => ({ ...prev, topRight: null }))}
-                        data-quadrant-id="topRight"
-                      >
-                        {quadrants.topRight ? renderDroppedViz(quadrants.topRight) : (
-                          <div className="h-36 flex items-center justify-center font-mono font-semibold" style={{ color: "#16a34a" }}>
-                            Drag results here
-                          </div>
-                        )}
-                      </DropZone>
-
-
-                      
-                    </div>
-
-
-
-                    
                   </div>
-                  <div className="flex flex-col mt-4">
-
-
-                    
+                ) : (
+                  <div className="flex-1 bg-card rounded-lg p-4 border border-border overflow-auto">
                     <input
                       type="text"
-                      value={bottomTitle || ""}
-                      onChange={(e) => setBottomTitle(e.target.value)}
-                      className="text-sm font-mono font-medium text-center mb-1 bg-transparent outline-none w-full"
+                      value={dashboardSectionTitle || ""}
+                      onChange={(e) => setDashboardSectionTitle(e.target.value)}
+                      readOnly={readOnlyMode}
+                      className={`text-lg font-mono font-semibold mt-1 mb-4 bg-transparent outline-none w-full text-center ${
+                        readOnlyMode ? 'cursor-default' : 'cursor-text'
+                      }`}
                     />
+                    <div className="grid grid-cols-2 gap-2 mb-2">
 
 
-                    
-                    <DropZone
-                      id="bottom"
-                      onDrop={(item) => handleDrop('bottom', item)}
-                      onRemove={() => setQuadrants((prev) => ({ ...prev, bottom: null }))}
-                      data-quadrant-id="bottom"
-                    >
-                      {quadrants.bottom ? renderDroppedViz(quadrants.bottom) : (
-                        <div className="h-44 flex items-center justify-center font-mono font-semibold" style={{ color: "#16a34a" }}>
-                          Drag results here
-                        </div>
-                      )}
-                    </DropZone>
+                      
+                      <div className="flex flex-col">
+                        <input
+                          type="text"
+                          value={topLeftTitle || ""}
+                          onChange={(e) => setTopLeftTitle(e.target.value)}
+                          readOnly={readOnlyMode}
+                          className={`text-sm font-mono font-medium text-center mt-2 mb-2 bg-transparent outline-none w-full ${
+                            readOnlyMode ? 'cursor-default' : 'cursor-text'
+                          }`}
+                        />
+
+                        <DropZone
+                          id="topLeft"
+                          onDrop={(item) => handleDrop("topLeft", item)}
+                          onRemove={() => setQuadrants((prev) => ({ ...prev, topLeft: null }))}
+                          data-quadrant-id="topLeft"
+                          readOnlyMode={readOnlyMode}
+                        >
+                          {quadrants.topLeft ? renderDroppedViz(quadrants.topLeft) : (
+                            <div className="h-36 flex items-center justify-center font-mono font-semibold" style={{ color: "#16a34a" }}>
+                              {readOnlyMode ? "No visualization" : "Drag results here"}
+                            </div>
+                          )}
+                        </DropZone>
+                        
+                      </div>
+                      <div className="flex flex-col">
+                        <input
+                          type="text"
+                          value={topRightTitle || ""}
+                          onChange={(e) => setTopRightTitle(e.target.value)}
+                          readOnly={readOnlyMode}
+                          className={`text-sm font-mono font-medium text-center mt-2 mb-2 bg-transparent outline-none w-full ${
+                            readOnlyMode ? 'cursor-default' : 'cursor-text'
+                          }`}
+                        />
+
+                        
+                        <DropZone
+                          id="topRight"
+                          onDrop={(item) => handleDrop("topRight", item)}
+                          onRemove={() => setQuadrants((prev) => ({ ...prev, topRight: null }))}
+                          data-quadrant-id="topRight"
+                          readOnlyMode={readOnlyMode}
+                        >
+                          {quadrants.topRight ? renderDroppedViz(quadrants.topRight) : (
+                            <div className="h-36 flex items-center justify-center font-mono font-semibold" style={{ color: "#16a34a" }}>
+                              {readOnlyMode ? "No visualization" : "Drag results here"}
+                            </div>
+                          )}
+                        </DropZone>
 
 
-                    
-                    
-                    {/** Diagnostics for all quadrants */}
-{/*                     <div className="mt-4 bg-muted p-2 rounded text-xs border">
-                      <div className="font-semibold mb-2">🛠 Dashboard Quadrant Diagnostics</div>
-                      {(['topLeft', 'topRight', 'bottom'] as const).map((pos) => {
-                        const vizId = quadrants[pos];
-                        const viz = getVisualizationById(vizId);
-                        if (!viz) return (
-                          <div key={pos} className="mb-2">
-                            <div className="font-semibold">{pos}:</div>
-                            <div className="text-muted-foreground">No visualization assigned.</div>
+                        
+                      </div>
+
+
+
+                      
+                    </div>
+                    <div className="flex flex-col mt-4">
+
+
+                      
+                      <input
+                        type="text"
+                        value={bottomTitle || ""}
+                        onChange={(e) => setBottomTitle(e.target.value)}
+                        readOnly={readOnlyMode}
+                        className={`text-sm font-mono font-medium text-center mb-1 bg-transparent outline-none w-full ${
+                          readOnlyMode ? 'cursor-default' : 'cursor-text'
+                        }`}
+                      />
+
+
+                      
+                      <DropZone
+                        id="bottom"
+                        onDrop={(item) => handleDrop('bottom', item)}
+                        onRemove={() => setQuadrants((prev) => ({ ...prev, bottom: null }))}
+                        data-quadrant-id="bottom"
+                        readOnlyMode={readOnlyMode}
+                      >
+                        {quadrants.bottom ? renderDroppedViz(quadrants.bottom) : (
+                          <div className="h-44 flex items-center justify-center font-mono font-semibold" style={{ color: "#16a34a" }}>
+                            {readOnlyMode ? "No visualization" : "Drag results here"}
                           </div>
-                        );
-                        const { data, ...meta } = viz;
-                        return (
-                          <div key={pos} className="mb-4">
-                            <div className="font-semibold">{pos}:</div>
-                            <pre>{JSON.stringify(meta, null, 2)}</pre>
-                            {viz.sql && (
-                              <>
-                                <div className="font-semibold">SQL:</div>
-                                <pre className="whitespace-pre-wrap break-words">{viz.sql}</pre>
-                              </>
-                            )}
-                            {Array.isArray(data) && data.length > 0 && (
-                              <>
-                                <div className="font-semibold">Output Data (sample):</div>
-                                <pre className="whitespace-pre-wrap break-words">
-                                  {JSON.stringify(data.slice(0, 3), null, 2)}
-                                </pre>
-                              </>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>  */}
+                        )}
+                      </DropZone>
+
+
+                      
+                      
+                      {/** Diagnostics for all quadrants */}
+{/*                       <div className="mt-4 bg-muted p-2 rounded text-xs border">
+                        <div className="font-semibold mb-2">🛠 Dashboard Quadrant Diagnostics</div>
+                        {(['topLeft', 'topRight', 'bottom'] as const).map((pos) => {
+                          const vizId = quadrants[pos];
+                          const viz = getVisualizationById(vizId);
+                          if (!viz) return (
+                            <div key={pos} className="mb-2">
+                              <div className="font-semibold">{pos}:</div>
+                              <div className="text-muted-foreground">No visualization assigned.</div>
+                            </div>
+                          );
+                          const { data, ...meta } = viz;
+                          return (
+                            <div key={pos} className="mb-4">
+                              <div className="font-semibold">{pos}:</div>
+                              <pre>{JSON.stringify(meta, null, 2)}</pre>
+                              {viz.sql && (
+                                <>
+                                  <div className="font-semibold">SQL:</div>
+                                  <pre className="whitespace-pre-wrap break-words">{viz.sql}</pre>
+                                </>
+                              )}
+                              {Array.isArray(data) && data.length > 0 && (
+                                <>
+                                  <div className="font-semibold">Output Data (sample):</div>
+                                  <pre className="whitespace-pre-wrap break-words">
+                                    {JSON.stringify(data.slice(0, 3), null, 2)}
+                                  </pre>
+                                </>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>  */}
 
 
 
-                    
+                      
+                    </div>
                   </div>
-                </div>
+                )}
 
                   
 
@@ -1814,6 +1979,14 @@ export default function () {
                       
                     </div>
                   </div>
+                )}
+
+                {/* Share section for saved dashboards */}
+                {dashboardIdNumber && (
+                  <ShareDashboardSection
+                    dashboardId={dashboardIdNumber}
+                    dashboardTitle={dashboardSectionTitle}
+                  />
                 )}
 
 

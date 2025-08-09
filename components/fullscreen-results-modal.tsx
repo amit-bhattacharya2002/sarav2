@@ -20,6 +20,7 @@ interface FullscreenResultsModalProps {
   sql?: string
   title?: string
   startInFullscreen?: boolean
+  readOnlyMode?: boolean // Add this prop to control close button visibility
 }
 
 export function FullscreenResultsModal({
@@ -30,7 +31,8 @@ export function FullscreenResultsModal({
   outputMode,
   sql,
   title = "Query Results",
-  startInFullscreen = false
+  startInFullscreen = false,
+  readOnlyMode = false // Add this parameter
 }: FullscreenResultsModalProps) {
   const [isFullscreen, setIsFullscreen] = useState(startInFullscreen)
 
@@ -98,6 +100,7 @@ export function FullscreenResultsModal({
                         sql={sql} 
                         compact={false}
                         hideExpandButton={true}
+                        readOnlyMode={readOnlyMode}
                       />
                     </div>
                   )}
@@ -131,14 +134,16 @@ export function FullscreenResultsModal({
             >
               <Maximize2 className="h-4 w-4" />
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onOpenChange(false)}
-              className="h-8 w-8 p-0"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            {!readOnlyMode && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onOpenChange(false)}
+                className="h-8 w-8 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </DialogHeader>
         
@@ -153,6 +158,7 @@ export function FullscreenResultsModal({
                     sql={sql} 
                     compact={false}
                     hideExpandButton={true}
+                    readOnlyMode={readOnlyMode}
                   />
                 </div>
               )}

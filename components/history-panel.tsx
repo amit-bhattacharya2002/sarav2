@@ -135,10 +135,8 @@ export function HistoryPanel({
   }
 
   const handleDashboardClick = (dashboard: SavedDashboard) => {
-    setSelectedDashboard(dashboard)
-    if (onSelectDashboard) {
-      onSelectDashboard(dashboard)
-    }
+    // Redirect to read-only mode for the selected dashboard
+    router.push(`/dashboard?d=${dashboard.id}`)
   }
 
   const handleEditClick = (query: SavedQuery, e: React.MouseEvent) => {
@@ -271,7 +269,7 @@ export function HistoryPanel({
                     <button
                       key={dashboard.id}
                       className="block w-full text-left p-3 rounded-md border border-border hover:bg-muted transition-colors"
-                      onClick={() => router.push(`?d=${dashboard.id}`)}
+                      onClick={() => router.push(`/dashboard?d=${dashboard.id}`)}
                     >
                       <span className="font-mono font-medium">{dashboard.title}</span>
                     </button>

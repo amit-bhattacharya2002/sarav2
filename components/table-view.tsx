@@ -14,6 +14,7 @@ interface TableViewProps {
   outputMode?: string // ✅ track whether it's a table or chart
   sql?: string        // <-- ADD THIS LINE
   hideExpandButton?: boolean // Add this prop to hide expand button in modal
+  readOnlyMode?: boolean // Add this prop to control dragging behavior
 }
 
 export function TableView({
@@ -24,6 +25,7 @@ export function TableView({
   outputMode = 'table',
   sql,                // <-- ADD THIS LINE
   hideExpandButton = false, // Add this prop
+  readOnlyMode = false, // Add this prop
 }: TableViewProps) {
   const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set(columns.map(col => col.key)))
   const [showColumnSelector, setShowColumnSelector] = useState(false)
@@ -37,6 +39,41 @@ export function TableView({
     setSelectedColumns(new Set(columns.map(col => col.key)))
     setColumnOrder(columns.map(col => col.key))
   }, [columns])
+
+  // All hooks must be called before any early returns
+  const [{ isDragging }, drag] = useDrag(() => ({
+    type: 'visualization',
+    item: readOnlyMode ? null : {
+      id: `viz-${Date.now()}`,
+      type: outputMode,
+      title: 'Query Result',
+      data,
+      columns, // Always use all columns for the data, not just visible ones
+      color: 'hsl(var(--chart-4))',
+      sql,              // <-- ADD THIS LINE
+    },
+    canDrag: !readOnlyMode, // Disable dragging in read-only mode
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  }), [data, columns, outputMode, sql, readOnlyMode]) // Use all columns, not just visible ones
+
+  // Early return if no data or columns
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
+        No data available
+      </div>
+    );
+  }
+
+  if (!columns || !Array.isArray(columns) || columns.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
+        No columns defined
+      </div>
+    );
+  }
 
   const toggleColumn = (columnKey: string) => {
     setSelectedColumns(prev => {
@@ -101,22 +138,6 @@ export function TableView({
     .map(key => columns.find(col => col.key === key))
     .filter((col): col is { key: string; name: string } => col !== undefined && selectedColumns.has(col.key))
 
-  const [{ isDragging }, drag] = useDrag(() => ({
-    type: 'visualization',
-    item: {
-      id: `viz-${Date.now()}`,
-      type: outputMode,
-      title: 'Query Result',
-      data,
-      columns, // Always use all columns for the data, not just visible ones
-      color: 'hsl(var(--chart-4))',
-      sql,              // <-- ADD THIS LINE
-    },
-    collect: (monitor) => ({
-      isDragging: monitor.isDragging(),
-    }),
-  }), [data, columns, outputMode, sql]) // Use all columns, not just visible ones
-
   const handleExpandClick = () => {
     setStartInFullscreen(true)
     setFullscreenModalOpen(true)
@@ -131,7 +152,11 @@ export function TableView({
 
   return (
     <>
-      <div ref={drag as any} className="h-full w-full cursor-move flex flex-col" style={{ opacity: isDragging ? 0.5 : 1 }}>
+      <div 
+        ref={readOnlyMode ? undefined : (drag as any)} 
+        className={`h-full w-full flex flex-col ${readOnlyMode ? '' : 'cursor-move'}`} 
+        style={{ opacity: isDragging ? 0.5 : 1 }}
+      >
         {/* Header with Expand Button */}
         <div className="flex items-center justify-between mb-2 p-2 bg-muted/20 rounded border border-border flex-shrink-0">
           <div className="flex items-center gap-2">
@@ -269,6 +294,7 @@ export function TableView({
           sql={sql}
           title="Query Results - Full Screen"
           startInFullscreen={startInFullscreen}
+          readOnlyMode={readOnlyMode}
         />
       )}
     </>

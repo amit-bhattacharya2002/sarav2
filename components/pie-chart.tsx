@@ -15,6 +15,9 @@ const COLORS = [
 ]
 
 export function PieGraph({ data, height = 200, compact = false, legendScale = 1 }: PieGraphProps) {
+  // Debug: Log the data being passed to PieGraph
+  console.log("🔍 PieGraph received data:", data);
+  
   const safeData = Array.isArray(data)
     ? data.filter(
         d =>
@@ -25,7 +28,10 @@ export function PieGraph({ data, height = 200, compact = false, legendScale = 1 
       )
     : []
 
+  console.log("🔍 PieGraph safeData:", safeData);
+
   if (safeData.length === 0) {
+    console.log("❌ PieGraph: No valid data, not rendering");
     if (process.env.NODE_ENV === "development") {
       console.warn("⚠️ PieGraph received invalid or empty data:", data)
     }
