@@ -24,6 +24,7 @@ export function DraggableChart({
   columns = [],
 }: DraggableChartProps) {
   const [fullscreenModalOpen, setFullscreenModalOpen] = useState(false)
+  const [startInFullscreen, setStartInFullscreen] = useState(false)
 
   const [{ isDragging }, drag] = useDrag(() => ({
     type: 'visualization',
@@ -49,7 +50,10 @@ export function DraggableChart({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setFullscreenModalOpen(true)}
+            onClick={() => {
+              setStartInFullscreen(true)
+              setFullscreenModalOpen(true)
+            }}
             className="h-8 w-8 p-0 bg-background/80 backdrop-blur-sm"
             title="Open in full screen"
           >
@@ -67,12 +71,18 @@ export function DraggableChart({
       {/* Fullscreen Modal */}
       <FullscreenResultsModal
         open={fullscreenModalOpen}
-        onOpenChange={setFullscreenModalOpen}
+        onOpenChange={(open) => {
+          setFullscreenModalOpen(open)
+          if (!open) {
+            setStartInFullscreen(false)
+          }
+        }}
         data={data.map(item => ({ [columns[0]?.key || 'name']: item.name, [columns[1]?.key || 'value']: item.value }))}
         columns={columns}
         outputMode={type}
         sql={sql}
         title="Chart Results - Full Screen"
+        startInFullscreen={startInFullscreen}
       />
     </>
   )

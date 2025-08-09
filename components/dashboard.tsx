@@ -32,7 +32,7 @@ type Visualization = {
   originalId?: string;
 };
 
-export default function () {
+export default function Dashboard() {
   const router = useRouter();
   const [allVisualizations, setAllVisualizations] = useState<Visualization[]>([]);
   const [quadrants, setQuadrants] = useState<{ topLeft: string | null; topRight: string | null; bottom: string | null }>({
@@ -477,21 +477,15 @@ export default function () {
     }
     // Regular logic in edit mode
     const fullWidth = 100;
+    const leftWidth = collapsedPanels.left ? 3 : 20;
+    const rightWidth = collapsedPanels.right ? 3 : 40;
+    const middleWidth = fullWidth - leftWidth - rightWidth;
+    
     const newPanelWidths = {
       left: collapsedPanels.left ? collapsedWidth : '20%',
-      middle: collapsedPanels.middle ? collapsedWidth : '',
-      right: collapsedPanels.right ? collapsedWidth : '',
+      middle: `${middleWidth}%`, // Takes remaining space
+      right: collapsedPanels.right ? collapsedWidth : '40%',
     };
-    const fixedLeftPercent = collapsedPanels.left ? 3 : 20;
-    const collapsedCount = ['middle', 'right'].filter((p): p is 'middle' | 'right' => collapsedPanels[p as keyof typeof collapsedPanels]).length;
-    const collapsedTotal = collapsedCount * 3;
-    const availableWidth = fullWidth - fixedLeftPercent - collapsedTotal;
-    const proportions: Record<'middle' | 'right', number> = { middle: 40, right: 40 };
-    const visible = (['middle', 'right'] as const).filter((p) => !collapsedPanels[p]);
-    const totalVisible = visible.reduce((sum, p) => sum + proportions[p], 0);
-    visible.forEach((panel) => {
-      newPanelWidths[panel] = `${(proportions[panel] / totalVisible) * availableWidth}%`;
-    });
     setPanelWidths(newPanelWidths);
   }, [collapsedPanels, readOnlyMode]);
   
@@ -1045,14 +1039,7 @@ export default function () {
             </div>
           ))}
           
-          {/* Chevron button positioned in the tab area */}
-          <button
-            className="absolute top-3 right-3 z-10 bg-background/80 backdrop-blur-sm border border-border/50 rounded-full p-1 hover:bg-background/90 transition-all"
-            onClick={() => togglePanel('middle')}
-            title="Collapse"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
+
         </div>
 
         {/* Tab Content */}
@@ -1560,8 +1547,8 @@ export default function () {
                   {tabOutputMode === 'chart' && (
                     <DraggableChart
                       data={tabQueryResults.map((row) => ({
-                        name: row.donor || row._id?.name || row[tabColumns[0]?.key] || 'Unknown',
-                        value: Number(row.totalAmount || row[tabColumns[1]?.key]) || 0,
+                        name: row[tabColumns[0]?.key] || row.donor || row._id?.name || 'Unknown',
+                        value: Number(row[tabColumns[1]?.key] || row.totalAmount) || 0,
                       }))}
                       height={200}
                       type={tabOutputMode}
@@ -1573,8 +1560,8 @@ export default function () {
                   {tabOutputMode === 'pie' && (
                     <DraggablePieChart
                       data={tabQueryResults.map((row) => ({
-                        name: row.donor || row._id?.name || row[tabColumns[0]?.key] || 'Unknown',
-                        value: Number(row.totalAmount || row[tabColumns[1]?.key]) || 0,
+                        name: row[tabColumns[0]?.key] || row.donor || row._id?.name || 'Unknown',
+                        value: Number(row[tabColumns[1]?.key] || row.totalAmount) || 0,
                       }))}
                       height={200}
                       sql={tabSqlQuery || undefined}
@@ -1727,13 +1714,9 @@ export default function () {
           {/* Middle Panel - hidden in read-only mode */}
           {!readOnlyMode && (
             <div style={{ width: panelWidths.middle }} className="relative transition-all duration-500 ease-in-out overflow-hidden">
-              {collapsedPanels.middle ? (
-                renderCollapsedPanel('middle', 'Query')
-              ) : (
-                  <div className="relative h-full overflow-hidden">
-                    {renderTabbedPanel()}
-                  </div>
-                )}
+              <div className="relative h-full overflow-hidden">
+                {renderTabbedPanel()}
+              </div>
             </div>
           )}
 

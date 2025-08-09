@@ -3,8 +3,9 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-import { Loader2, Save, Trash2, LayoutList, BarChart2, PieChart, X, AlertTriangle, AlertCircle, XCircle } from "lucide-react"
+import { Loader2, Save, Trash2, LayoutList, BarChart2, PieChart, X, AlertTriangle, AlertCircle, XCircle, ChevronDown, ChevronUp } from "lucide-react"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { TableView } from "@/components/table-view"
 import { DraggableChart } from './draggable-chart'
@@ -65,9 +66,24 @@ export function QueryPanel({
 }: QueryPanelProps) {
   const [showSql, setShowSql] = useState(false)
   const [saveStatus, setSaveStatus] = useState<null | "success" | "error" | "saving">(null);
+  
+  // Chart column selection state
+  const [selectedXColumn, setSelectedXColumn] = useState<string>('')
+  const [selectedYColumn, setSelectedYColumn] = useState<string>('')
+  
+  // Chart configuration panel collapse state
+  const [isChartConfigCollapsed, setIsChartConfigCollapsed] = useState(false)
 
   // Ref for textarea focus
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Auto-select default columns when results change
+  useEffect(() => {
+    if (columns.length >= 2 && (!selectedXColumn || !selectedYColumn)) {
+      setSelectedXColumn(columns[0]?.key || '')
+      setSelectedYColumn(columns[1]?.key || '')
+    }
+  }, [columns, selectedXColumn, selectedYColumn])
 
   // Stable event handlers
   const handleQuestionChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -173,81 +189,150 @@ export function QueryPanel({
 
   
   return (
-    <div className="flex flex-col h-full bg-card rounded-lg shadow-md p-4 border border-border">
-      <h2 className="text-xl font-mono font-semibold mb-2">Current Query</h2>
+    <div className="flex flex-col h-full bg-card rounded-lg shadow-md border border-border overflow-hidden">
+      <div className="flex-shrink-0 p-4 pb-0">
+        <h2 className="text-xl font-mono font-semibold mb-2">Current Query</h2>
 
-      <Textarea
-        ref={textareaRef}
-        placeholder="e.g. Show me the top 10 donors of 2024"
-        value={question}
-        onChange={handleQuestionChange}
-        onKeyDown={handleKeyDown}
-        className="mb-2"
-      />
+        <Textarea
+          ref={textareaRef}
+          placeholder="e.g. Show me the top 10 donors of 2024"
+          value={question}
+          onChange={handleQuestionChange}
+          onKeyDown={handleKeyDown}
+          className="mb-2"
+        />
 
-      <TooltipProvider>
-        <ToggleGroup
-          type="single"
-          value={outputMode}
-          onValueChange={(value) => {
-            if (value) setOutputMode(value)
-          }}
-          className="mb-2 flex gap-2"
-        >
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <ToggleGroupItem
-                value="table"
-                aria-label="Table View"
-                className={outputMode === "table" ? "border border-primary bg-muted/30" : ""}
-              >
-                <LayoutList className="h-5 w-5" />
-              </ToggleGroupItem>
-            </TooltipTrigger>
-            <TooltipContent>Tabular</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <ToggleGroupItem
-                value="chart"
-                aria-label="Bar Chart View"
-                className={outputMode === "chart" ? "border border-primary bg-muted/30" : ""}
-              >
-                <BarChart2 className="h-5 w-5" />
-              </ToggleGroupItem>
-            </TooltipTrigger>
-            <TooltipContent>Bar Chart</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <ToggleGroupItem
-                value="pie"
-                aria-label="Pie Chart View"
-                className={outputMode === "pie" ? "border border-primary bg-muted/30" : ""}
-              >
-                <PieChart className="h-5 w-5" />
-              </ToggleGroupItem>
-            </TooltipTrigger>
-            <TooltipContent>Pie Chart (Coming Soon)</TooltipContent>
-          </Tooltip>
-        </ToggleGroup>
-      </TooltipProvider>
+        <div className="flex items-center justify-between gap-4 mb-2">
+          <TooltipProvider>
+            <ToggleGroup
+              type="single"
+              value={outputMode}
+              onValueChange={(value) => {
+                if (value) setOutputMode(value)
+              }}
+              className="flex gap-2"
+            >
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ToggleGroupItem
+                  value="table"
+                  aria-label="Table View"
+                  className={outputMode === "table" ? "border border-primary bg-muted/30" : ""}
+                >
+                  <LayoutList className="h-5 w-5" />
+                </ToggleGroupItem>
+              </TooltipTrigger>
+              <TooltipContent>Tabular</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ToggleGroupItem
+                  value="chart"
+                  aria-label="Bar Chart View"
+                  className={outputMode === "chart" ? "border border-primary bg-muted/30" : ""}
+                >
+                  <BarChart2 className="h-5 w-5" />
+                </ToggleGroupItem>
+              </TooltipTrigger>
+              <TooltipContent>Bar Chart</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ToggleGroupItem
+                  value="pie"
+                  aria-label="Pie Chart View"
+                  className={outputMode === "pie" ? "border border-primary bg-muted/30" : ""}
+                >
+                  <PieChart className="h-5 w-5" />
+                </ToggleGroupItem>
+              </TooltipTrigger>
+              <TooltipContent>Pie Chart (Coming Soon)</TooltipContent>
+            </Tooltip>
+            </ToggleGroup>
+          </TooltipProvider>
 
-      <Button 
-        onClick={onSubmit} 
-        disabled={isLoading || (isEditingSavedQuery && (!hasChanges || !hasChanges())) || (!!selectedSavedQueryId && !isEditingSavedQuery)} 
-        className="mb-2"
-      >
-        {isLoading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "Search"}
-      </Button>
+          <Button 
+            onClick={onSubmit} 
+            disabled={isLoading || (isEditingSavedQuery && (!hasChanges || !hasChanges())) || (!!selectedSavedQueryId && !isEditingSavedQuery)}
+          >
+            {isLoading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "Search"}
+          </Button>
+        </div>
+
+        {/* Column Selection for Charts */}
+        {(outputMode === 'chart' || outputMode === 'pie') && columns.length >= 2 && (
+          <div className="mb-2 bg-muted/20 rounded border border-border">
+            {/* Collapsible Header */}
+            <button
+              onClick={() => setIsChartConfigCollapsed(!isChartConfigCollapsed)}
+              className="w-full p-3 flex items-center justify-between text-left hover:bg-muted/10 transition-colors rounded-t"
+            >
+              <span className="text-sm font-medium">Chart Configuration</span>
+              {isChartConfigCollapsed ? (
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <ChevronUp className="h-4 w-4 text-muted-foreground" />
+              )}
+            </button>
+            
+            {/* Collapsible Content */}
+            {!isChartConfigCollapsed && (
+              <div className="px-3 pb-3 border-t border-border/50">
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">
+                      X-Axis ({outputMode === 'chart' ? 'Categories' : 'Labels'})
+                    </label>
+                    <Select value={selectedXColumn} onValueChange={setSelectedXColumn}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue placeholder="Select column" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {columns.map((col) => (
+                          <SelectItem key={col.key} value={col.key}>
+                            {col.name.replace(/_/g, ' ').replace(/\w\S*/g, txt => 
+                              txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase()
+                            )}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">
+                      Y-Axis ({outputMode === 'chart' ? 'Values' : 'Sizes'})
+                    </label>
+                    <Select value={selectedYColumn} onValueChange={setSelectedYColumn}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue placeholder="Select column" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {columns.map((col) => (
+                          <SelectItem key={col.key} value={col.key}>
+                            {col.name.replace(/_/g, ' ').replace(/\w\S*/g, txt => 
+                              txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase()
+                            )}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Results Title */}
       {/* <div className="font-mono font-bold text-lg mb-2 mt-2" style={{ color: "#16a34a" }}>Results:</div> */}
       
-      {/* Results Area - Always visible with border */}
-      <div className="bg-card border-2 border-dashed border-muted-foreground/30 mt-4 rounded p-4 flex-1 overflow-auto mb-20 flex flex-col" style={{ minHeight: '400px', maxHeight: '500vh' }}>
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-auto p-4 pt-0">
+        {/* Results Area - Always visible with border */}
+        <div className="bg-card border-2 border-dashed border-muted-foreground/30 rounded p-4 flex flex-col flex-1 h-full">
         {queryResults && queryResults.length > 0 && columns.length >= 1 ? (
-          <div className="h-full w-full overflow-hidden flex-1 min-h-0">
+          <div className="h-full w-full overflow-auto flex-1 min-h-0">
             {outputMode === 'table' && (
               <div className="h-full w-full overflow-hidden">
                 <TableView data={queryResults} columns={columns} sql={sqlQuery || undefined} readOnlyMode={readOnlyMode} />
@@ -255,28 +340,32 @@ export function QueryPanel({
             )}
           
             {outputMode === 'chart' && (
-              <DraggableChart
-                data={queryResults.map((row) => ({
-                  name: row.donor || row._id?.name || row[columns[0]?.key] || 'Unknown',
-                  value: Number(row.totalAmount || row[columns[1]?.key]) || 0,
-                }))}
-                height={200}
-                type={outputMode}
-                sql={sqlQuery || undefined}
-                columns={columns}
-              />
+              <div className="h-full w-full overflow-auto">
+                <DraggableChart
+                  data={queryResults.map((row) => ({
+                    name: row[selectedXColumn] || row.donor || row._id?.name || 'Unknown',
+                    value: Number(row[selectedYColumn] || row.totalAmount) || 0,
+                  }))}
+                  height={400}
+                  type={outputMode}
+                  sql={sqlQuery || undefined}
+                  columns={columns}
+                />
+              </div>
             )}
           
             {outputMode === 'pie' && (
-              <DraggablePieChart
-                data={queryResults.map((row) => ({
-                  name: row.donor || row._id?.name || row[columns[0]?.key] || 'Unknown',
-                  value: Number(row.totalAmount || row[columns[1]?.key]) || 0,
-                }))}
-                height={200}
-                sql={sqlQuery || undefined}
-                columns={columns}
-              />
+              <div className="h-full w-full overflow-auto">
+                <DraggablePieChart
+                  data={queryResults.map((row) => ({
+                    name: row[selectedXColumn] || row.donor || row._id?.name || 'Unknown',
+                    value: Number(row[selectedYColumn] || row.totalAmount) || 0,
+                  }))}
+                  height={400}
+                  sql={sqlQuery || undefined}
+                  columns={columns}
+                />
+              </div>
             )}
           </div>
         ) : (
@@ -304,44 +393,46 @@ export function QueryPanel({
             )}
           </div>
         )}
+
+        </div>
+
+        {error && (
+          <div className="mt-4">
+            {(() => {
+              const errorInfo = getErrorInfo(error)
+              const IconComponent = errorInfo.icon
+              
+              return (
+                <div className={`p-4 rounded-lg border ${errorInfo.bgColor} flex items-start gap-3`}>
+                  <IconComponent className={`h-5 w-5 ${errorInfo.color} flex-shrink-0 mt-0.5`} />
+                  <div className="flex-1">
+                    <div className={`font-semibold ${errorInfo.color} mb-1`}>
+                      {errorInfo.title}
+                    </div>
+                    <div className="text-sm text-gray-600 mb-2">
+                      {errorInfo.description}
+                    </div>
+                    <div className="text-sm font-mono bg-white/50 p-2 rounded border text-gray-700">
+                      {error}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setError(null)}
+                    className="h-6 w-6 p-0 hover:bg-white/50"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )
+            })()}
+          </div>
+        )}
       </div>
 
-      {error && (
-        <div className="mt-4">
-          {(() => {
-            const errorInfo = getErrorInfo(error)
-            const IconComponent = errorInfo.icon
-            
-            return (
-              <div className={`p-4 rounded-lg border ${errorInfo.bgColor} flex items-start gap-3`}>
-                <IconComponent className={`h-5 w-5 ${errorInfo.color} flex-shrink-0 mt-0.5`} />
-                <div className="flex-1">
-                  <div className={`font-semibold ${errorInfo.color} mb-1`}>
-                    {errorInfo.title}
-                  </div>
-                  <div className="text-sm text-gray-600 mb-2">
-                    {errorInfo.description}
-                  </div>
-                  <div className="text-sm font-mono bg-white/50 p-2 rounded border text-gray-700">
-                    {error}
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setError(null)}
-                  className="h-6 w-6 p-0 hover:bg-white/50"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            )
-          })()}
-        </div>
-      )}
-
       {/* Fixed Save/Clear Button Bar */}
-      <div className="absolute bottom-0 left-0 right-0 z-20 p-4 border-t bg-card flex flex-row items-center justify-between gap-2 rounded-b-lg">
+      <div className="flex-shrink-0 p-4 border-t bg-card flex flex-row items-center justify-between gap-2">
         
         {isEditingSavedQuery ? (
           // Edit mode: Update and Cancel
@@ -414,9 +505,7 @@ export function QueryPanel({
             </Button>
           </>
         )}
-      </div>      
-
-      
+      </div>
     </div>
   )
 }

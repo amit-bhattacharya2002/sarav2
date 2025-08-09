@@ -21,6 +21,7 @@ export function DraggablePieChart({
   columns = [],
 }: DraggablePieChartProps) {
   const [fullscreenModalOpen, setFullscreenModalOpen] = useState(false)
+  const [startInFullscreen, setStartInFullscreen] = useState(false)
 
   const [{ isDragging }, drag] = useDrag(() => ({
     type: 'visualization',
@@ -46,7 +47,10 @@ export function DraggablePieChart({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setFullscreenModalOpen(true)}
+            onClick={() => {
+              setStartInFullscreen(true)
+              setFullscreenModalOpen(true)
+            }}
             className="h-8 w-8 p-0 bg-background/80 backdrop-blur-sm"
             title="Open in full screen"
           >
@@ -60,12 +64,18 @@ export function DraggablePieChart({
       {/* Fullscreen Modal */}
       <FullscreenResultsModal
         open={fullscreenModalOpen}
-        onOpenChange={setFullscreenModalOpen}
+        onOpenChange={(open) => {
+          setFullscreenModalOpen(open)
+          if (!open) {
+            setStartInFullscreen(false)
+          }
+        }}
         data={data.map(item => ({ [columns[0]?.key || 'name']: item.name, [columns[1]?.key || 'value']: item.value }))}
         columns={columns}
         outputMode="pie"
         sql={sql}
         title="Pie Chart Results - Full Screen"
+        startInFullscreen={startInFullscreen}
       />
     </>
   )
