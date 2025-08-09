@@ -6,7 +6,7 @@ export default function Home() {
       <div className="flex flex-col items-start justify-center">
         <h1 className="text-[5rem] md:text-[10rem] mb-0 inter font-semibold bg-gradient-to-r from-green-800 to-green-500 bg-clip-text text-transparent w-full text-center md:text-start">SARA</h1>
         <p className="text-sm md:text-xl text-muted-foreground mb-8 max-w-2xl text-center md:text-start">
-          A powerful dashboard creation tool that helps you visualize and analyze your data through customizable charts, tables, and interactive visualizations. Build, save, and share your insights effortlessly.
+        Turn questions into stunning dashboards – visualize, analyze, and share insights in seconds.
         </p>
       </div>
       <div className="flex gap-10 flex-col justify-end   ">

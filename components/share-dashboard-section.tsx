@@ -11,7 +11,7 @@ interface ShareDashboardSectionProps {
 
 export function ShareDashboardSection({ dashboardId, dashboardTitle }: ShareDashboardSectionProps) {
   const [copied, setCopied] = useState(false)
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(true) // Start collapsed by default
   const [shareUrl, setShareUrl] = useState('')
 
   // Set shareUrl after component mounts on client side to avoid SSR issues
@@ -59,9 +59,9 @@ export function ShareDashboardSection({ dashboardId, dashboardTitle }: ShareDash
       >
         <h3 className="text-sm font-mono font-semibold text-foreground">Share Dashboard</h3>
         {isCollapsed ? (
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-        ) : (
           <ChevronUp className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
         )}
       </button>
 
