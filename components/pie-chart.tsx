@@ -14,7 +14,7 @@ const COLORS = [
   "#ffbb28", "#8dd1e1", "#d0ed57", "#a4de6c"
 ]
 
-export function PieGraph({ data, height = 200, compact = false, legendScale = 1 }: PieGraphProps) {
+export function PieGraph({ data, height = 400, compact = false, legendScale = 1 }: PieGraphProps) {
   // Debug: Log the data being passed to PieGraph
   console.log("🔍 PieGraph received data:", data);
   
@@ -46,9 +46,9 @@ export function PieGraph({ data, height = 200, compact = false, legendScale = 1 
             data={safeData}
             dataKey="value"
             nameKey="name"
-            cx="40%"
+            cx="45%"
             cy="50%"
-            outerRadius="70%"
+            outerRadius="80%"
             fill="#8884d8"
             isAnimationActive={false}
             labelLine={false}

@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
 
     // ---- 2. Update Query Branch ----
     if (body.action === "update") {
-      const { id, title, question, sql, outputMode, columns } = body
+      const { id, title, question, sql, outputMode, columns, visualConfig } = body
 
       if (!id || !title || !question || !sql || !outputMode || !columns) {
         return addRateLimitHeaders(
@@ -124,6 +124,7 @@ export async function POST(req: NextRequest) {
           queryText: question,
           sqlText: sql,
           outputMode: output_mode,
+          visualConfig: visualConfig ? JSON.stringify(visualConfig) : null,
           resultData: JSON.stringify(queryResult.rows || []),
           resultColumns: JSON.stringify(queryResult.columns || []),
           updatedAt: new Date(),
@@ -153,6 +154,7 @@ export async function POST(req: NextRequest) {
           sqlText: true,
           queryText: true,
           outputMode: true,
+          visualConfig: true,
         }
       })
 
@@ -166,6 +168,9 @@ export async function POST(req: NextRequest) {
       const columns = savedQuery.resultColumns ? JSON.parse(savedQuery.resultColumns) : []
       
       const outputMode = savedQuery.outputMode === 2 ? 'chart' : savedQuery.outputMode === 3 ? 'pie' : 'table'
+      
+      // Parse visual config if it exists
+      const visualConfig = savedQuery.visualConfig ? JSON.parse(savedQuery.visualConfig) : null
 
       return addRateLimitHeaders(
         NextResponse.json({
@@ -175,6 +180,7 @@ export async function POST(req: NextRequest) {
           sql: savedQuery.sqlText,
           question: savedQuery.queryText,
           outputMode,
+          visualConfig,
         })
       )
     }

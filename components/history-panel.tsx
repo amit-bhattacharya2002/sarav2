@@ -220,7 +220,7 @@ export function HistoryPanel({
                         className="w-full text-left"
                         onClick={() => handleQueryClick(query)}
                       >
-                        <span className="font-mono font-medium">{query.title}</span>
+                        <span className="font-mono font-medium text-lg">{query.title}</span>
                       </button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -271,7 +271,7 @@ export function HistoryPanel({
                       className="block w-full text-left p-3 rounded-md border border-border hover:bg-muted transition-colors"
                       onClick={() => router.push(`/dashboard?d=${dashboard.id}`)}
                     >
-                      <span className="font-mono font-medium">{dashboard.title}</span>
+                      <span className="font-mono font-medium text-lg">{dashboard.title}</span>
                     </button>
                   ) : (
                     <div
@@ -284,7 +284,7 @@ export function HistoryPanel({
                         className="flex-1 text-left"
                         onClick={() => handleDashboardClick(dashboard)}
                       >
-                        <span className="font-mono font-medium">{dashboard.title}</span>
+                        <span className="font-mono font-medium text-lg">{dashboard.title}</span>
                       </button>
                       <button
                         className="ml-2 p-1 rounded hover:bg-accent"

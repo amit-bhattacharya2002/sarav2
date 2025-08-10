@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Copy, Share, Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { encryptDashboardId } from '@/lib/encryption'
 
 interface ShareDashboardSectionProps {
   dashboardId: number
@@ -17,7 +18,13 @@ export function ShareDashboardSection({ dashboardId, dashboardTitle }: ShareDash
   // Set shareUrl after component mounts on client side to avoid SSR issues
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setShareUrl(`${window.location.origin}/share/${dashboardId}`)
+      try {
+        const encryptedId = encryptDashboardId(dashboardId)
+        setShareUrl(`${window.location.origin}/share/${encryptedId}`)
+      } catch (error) {
+        console.error('Failed to generate share URL:', error)
+        setShareUrl('')
+      }
     }
   }, [dashboardId])
 

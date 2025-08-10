@@ -115,6 +115,13 @@ export function QueryPanel({
   async function handleSaveQuery() {
     setSaveStatus("saving");
     try {
+      // Prepare visual config for charts
+      const visualConfig = (outputMode === 'chart' || outputMode === 'pie') && selectedXColumn && selectedYColumn ? {
+        selectedXColumn,
+        selectedYColumn,
+        outputMode
+      } : null;
+
       const payload = {
         action: "save", // <-- This tells the backend to save, not run
         question,
@@ -122,7 +129,8 @@ export function QueryPanel({
         outputMode,
         columns,
         dataSample: queryResults?.slice(0, 3) || [],
-        // userId, companyId, visualConfig, panelPosition: add if needed
+        visualConfig,
+        // userId, companyId, panelPosition: add if needed
       };
       const res = await fetch("/api/query", {
         method: "POST",

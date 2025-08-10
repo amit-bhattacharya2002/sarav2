@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { PieGraph } from '@/components/pie-chart'
 import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { LayoutList, BarChart2, PieChart } from 'lucide-react'
 import { DraggableChart } from '@/components/draggable-chart'
 import { DraggablePieChart } from '@/components/draggable-pie'
@@ -139,11 +140,11 @@ export default function Dashboard() {
   const editMode = editParam === 'true';
   const readOnlyMode = !editMode;
     
-    
+  // TODO: make this work for read-only mode
   const [collapsedPanels, setCollapsedPanels] = useState<Record<'left' | 'middle' | 'right', boolean>>({
-    left: !readOnlyMode, // Collapsed in edit mode, expanded in read-only mode
+    left: false, // Collapsed in edit mode, expanded in read-only mode
     middle: false,
-    right: !readOnlyMode, // Collapsed in edit mode, expanded in read-only mode
+    right: false, // Collapsed in edit mode, expanded in read-only mode
   })
 
   const [panelWidths, setPanelWidths] = useState<Record<'left' | 'middle' | 'right', string>>({
@@ -955,8 +956,17 @@ export default function Dashboard() {
       let legendScale = 0.75;
     
       const isTopQuadrant = vizId === quadrants.topLeft || vizId === quadrants.topRight;
+      const isBottomQuadrant = vizId === quadrants.bottom;
       const isLeftOpen = !collapsedPanels.left;
       const isMiddleHidden = collapsedPanels.middle;
+    
+      // Determine height based on quadrant
+      let height = 200; // default
+      if (isTopQuadrant) {
+        height = 200; // h-36 = 144px
+      } else if (isBottomQuadrant) {
+        height = 200; // h-44 = 176px
+      }
     
       if (readOnlyMode) {
         legendScale = isTopQuadrant
@@ -969,11 +979,10 @@ export default function Dashboard() {
         }
       }
 
-  
       return (
         <PieGraph
           data={viz.data || []}
-          height={150}
+          height={height}
           compact
           legendScale={legendScale}
         />
@@ -1089,6 +1098,10 @@ export default function Dashboard() {
     const [tabSaveStatus, setTabSaveStatus] = useState<null | "success" | "error" | "saving">(null)
     const [tabCurrentTitle, setTabCurrentTitle] = useState(query?.title || query?.queryText || 'Saved Query')
     const [tabShowSql, setTabShowSql] = useState(false)
+    
+    // Chart configuration state
+    const [tabSelectedXColumn, setTabSelectedXColumn] = useState<string>('')
+    const [tabSelectedYColumn, setTabSelectedYColumn] = useState<string>('')
 
     // Ref for textarea focus
     const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -1181,13 +1194,24 @@ export default function Dashboard() {
           setTabOutputMode(result.outputMode || 'table')
           setTabCurrentTitle(result.title || result.question || 'Saved Query')
           
+          // Set chart configuration if available
+          if (result.visualConfig) {
+            setTabSelectedXColumn(result.visualConfig.selectedXColumn || '')
+            setTabSelectedYColumn(result.visualConfig.selectedYColumn || '')
+          } else if (result.columns && result.columns.length >= 2) {
+            // Fallback to first two columns if no visual config
+            setTabSelectedXColumn(result.columns[0]?.key || '')
+            setTabSelectedYColumn(result.columns[1]?.key || '')
+          }
+          
           // Store original data for edit mode
           setTabOriginalData({
             question: result.question,
             sql: result.sql,
             outputMode: result.outputMode,
             data: result.data,
-            columns: result.columns
+            columns: result.columns,
+            visualConfig: result.visualConfig
           })
         } catch (err: any) {
           console.error('Error loading saved query:', err)
@@ -1268,6 +1292,13 @@ export default function Dashboard() {
       
       setTabSaveStatus("saving")
       try {
+        // Prepare visual config for charts
+        const visualConfig = (tabOutputMode === 'chart' || tabOutputMode === 'pie') && tabSelectedXColumn && tabSelectedYColumn ? {
+          selectedXColumn: tabSelectedXColumn,
+          selectedYColumn: tabSelectedYColumn,
+          outputMode: tabOutputMode
+        } : null;
+
         const response = await fetch('/api/query', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1278,7 +1309,8 @@ export default function Dashboard() {
             question: tabQuestion,
             sql: tabSqlQuery,
             outputMode: tabOutputMode,
-            columns: tabColumns
+            columns: tabColumns,
+            visualConfig
           })
         })
 
@@ -1518,6 +1550,53 @@ export default function Dashboard() {
               </ToggleGroup>
             </div>
 
+            {/* Column Selection for Charts */}
+            {(tabOutputMode === 'chart' || tabOutputMode === 'pie') && tabColumns.length >= 2 && (
+              <div className="mb-2 p-3 bg-muted/20 rounded border border-border">
+                <div className="text-sm font-medium mb-2">Chart Configuration</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">
+                      X-Axis ({tabOutputMode === 'chart' ? 'Categories' : 'Labels'})
+                    </label>
+                    <Select value={tabSelectedXColumn} onValueChange={setTabSelectedXColumn}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue placeholder="Select column" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tabColumns.map((col) => (
+                          <SelectItem key={col.key} value={col.key}>
+                            {col.name.replace(/_/g, ' ').replace(/\w\S*/g, txt => 
+                              txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase()
+                            )}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">
+                      Y-Axis ({tabOutputMode === 'chart' ? 'Values' : 'Sizes'})
+                    </label>
+                    <Select value={tabSelectedYColumn} onValueChange={setTabSelectedYColumn}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue placeholder="Select column" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tabColumns.map((col) => (
+                          <SelectItem key={col.key} value={col.key}>
+                            {col.name.replace(/_/g, ' ').replace(/\w\S*/g, txt => 
+                              txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase()
+                            )}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <Button 
               className="mb-2"
               disabled={!tabQuestion || tabIsLoading}
@@ -1547,10 +1626,10 @@ export default function Dashboard() {
                   {tabOutputMode === 'chart' && (
                     <DraggableChart
                       data={tabQueryResults.map((row) => ({
-                        name: row[tabColumns[0]?.key] || row.donor || row._id?.name || 'Unknown',
-                        value: Number(row[tabColumns[1]?.key] || row.totalAmount) || 0,
+                        name: row[tabSelectedXColumn] || row.donor || row._id?.name || 'Unknown',
+                        value: Number(row[tabSelectedYColumn] || row.totalAmount) || 0,
                       }))}
-                      height={200}
+                      height={400}
                       type={tabOutputMode}
                       sql={tabSqlQuery || undefined}
                       columns={tabColumns}
@@ -1560,10 +1639,10 @@ export default function Dashboard() {
                   {tabOutputMode === 'pie' && (
                     <DraggablePieChart
                       data={tabQueryResults.map((row) => ({
-                        name: row[tabColumns[0]?.key] || row.donor || row._id?.name || 'Unknown',
-                        value: Number(row[tabColumns[1]?.key] || row.totalAmount) || 0,
+                        name: row[tabSelectedXColumn] || row.donor || row._id?.name || 'Unknown',
+                        value: Number(row[tabSelectedYColumn] || row.totalAmount) || 0,
                       }))}
-                      height={200}
+                      height={400}
                       sql={tabSqlQuery || undefined}
                       columns={tabColumns}
                     />
@@ -1598,7 +1677,34 @@ export default function Dashboard() {
           <div className="flex flex-col h-full overflow-hidden">
             {tabQueryResults && tabQueryResults.length > 0 && tabColumns.length >= 1 && (
               <div className="flex-1 overflow-auto">
-                <TableView data={tabQueryResults} columns={tabColumns} compact readOnlyMode={readOnlyMode} />
+                {tabOutputMode === 'table' && (
+                  <TableView data={tabQueryResults} columns={tabColumns} compact readOnlyMode={readOnlyMode} />
+                )}
+                
+                {tabOutputMode === 'chart' && (
+                  <DraggableChart
+                    data={tabQueryResults.map((row) => ({
+                      name: row[tabSelectedXColumn] || row.donor || row._id?.name || 'Unknown',
+                      value: Number(row[tabSelectedYColumn] || row.totalAmount) || 0,
+                    }))}
+                    height={400}
+                    type={tabOutputMode}
+                    sql={tabSqlQuery || undefined}
+                    columns={tabColumns}
+                  />
+                )}
+                
+                {tabOutputMode === 'pie' && (
+                  <DraggablePieChart
+                    data={tabQueryResults.map((row) => ({
+                      name: row[tabSelectedXColumn] || row.donor || row._id?.name || 'Unknown',
+                      value: Number(row[tabSelectedYColumn] || row.totalAmount) || 0,
+                    }))}
+                    height={400}
+                    sql={tabSqlQuery || undefined}
+                    columns={tabColumns}
+                  />
+                )}
               </div>
             )}
 
@@ -1802,7 +1908,7 @@ export default function Dashboard() {
                           readOnlyMode={readOnlyMode}
                         >
                           {quadrants.topLeft ? renderDroppedViz(quadrants.topLeft) : (
-                            <div className="h-36 flex items-center justify-center font-mono font-semibold" style={{ color: "#16a34a" }}>
+                            <div className="h-36 flex items-center justify-center font-mono text-sm font-semibold" style={{ color: "#16a34a" }}>
                               {readOnlyMode ? "No visualization" : "Drag results here"}
                             </div>
                           )}
@@ -1829,7 +1935,7 @@ export default function Dashboard() {
                           readOnlyMode={readOnlyMode}
                         >
                           {quadrants.topRight ? renderDroppedViz(quadrants.topRight) : (
-                            <div className="h-36 flex items-center justify-center font-mono font-semibold" style={{ color: "#16a34a" }}>
+                            <div className="h-36 flex items-center justify-center font-mono font-semibold text-sm" style={{ color: "#16a34a" }}>
                               {readOnlyMode ? "No visualization" : "Drag results here"}
                             </div>
                           )}
@@ -1867,7 +1973,7 @@ export default function Dashboard() {
                         readOnlyMode={readOnlyMode}
                       >
                         {quadrants.bottom ? renderDroppedViz(quadrants.bottom) : (
-                          <div className="h-44 flex items-center justify-center font-mono font-semibold" style={{ color: "#16a34a" }}>
+                            <div className="h-44 flex items-center justify-center font-mono font-semibold text-sm" style={{ color: "#16a34a" }}>
                             {readOnlyMode ? "No visualization" : "Drag results here"}
                           </div>
                         )}

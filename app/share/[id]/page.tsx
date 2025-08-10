@@ -8,6 +8,7 @@ import { DropZone } from '../../../components/drop-zone'
 import { BarGraph } from '../../../components/bar-graph'
 import { PieGraph } from '../../../components/pie-chart'
 import { TableView } from '../../../components/table-view'
+import { decryptDashboardId } from '@/lib/encryption'
 
 type Visualization = {
   id: string;
@@ -22,7 +23,17 @@ type Visualization = {
 
 export default function SharedDashboard() {
   const params = useParams()
-  const dashboardId = params?.id as string
+  
+  // Handle different possible formats of the ID
+  let encryptedId: string
+  if (Array.isArray(params?.id)) {
+    encryptedId = params.id[0]
+  } else {
+    encryptedId = params?.id as string
+  }
+  
+  // URL decode the ID to handle encoded characters like %3A (:)
+  encryptedId = decodeURIComponent(encryptedId)
   
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -43,13 +54,15 @@ export default function SharedDashboard() {
 
   useEffect(() => {
     const loadSharedDashboard = async () => {
-      if (!dashboardId) {
+      if (!encryptedId) {
         setError('Invalid dashboard ID')
         setIsLoading(false)
         return
       }
 
       try {
+        // Decrypt the dashboard ID
+        const dashboardId = decryptDashboardId(encryptedId)
         const res = await fetch(`/api/dashboard?id=${dashboardId}`)
         if (!res.ok) {
           throw new Error('Dashboard not found')
@@ -114,7 +127,7 @@ export default function SharedDashboard() {
     }
 
     loadSharedDashboard()
-  }, [dashboardId])
+  }, [encryptedId])
 
   const getVisualizationById = (id: string) => allVisualizations.find((v: Visualization) => v.id === id)
 
@@ -127,10 +140,18 @@ export default function SharedDashboard() {
     }
 
     if (viz.type === 'pie') {
+      // Determine height based on quadrant
+      let height = 150; // default
+      if (vizId === quadrants.topLeft || vizId === quadrants.topRight) {
+        height = 144; // h-36 = 144px
+      } else if (vizId === quadrants.bottom) {
+        height = 176; // h-44 = 176px
+      }
+
       return (
         <PieGraph
           data={viz.data || []}
-          height={150}
+          height={height}
           compact
           legendScale={1}
         />
