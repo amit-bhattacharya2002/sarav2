@@ -22,7 +22,7 @@ function ReadOnlyDropZone({ id, children, className = '' }: Pick<DropZoneProps, 
         ${className}
       `}
       style={{
-        minHeight: id === 'bottom' ? '220px' : '180px',
+        minHeight: id === 'bottom' ? '120px' : '100px',
         padding: '12px',
       }}
     >
@@ -61,7 +61,7 @@ function EditableDropZone({ id, onDrop, onRemove, children, className = '' }: Om
         ${className}
       `}
       style={{
-        minHeight: id === 'bottom' ? '220px' : '180px',
+        minHeight: id === 'bottom' ? '120px' : '180px',
         padding: '12px',
       }}
     >

@@ -63,9 +63,12 @@ export default function SharedDashboard() {
       try {
         // Decrypt the dashboard ID
         const dashboardId = decryptDashboardId(encryptedId)
-        const res = await fetch(`/api/dashboard?id=${dashboardId}`)
+        
+        const res = await fetch(`/api/dashboard?id=${dashboardId}&shared=true`)
+        
         if (!res.ok) {
-          throw new Error('Dashboard not found')
+          const errorData = await res.json().catch(() => ({}))
+          throw new Error(errorData.error || 'Dashboard not found')
         }
         
         const responseData = await res.json()
@@ -136,22 +139,13 @@ export default function SharedDashboard() {
     if (!viz) return null
 
     if (viz.type === 'chart' || viz.type === 'visualization') {
-      return <BarGraph data={viz.data || []} height={150} />
+      return <BarGraph data={viz.data || []} />
     }
 
     if (viz.type === 'pie') {
-      // Determine height based on quadrant
-      let height = 150; // default
-      if (vizId === quadrants.topLeft || vizId === quadrants.topRight) {
-        height = 144; // h-36 = 144px
-      } else if (vizId === quadrants.bottom) {
-        height = 176; // h-44 = 176px
-      }
-
       return (
         <PieGraph
           data={viz.data || []}
-          height={height}
           compact
           legendScale={1}
         />
@@ -186,9 +180,9 @@ export default function SharedDashboard() {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="h-screen flex flex-col overflow-auto">
+      <div className="h-screen flex flex-col overflow-hidden">
         {/* SARA Header */}
-        <header className="flex-shrink-0 flex items-center justify-start py-2 px-6 border-b border-border bg-card mb-4">
+        <header className="flex-shrink-0 flex items-center justify-start py-2 px-6 border-b border-border bg-card">
           <h1 
             className="text-2xl md:text-3xl inter font-semibold bg-gradient-to-r from-green-800 to-green-500 bg-clip-text text-transparent cursor-pointer hover:opacity-80 transition-opacity"
             onClick={() => window.location.href = '/'}
@@ -198,22 +192,23 @@ export default function SharedDashboard() {
         </header>
 
         {/* Dashboard Content */}
-        <div className="flex-1 overflow-auto px-6 pb-6">
-          <div className="bg-card rounded-lg p-6 border border-border">
-            <h1 className="text-xl font-mono font-semibold text-center mb-6">{dashboardTitle}</h1>
+        <div className="flex-1 overflow-hidden px-6 pb-6">
+          <div className="bg-card rounded-lg p-6 border border-border h-full flex flex-col">
+            <h1 className="text-xl font-mono font-semibold text-center mb-4 flex-shrink-0">{dashboardTitle}</h1>
             
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-2 gap-4 flex-1 min-h-0">
               {/* Top Left */}
-              <div className="flex flex-col">
-                <h2 className="text-sm font-mono font-medium text-center mb-2">{topLeftTitle}</h2>
+              <div className="flex flex-col flex-1 min-h-0">
+                <h2 className="text-sm font-mono font-medium text-center mb-2 flex-shrink-0">{topLeftTitle}</h2>
                 <DropZone
                   id="topLeft"
                   onDrop={() => {}} // No-op in read-only mode
                   onRemove={() => {}} // No-op in read-only mode
                   readOnlyMode={true}
+                  className="flex-1 min-h-0"
                 >
                   {quadrants.topLeft ? renderDroppedViz(quadrants.topLeft) : (
-                    <div className="h-36 flex items-center justify-center font-mono font-semibold text-muted-foreground">
+                    <div className="h-full flex items-center justify-center font-mono font-semibold text-muted-foreground">
                       No visualization
                     </div>
                   )}
@@ -221,16 +216,17 @@ export default function SharedDashboard() {
               </div>
 
               {/* Top Right */}
-              <div className="flex flex-col">
-                <h2 className="text-sm font-mono font-medium text-center mb-2">{topRightTitle}</h2>
+              <div className="flex flex-col flex-1 min-h-0">
+                <h2 className="text-sm font-mono font-medium text-center mb-2 flex-shrink-0">{topRightTitle}</h2>
                 <DropZone
                   id="topRight"
                   onDrop={() => {}} // No-op in read-only mode
                   onRemove={() => {}} // No-op in read-only mode
                   readOnlyMode={true}
+                  className="flex-1 min-h-0"
                 >
                   {quadrants.topRight ? renderDroppedViz(quadrants.topRight) : (
-                    <div className="h-36 flex items-center justify-center font-mono font-semibold text-muted-foreground">
+                    <div className="h-full flex items-center justify-center font-mono font-semibold text-muted-foreground">
                       No visualization
                     </div>
                   )}
@@ -239,16 +235,17 @@ export default function SharedDashboard() {
             </div>
 
             {/* Bottom */}
-            <div className="flex flex-col">
-              <h2 className="text-sm font-mono font-medium text-center mb-2">{bottomTitle}</h2>
+            <div className="flex flex-col flex-1 min-h-0">
+              <h2 className="text-sm font-mono font-medium text-center mb-2 flex-shrink-0">{bottomTitle}</h2>
               <DropZone
                 id="bottom"
                 onDrop={() => {}} // No-op in read-only mode
                 onRemove={() => {}} // No-op in read-only mode
                 readOnlyMode={true}
+                className="flex-1 min-h-0"
               >
                 {quadrants.bottom ? renderDroppedViz(quadrants.bottom) : (
-                  <div className="h-44 flex items-center justify-center font-mono font-semibold text-muted-foreground">
+                  <div className="h-full flex items-center justify-center font-mono font-semibold text-muted-foreground">
                     No visualization
                   </div>
                 )}

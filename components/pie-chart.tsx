@@ -39,8 +39,9 @@ export function PieGraph({ data, height = 400, compact = false, legendScale = 1 
   }
 
   return (
-    <div style={{ width: '100%', height }}>
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="w-full h-full flex flex-col">
+      <div className="flex-1 min-h-0">
+        <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
             data={safeData}
@@ -92,7 +93,8 @@ export function PieGraph({ data, height = 400, compact = false, legendScale = 1 
             />
           )}
         </PieChart>
-      </ResponsiveContainer>
+        </ResponsiveContainer>
+      </div>
     </div>
   )
 }

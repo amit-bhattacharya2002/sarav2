@@ -3,6 +3,19 @@ import { businessPrisma } from '@/lib/mysql-prisma'
 import { executeSQLQuery } from '@/lib/sql-query'
 import { features } from '@/lib/config'
 import { rateLimiters, createRateLimitHeaders, checkRateLimit } from '@/lib/rate-limiter'
+import { DEMO_USERS } from '@/lib/auth'
+
+// Helper function to get user ID from request headers
+function getUserIdFromRequest(req: NextRequest): number {
+  const userIdHeader = req.headers.get('x-user-id')
+  if (userIdHeader) {
+    const userId = parseInt(userIdHeader)
+    // Verify the user exists in our demo users
+    const userExists = DEMO_USERS.some(user => user.id === userId)
+    return userExists ? userId : 1 // Default to user 1 if invalid
+  }
+  return 1 // Default to user 1 if no header
+}
 
 // Map outputMode string to int for DB (customize as needed)
 const outputModeMap: Record<string, number> = {
@@ -49,13 +62,13 @@ export async function POST(req: NextRequest) {
 
     // ---- 1. Save Query Branch ----
     if (body.action === "save") {
+      const userId = getUserIdFromRequest(req)
       const {
         question,
         sql,
         outputMode,
         columns,
         dataSample,
-        userId = 1,
         companyId = 1,
         visualConfig = null,
         panelPosition = null,
@@ -99,11 +112,24 @@ export async function POST(req: NextRequest) {
 
     // ---- 2. Update Query Branch ----
     if (body.action === "update") {
+      const userId = getUserIdFromRequest(req)
       const { id, title, question, sql, outputMode, columns, visualConfig } = body
 
       if (!id || !title || !question || !sql || !outputMode || !columns) {
         return addRateLimitHeaders(
           NextResponse.json({ success: false, error: 'Missing required fields for update' }, { status: 400 })
+        )
+      }
+
+      // Verify the user owns this query
+      const existingQuery = await businessPrisma.savedQuery.findUnique({
+        where: { id: parseInt(id) },
+        select: { userId: true }
+      })
+
+      if (!existingQuery || existingQuery.userId !== userId) {
+        return addRateLimitHeaders(
+          NextResponse.json({ success: false, error: 'Unauthorized to update this query' }, { status: 403 })
         )
       }
 
@@ -136,8 +162,41 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ---- 3. Fetch Saved Results Branch ----
+    // ---- 3. Delete Query Branch ----
+    if (body.action === "delete") {
+      const userId = getUserIdFromRequest(req)
+      const { id } = body
+
+      if (!id) {
+        return addRateLimitHeaders(
+          NextResponse.json({ success: false, error: 'Query ID is required' }, { status: 400 })
+        )
+      }
+
+      // Verify the user owns this query
+      const existingQuery = await businessPrisma.savedQuery.findUnique({
+        where: { id: parseInt(id) },
+        select: { userId: true }
+      })
+
+      if (!existingQuery || existingQuery.userId !== userId) {
+        return addRateLimitHeaders(
+          NextResponse.json({ success: false, error: 'Unauthorized to delete this query' }, { status: 403 })
+        )
+      }
+
+      await businessPrisma.savedQuery.delete({
+        where: { id: parseInt(id) }
+      })
+
+      return addRateLimitHeaders(
+        NextResponse.json({ success: true })
+      )
+    }
+
+    // ---- 4. Fetch Saved Results Branch ----
     if (body.action === "fetchSaved") {
+      const userId = getUserIdFromRequest(req)
       const { id } = body
 
       if (!id) {
@@ -149,6 +208,7 @@ export async function POST(req: NextRequest) {
       const savedQuery = await businessPrisma.savedQuery.findUnique({
         where: { id: parseInt(id) },
         select: {
+          userId: true,
           resultData: true,
           resultColumns: true,
           sqlText: true,
@@ -158,9 +218,9 @@ export async function POST(req: NextRequest) {
         }
       })
 
-      if (!savedQuery) {
+      if (!savedQuery || savedQuery.userId !== userId) {
         return addRateLimitHeaders(
-          NextResponse.json({ success: false, error: 'Saved query not found' }, { status: 404 })
+          NextResponse.json({ success: false, error: 'Saved query not found or unauthorized' }, { status: 404 })
         )
       }
 
@@ -185,7 +245,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ---- 4. Execute Query Branch (existing functionality) ----
+    // ---- 5. Execute Query Branch (existing functionality) ----
     const { question, sql, outputMode, columns, dataSample } = body
 
     if (!question || !sql || !outputMode || !columns) {

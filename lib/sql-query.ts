@@ -53,10 +53,23 @@ export async function executeSQLQuery(sql: string, originalQuestion?: string): P
 
     // Extract column names from the first row
     const firstRow = rows[0]
-    const columns = Object.keys(firstRow).map(key => ({
-      key,
-      name: key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())
-    }))
+    const columns = Object.keys(firstRow).map(key => {
+      // If the key contains quotes, it's likely an alias - use it as is
+      if (key.includes('"') || key.includes("'")) {
+        // Remove quotes and use the alias name
+        const cleanName = key.replace(/['"]/g, '')
+        return {
+          key,
+          name: cleanName
+        }
+      }
+      
+      // For regular column names, apply the existing formatting
+      return {
+        key,
+        name: key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())
+      }
+    })
 
     return {
       success: true,
@@ -81,11 +94,15 @@ export function generateSQLFromQuestion(question: string): string {
   if (lowerQuestion.includes('top') && lowerQuestion.includes('donor')) {
     return `
       SELECT 
-        ACCOUNTID,
-        SUM(CAST(GIFTAMOUNT AS DECIMAL(15,2))) as totalAmount
-      FROM gifts
-      GROUP BY ACCOUNTID
-      ORDER BY totalAmount DESC
+        c.FULLNAME as "Donor Name",
+        SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as "Total Amount",
+        YEAR(g.GIFTDATE) as "Year",
+        g.*,
+        c.EMAIL
+      FROM gifts g 
+      JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID
+      GROUP BY g.ACCOUNTID, c.FULLNAME
+      ORDER BY "Total Amount" DESC
       LIMIT 10
     `
   }
@@ -93,51 +110,58 @@ export function generateSQLFromQuestion(question: string): string {
   if (lowerQuestion.includes('gift') && lowerQuestion.includes('source')) {
     return `
       SELECT 
-        SOURCECODE,
-        COUNT(*) as giftCount,
-        SUM(CAST(GIFTAMOUNT AS DECIMAL(15,2))) as totalAmount
-      FROM gifts
-      GROUP BY SOURCECODE
-      ORDER BY totalAmount DESC
+        g.SOURCECODE as "Source",
+        COUNT(*) as "Gift Count",
+        SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as "Total Amount"
+      FROM gifts g
+      JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID
+      GROUP BY g.SOURCECODE
+      ORDER BY "Total Amount" DESC
+      LIMIT 20
     `
   }
   
   if (lowerQuestion.includes('designation')) {
     return `
       SELECT 
-        DESIGNATION,
-        COUNT(*) as giftCount,
-        SUM(CAST(GIFTAMOUNT AS DECIMAL(15,2))) as totalAmount
-      FROM gifts
-      GROUP BY DESIGNATION
-      ORDER BY totalAmount DESC
+        g.DESIGNATION as "Designation",
+        COUNT(*) as "Gift Count",
+        SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as "Total Amount"
+      FROM gifts g
+      JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID
+      GROUP BY g.DESIGNATION
+      ORDER BY "Total Amount" DESC
+      LIMIT 20
     `
   }
   
   if (lowerQuestion.includes('payment method')) {
     return `
       SELECT 
-        PAYMENTMETHOD,
-        COUNT(*) as giftCount,
-        SUM(CAST(GIFTAMOUNT AS DECIMAL(15,2))) as totalAmount
-      FROM gifts
-      GROUP BY PAYMENTMETHOD
-      ORDER BY totalAmount DESC
+        g.PAYMENTMETHOD as "Payment Method",
+        COUNT(*) as "Gift Count",
+        SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as "Total Amount"
+      FROM gifts g
+      JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID
+      GROUP BY g.PAYMENTMETHOD
+      ORDER BY "Total Amount" DESC
+      LIMIT 20
     `
   }
   
-  // Default query
+  // Default query with better column ordering
   return `
     SELECT 
-      GIFTID,
-      ACCOUNTID,
-      GIFTDATE,
-      GIFTAMOUNT,
-      SOURCECODE,
-      DESIGNATION,
-      PAYMENTMETHOD
-    FROM gifts
-    ORDER BY GIFTDATE DESC
+      c.FULLNAME as "Donor Name",
+      g.GIFTAMOUNT as "Donation Amount",
+      g.GIFTDATE as "Gift Date",
+      g.SOURCECODE as "Source",
+      g.DESIGNATION as "Designation",
+      g.*,
+      c.EMAIL
+    FROM gifts g
+    JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID
+    ORDER BY g.GIFTDATE DESC
     LIMIT 50
   `
 } 

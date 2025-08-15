@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     Only use SELECT queries — do not modify the database.
     Always use proper field names and table aliases.
     You may only reference fields listed in the schema.
-    IMPORTANT: Always SELECT ALL available fields from the table to provide complete data for analysis.
+    IMPORTANT: Prioritize relevant columns first and use aliases for better readability.
     Respond ONLY with valid SQL query code — no explanation.
 
     Database Schema:
@@ -74,16 +74,25 @@ export async function POST(req: NextRequest) {
     Table Relationships:
     - gifts.ACCOUNTID = constituents.ACCOUNTID (JOIN key for linking gifts to constituents)
 
-    Common patterns:
-    - For "top donors": SELECT g.*, c.FULLNAME, c.EMAIL, SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as totalAmount FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID GROUP BY g.ACCOUNTID, c.FULLNAME ORDER BY totalAmount DESC LIMIT 10
-    - For "gifts by donor": SELECT g.*, c.FULLNAME, c.EMAIL FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE c.FULLNAME = 'Donor Name' LIMIT 100
-    - For "alumni donors": SELECT g.*, c.FULLNAME, c.ALUMNITYPE, c.UNDERGRADUATEDEGREE1 FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE c.ALUMNITYPE IS NOT NULL LIMIT 50
-    - For "donors by gender": SELECT c.GENDER, c.FULLNAME, SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as totalAmount FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID GROUP BY c.GENDER, c.FULLNAME ORDER BY totalAmount DESC LIMIT 25
-    - For "donors by age": SELECT c.AGE, c.FULLNAME, AVG(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as avgAmount FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID GROUP BY c.AGE, c.FULLNAME ORDER BY avgAmount DESC LIMIT 25
-    - For "volunteer donors": SELECT g.*, c.FULLNAME, c.VOLUNTEER FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE c.VOLUNTEER = 'Yes' LIMIT 50
-    - For "high wealth donors": SELECT g.*, c.FULLNAME, c.WEALTHSCORE FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE c.WEALTHSCORE > 50 LIMIT 50
-    - For "gifts by source": SELECT g.SOURCECODE, COUNT(*) as giftCount, SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as totalAmount FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID GROUP BY g.SOURCECODE ORDER BY totalAmount DESC LIMIT 20
-    - For "gifts by designation": SELECT g.DESIGNATION, COUNT(*) as giftCount, SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as totalAmount FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID GROUP BY g.DESIGNATION ORDER BY totalAmount DESC LIMIT 20
+    COLUMN ORDERING AND ALIASING GUIDELINES:
+    - For donor queries: Put donor name (c.FULLNAME) FIRST, then donation amount, then year/date
+    - For top donor queries: c.FULLNAME as "Donor Name", SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as "Total Amount", YEAR(g.GIFTDATE) as "Year"
+    - For gift analysis: c.FULLNAME as "Donor Name", g.GIFTAMOUNT as "Donation Amount", g.GIFTDATE as "Gift Date"
+    - For year-specific queries: Include YEAR(g.GIFTDATE) as "Year" in the SELECT
+    - Use meaningful aliases: "Donor Name", "Donation Amount", "Total Amount", "Year", "Gift Date", "Source", "Designation"
+    - Always include the most relevant information first in the SELECT clause
+
+    Common patterns with proper column ordering:
+    - For "top donors": SELECT c.FULLNAME as "Donor Name", SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as "Total Amount", YEAR(g.GIFTDATE) as "Year", g.*, c.EMAIL FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID GROUP BY g.ACCOUNTID, c.FULLNAME ORDER BY "Total Amount" DESC LIMIT 10
+    - For "top donors by year": SELECT c.FULLNAME as "Donor Name", SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as "Total Amount", YEAR(g.GIFTDATE) as "Year", g.*, c.EMAIL FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE YEAR(g.GIFTDATE) = [YEAR] GROUP BY g.ACCOUNTID, c.FULLNAME ORDER BY "Total Amount" DESC LIMIT 10
+    - For "gifts by donor": SELECT c.FULLNAME as "Donor Name", g.GIFTAMOUNT as "Donation Amount", g.GIFTDATE as "Gift Date", g.*, c.EMAIL FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE c.FULLNAME = 'Donor Name' ORDER BY g.GIFTDATE DESC LIMIT 100
+    - For "alumni donors": SELECT c.FULLNAME as "Donor Name", c.ALUMNITYPE as "Alumni Type", g.GIFTAMOUNT as "Donation Amount", g.*, c.EMAIL FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE c.ALUMNITYPE IS NOT NULL ORDER BY g.GIFTDATE DESC LIMIT 50
+    - For "donors by gender": SELECT c.FULLNAME as "Donor Name", c.GENDER as "Gender", SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as "Total Amount", g.* FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID GROUP BY c.GENDER, c.FULLNAME ORDER BY "Total Amount" DESC LIMIT 25
+    - For "donors by age": SELECT c.FULLNAME as "Donor Name", c.AGE as "Age", AVG(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as "Average Amount", g.* FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID GROUP BY c.AGE, c.FULLNAME ORDER BY "Average Amount" DESC LIMIT 25
+    - For "volunteer donors": SELECT c.FULLNAME as "Donor Name", c.VOLUNTEER as "Volunteer Status", g.GIFTAMOUNT as "Donation Amount", g.* FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE c.VOLUNTEER = 'Yes' ORDER BY g.GIFTDATE DESC LIMIT 50
+    - For "high wealth donors": SELECT c.FULLNAME as "Donor Name", c.WEALTHSCORE as "Wealth Score", g.GIFTAMOUNT as "Donation Amount", g.* FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE c.WEALTHSCORE > 50 ORDER BY c.WEALTHSCORE DESC LIMIT 50
+    - For "gifts by source": SELECT g.SOURCECODE as "Source", COUNT(*) as "Gift Count", SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as "Total Amount" FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID GROUP BY g.SOURCECODE ORDER BY "Total Amount" DESC LIMIT 20
+    - For "gifts by designation": SELECT g.DESIGNATION as "Designation", COUNT(*) as "Gift Count", SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as "Total Amount" FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID GROUP BY g.DESIGNATION ORDER BY "Total Amount" DESC LIMIT 20
 
     JOIN Guidelines:
     - When queries involve donor/constituent information, use JOIN to connect gifts and constituents tables

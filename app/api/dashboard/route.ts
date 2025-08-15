@@ -1,10 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { businessPrisma } from '@/lib/mysql-prisma'
+import { DEMO_USERS } from '@/lib/auth'
+
+// Helper function to get user ID from request headers
+function getUserIdFromRequest(req: NextRequest): number {
+  const userIdHeader = req.headers.get('x-user-id')
+  if (userIdHeader) {
+    const userId = parseInt(userIdHeader)
+    // Verify the user exists in our demo users
+    const userExists = DEMO_USERS.some(user => user.id === userId)
+    return userExists ? userId : 1 // Default to user 1 if invalid
+  }
+  return 1 // Default to user 1 if no header
+}
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const id = searchParams.get('id')
+    const isShared = searchParams.get('shared') === 'true'
 
     if (id) {
       // Get specific dashboard
@@ -14,6 +28,7 @@ export async function GET(req: NextRequest) {
         },
         select: {
           id: true,
+          userId: true,
           title: true,
           quadrants: true,
           visualizations: true,
@@ -29,12 +44,21 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 })
       }
 
+      // For shared dashboards, skip user authorization check
+      if (!isShared) {
+        const userId = getUserIdFromRequest(req)
+        if (dashboard.userId !== userId) {
+          return NextResponse.json({ error: 'Dashboard not found or unauthorized' }, { status: 404 })
+        }
+      }
+
       return NextResponse.json({ dashboard })
     } else {
-      // Get all dashboards
+      // Get all dashboards (only for authenticated users, not for shared access)
+      const userId = getUserIdFromRequest(req)
       const dashboards = await businessPrisma.savedDashboard.findMany({
         where: {
-          userId: 1,
+          userId,
           companyId: 1,
         },
         orderBy: {
@@ -89,9 +113,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, dashboard: updatedDashboard })
     } else {
       // Create new dashboard
+      const userId = getUserIdFromRequest(req)
       const newDashboard = await businessPrisma.savedDashboard.create({
         data: {
-          userId: 1,
+          userId,
           companyId: 1,
           title,
           quadrants: JSON.stringify(quadrants),

@@ -5,13 +5,15 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-import { Loader2, Save, Trash2, LayoutList, BarChart2, PieChart, X, AlertTriangle, AlertCircle, XCircle, ChevronDown, ChevronUp } from "lucide-react"
+import { Loader2, Save, Trash2, LayoutList, BarChart2, PieChart, X, AlertTriangle, AlertCircle, XCircle, ChevronDown, ChevronUp, Download } from "lucide-react"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { TableView } from "@/components/table-view"
 import { DraggableChart } from './draggable-chart'
 import { DraggablePieChart } from './draggable-pie'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import * as XLSX from 'xlsx'
+import { toast } from 'sonner'
 
 
 
@@ -36,8 +38,12 @@ interface QueryPanelProps {
   handleCancelEdit?: () => void
   hasChanges?: () => boolean
   selectedSavedQueryId?: number | null
-  handleEditSavedQuery?: () => void
   handleDeleteSavedQuery?: () => Promise<void>
+  onClearQuery?: () => void
+  selectedXColumn?: string
+  setSelectedXColumn?: (value: string) => void
+  selectedYColumn?: string
+  setSelectedYColumn?: (value: string) => void
 }
 
 export function QueryPanel({
@@ -61,15 +67,133 @@ export function QueryPanel({
   handleCancelEdit,
   hasChanges,
   selectedSavedQueryId,
-  handleEditSavedQuery,
   handleDeleteSavedQuery,
+  onClearQuery,
+  selectedXColumn: propSelectedXColumn,
+  setSelectedXColumn: propSetSelectedXColumn,
+  selectedYColumn: propSelectedYColumn,
+  setSelectedYColumn: propSetSelectedYColumn,
 }: QueryPanelProps) {
   const [showSql, setShowSql] = useState(false)
   const [saveStatus, setSaveStatus] = useState<null | "success" | "error" | "saving">(null);
   
-  // Chart column selection state
-  const [selectedXColumn, setSelectedXColumn] = useState<string>('')
-  const [selectedYColumn, setSelectedYColumn] = useState<string>('')
+  // Chart column selection state - use props if provided, otherwise use local state
+  const [localSelectedXColumn, setLocalSelectedXColumn] = useState<string>('')
+  const [localSelectedYColumn, setLocalSelectedYColumn] = useState<string>('')
+  
+  const selectedXColumn = propSelectedXColumn !== undefined ? propSelectedXColumn : localSelectedXColumn;
+  const setSelectedXColumn = propSetSelectedXColumn || setLocalSelectedXColumn;
+  const selectedYColumn = propSelectedYColumn !== undefined ? propSelectedYColumn : localSelectedYColumn;
+  const setSelectedYColumn = propSetSelectedYColumn || setLocalSelectedYColumn;
+  
+  // Smart column selection function
+  const getSmartColumnSelection = (columns: any[], question: string, results: any[]) => {
+    const questionLower = question.toLowerCase();
+    
+    // Define patterns for different query types
+    const patterns = {
+      // Donor queries
+      donor: {
+        keywords: ['donor', 'donors', 'contributor', 'contributors', 'giver', 'givers'],
+        xPriority: ['donor', 'name', 'donor_name', 'contributor', 'giver'],
+        yPriority: ['amount', 'total', 'sum', 'total_amount', 'donation_amount', 'contribution_amount']
+      },
+      // Date/time queries
+      date: {
+        keywords: ['date', 'time', 'year', 'month', 'day', 'period', 'quarter'],
+        xPriority: ['date', 'year', 'month', 'day', 'period', 'quarter', 'time'],
+        yPriority: ['amount', 'total', 'sum', 'count', 'total_amount', 'donation_amount']
+      },
+      // Category queries
+      category: {
+        keywords: ['category', 'type', 'group', 'classification', 'segment'],
+        xPriority: ['category', 'type', 'group', 'classification', 'segment', 'name'],
+        yPriority: ['amount', 'total', 'sum', 'count', 'total_amount']
+      },
+      // Location queries
+      location: {
+        keywords: ['location', 'city', 'state', 'country', 'region', 'area'],
+        xPriority: ['location', 'city', 'state', 'country', 'region', 'area', 'name'],
+        yPriority: ['amount', 'total', 'sum', 'count', 'total_amount']
+      }
+    };
+    
+    // Determine query type based on question
+    let queryType = 'default';
+    for (const [type, pattern] of Object.entries(patterns)) {
+      if (pattern.keywords.some(keyword => questionLower.includes(keyword))) {
+        queryType = type;
+        break;
+      }
+    }
+    
+    // Get column names in lowercase for matching
+    const columnNames = columns.map(col => col.key.toLowerCase());
+    const columnDisplayNames = columns.map(col => col.name.toLowerCase());
+    
+    // Find best X column
+    let xColumn = columns[0]?.key || '';
+    if (queryType !== 'default') {
+      const pattern = patterns[queryType as keyof typeof patterns];
+      for (const priority of pattern.xPriority) {
+        const found = columns.find(col => 
+          col.key.toLowerCase().includes(priority) || 
+          col.name.toLowerCase().includes(priority)
+        );
+        if (found) {
+          xColumn = found.key;
+          break;
+        }
+      }
+    }
+    
+    // Find best Y column
+    let yColumn = columns[1]?.key || '';
+    if (queryType !== 'default') {
+      const pattern = patterns[queryType as keyof typeof patterns];
+      for (const priority of pattern.yPriority) {
+        const found = columns.find(col => 
+          col.key.toLowerCase().includes(priority) || 
+          col.name.toLowerCase().includes(priority)
+        );
+        if (found) {
+          yColumn = found.key;
+          break;
+        }
+      }
+    }
+    
+    // Fallback: if we couldn't find good matches, use first two columns
+    if (!xColumn || !yColumn) {
+      xColumn = columns[0]?.key || '';
+      yColumn = columns[1]?.key || '';
+    }
+    
+    // Ensure X and Y are different
+    if (xColumn === yColumn && columns.length > 1) {
+      yColumn = columns[1]?.key || '';
+    }
+    
+    return { xColumn, yColumn };
+  };
+  
+
+  
+
+  
+  // Smart auto-select chart columns when switching to chart/pie mode for new queries
+  useEffect(() => {
+    // Auto-select when switching to chart/pie mode and we have columns
+    // AND we're not editing a saved query
+    if ((outputMode === 'chart' || outputMode === 'pie') && 
+        columns.length >= 2 && 
+        !selectedSavedQueryId) {
+      
+      const { xColumn, yColumn } = getSmartColumnSelection(columns, question, queryResults || []);
+      setSelectedXColumn(xColumn)
+      setSelectedYColumn(yColumn)
+    }
+  }, [outputMode, columns, question, queryResults, setSelectedXColumn, setSelectedYColumn, selectedSavedQueryId])
   
   // Chart configuration panel collapse state
   const [isChartConfigCollapsed, setIsChartConfigCollapsed] = useState(false)
@@ -77,13 +201,33 @@ export function QueryPanel({
   // Ref for textarea focus
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // Auto-select default columns when results change
+  // Auto-select default columns when results change, but only if no chart config exists
   useEffect(() => {
+    // Only auto-select if we have columns and no chart configuration is set
+    // AND we're not in editing mode for a saved query (which should preserve its config)
     if (columns.length >= 2 && (!selectedXColumn || !selectedYColumn)) {
-      setSelectedXColumn(columns[0]?.key || '')
-      setSelectedYColumn(columns[1]?.key || '')
+      // Check if we're editing a saved query - if so, don't auto-select
+      const isEditingSavedQuery = selectedSavedQueryId !== null;
+      
+      if (!isEditingSavedQuery) {
+        setSelectedXColumn(columns[0]?.key || '')
+        setSelectedYColumn(columns[1]?.key || '')
+      }
     }
-  }, [columns, selectedXColumn, selectedYColumn])
+  }, [columns, selectedXColumn, selectedYColumn, setSelectedXColumn, setSelectedYColumn, selectedSavedQueryId])
+  
+  // Auto-select chart columns when new query results come in for chart/pie mode
+  useEffect(() => {
+    // If we're in chart/pie mode and get new results, auto-select appropriate columns
+    // Only for new queries (not saved queries being edited)
+    if ((outputMode === 'chart' || outputMode === 'pie') && 
+        columns.length >= 2 && 
+        !selectedSavedQueryId) {
+      const { xColumn, yColumn } = getSmartColumnSelection(columns, question, queryResults || []);
+      setSelectedXColumn(xColumn)
+      setSelectedYColumn(yColumn)
+    }
+  }, [queryResults, outputMode, columns, question, setSelectedXColumn, setSelectedYColumn, selectedSavedQueryId])
 
   // Stable event handlers
   const handleQuestionChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -97,6 +241,49 @@ export function QueryPanel({
     }
   }, [onSubmit])
 
+  // Excel export function
+  const handleExportToExcel = useCallback(() => {
+    if (!queryResults || !columns.length) return;
+
+    try {
+      // Create a new workbook
+      const workbook = XLSX.utils.book_new();
+      
+      // Convert query results to worksheet format
+      const worksheetData = queryResults.map(row => {
+        const newRow: any = {};
+        columns.forEach(col => {
+          newRow[col.name] = row[col.key];
+        });
+        return newRow;
+      });
+      
+      // Create worksheet from data
+      const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+      
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Query Results');
+      
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      const filename = `query_results_${timestamp}.xlsx`;
+      
+      // Write file and trigger download
+      XLSX.writeFile(workbook, filename);
+      
+      // Show success notification
+      toast.success('Excel file exported successfully!', {
+        description: `File saved as: ${filename}`
+      });
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      setError('Failed to export to Excel');
+      toast.error('Failed to export to Excel', {
+        description: 'Please try again'
+      });
+    }
+  }, [queryResults, columns, setError]);
+
   // Clear query function
   const handleClearQuery = useCallback(() => {
     setQuestion('')
@@ -105,11 +292,17 @@ export function QueryPanel({
     setColumns([])
     setError(null)
     setShowSql(false)
+    
+    // If we have an onClearQuery prop (from dashboard), call it to clear saved query state
+    if (onClearQuery) {
+      onClearQuery()
+    }
+    
     // Focus the textarea after clearing
     setTimeout(() => {
       textareaRef.current?.focus()
     }, 100)
-  }, [setQuestion, setSqlQuery, setQueryResults, setColumns, setError])
+  }, [setQuestion, setSqlQuery, setQueryResults, setColumns, setError, onClearQuery])
 
   
   async function handleSaveQuery() {
@@ -442,76 +635,78 @@ export function QueryPanel({
       {/* Fixed Save/Clear Button Bar */}
       <div className="flex-shrink-0 p-4 border-t bg-card flex flex-row items-center justify-between gap-2">
         
-        {isEditingSavedQuery ? (
-          // Edit mode: Update and Cancel
-          <>
-            <Button
-              variant="default"
-              className="flex items-center gap-2"
-              onClick={handleUpdateSavedQuery}
-              disabled={
-                !question || !sqlQuery || !outputMode || !columns.length || !queryResults?.length || saveStatus === "saving" ||
-                (!hasChanges || !hasChanges())
-              }
-            >
-              <Save className="h-5 w-5" />
-              {saveStatus === "saving" ? "Saving..." : saveStatus === "success" ? "Saved!" : saveStatus === "error" ? "Error" : "Update"}
-            </Button>
-            
-            <Button
-              variant="outline"
-              className="flex items-center gap-2"
-              onClick={handleCancelEdit}
-            >
-              <X className="h-5 w-5" />
-              <span>Cancel</span>
-            </Button>
-          </>
-        ) : selectedSavedQueryId ? (
-          // Selected saved query: Edit and Delete
-          <>
-            <Button
-              variant="default"
-              className="flex items-center gap-2"
-              onClick={handleEditSavedQuery}
-            >
-              <Save className="h-5 w-5" />
-              <span>Edit</span>
-            </Button>
-            
-            <Button
-              variant="destructive"
-              className="flex items-center gap-2"
-              onClick={handleDeleteSavedQuery}
-            >
-              <Trash2 className="h-5 w-5" />
-              <span>Delete</span>
-            </Button>
-          </>
-        ) : (
-          // New query: Save and Clear
-          <>
-            <Button
-              variant="default"
-              className="flex items-center gap-2"
-              onClick={handleSaveQuery}
-              disabled={
-                !question || !sqlQuery || !outputMode || !columns.length || !queryResults?.length || saveStatus === "saving"
-              }
-            >
-              <Save className="h-5 w-5" />
-              {saveStatus === "saving" ? "Saving..." : saveStatus === "success" ? "Saved!" : saveStatus === "error" ? "Error" : "Save"}
-            </Button>
-            
-            <Button
-              variant="ghost"
-              className="flex items-center gap-2"
-              onClick={handleClearQuery}
-            >
-              <Trash2 className="h-5 w-5" />
-              <span>Clear</span>
-            </Button>
-          </>
+        <div className="flex items-center gap-2">
+          {selectedSavedQueryId ? (
+            // Saved query in edit mode: Update, Delete, and Cancel
+            <>
+              <Button
+                variant="default"
+                className="flex items-center gap-2"
+                onClick={handleUpdateSavedQuery}
+                disabled={
+                  !question || !sqlQuery || !outputMode || !columns.length || !queryResults?.length || saveStatus === "saving" ||
+                  (!hasChanges || !hasChanges())
+                }
+              >
+                <Save className="h-5 w-5" />
+                {saveStatus === "saving" ? "Saving..." : saveStatus === "success" ? "Saved!" : saveStatus === "error" ? "Error" : "Update"}
+              </Button>
+              
+              <Button
+                variant="destructive"
+                className="flex items-center gap-2"
+                onClick={handleDeleteSavedQuery}
+              >
+                <Trash2 className="h-5 w-5" />
+                <span>Delete</span>
+              </Button>
+              
+              <Button
+                variant="outline"
+                className="flex items-center gap-2"
+                onClick={handleCancelEdit}
+              >
+                <X className="h-5 w-5" />
+                <span>Cancel</span>
+              </Button>
+            </>
+          ) : (
+            // New query: Save and Clear
+            <>
+              <Button
+                variant="default"
+                className="flex items-center gap-2"
+                onClick={handleSaveQuery}
+                disabled={
+                  !question || !sqlQuery || !outputMode || !columns.length || !queryResults?.length || saveStatus === "saving"
+                }
+              >
+                <Save className="h-5 w-5" />
+                {saveStatus === "saving" ? "Saving..." : saveStatus === "success" ? "Saved!" : saveStatus === "error" ? "Error" : "Save"}
+              </Button>
+              
+              <Button
+                variant="ghost"
+                className="flex items-center gap-2"
+                onClick={handleClearQuery}
+              >
+                <Trash2 className="h-5 w-5" />
+                <span>Clear</span>
+              </Button>
+            </>
+          )}
+        </div>
+
+        {/* Excel Export Button - shown when there are query results */}
+        {queryResults && queryResults.length > 0 && columns.length > 0 && (
+          <Button
+            variant="outline"
+            className="flex items-center gap-2"
+            onClick={handleExportToExcel}
+          >
+            <Download className="h-4 w-4" />
+            <span>Export Excel</span>
+          </Button>
         )}
       </div>
     </div>

@@ -46,13 +46,13 @@ export function BarGraph({ data, color = "hsl(var(--chart-1))", height = 200, co
                 top: 5,
                 right: 5,
                 left: 50,
-                bottom: 5,
+                bottom: 40,
               }}
             >
               <XAxis
                 dataKey="name"
                 interval={0}
-                height={80}
+                height={120}
                 tick={({ x, y, payload }) => {
                   const label = String(payload?.value ?? "")
                   const words = label.split(" ")

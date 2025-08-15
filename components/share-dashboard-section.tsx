@@ -8,9 +8,10 @@ import { encryptDashboardId } from '@/lib/encryption'
 interface ShareDashboardSectionProps {
   dashboardId: number
   dashboardTitle: string
+  readOnlyMode?: boolean
 }
 
-export function ShareDashboardSection({ dashboardId, dashboardTitle }: ShareDashboardSectionProps) {
+export function ShareDashboardSection({ dashboardId, dashboardTitle, readOnlyMode = false }: ShareDashboardSectionProps) {
   const [copied, setCopied] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(true) // Start collapsed by default
   const [shareUrl, setShareUrl] = useState('')
@@ -58,11 +59,12 @@ export function ShareDashboardSection({ dashboardId, dashboardTitle }: ShareDash
   }
 
   return (
-    <div className="border-t bg-card">
+    <div className="absolute bottom-0 left-0 right-0 z-10 border-t bg-card shadow-lg">
       {/* Header with toggle button */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
         className="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors"
+        disabled={!readOnlyMode}
       >
         <h3 className="text-sm font-mono font-semibold text-foreground">Share Dashboard</h3>
         {isCollapsed ? (
@@ -72,58 +74,69 @@ export function ShareDashboardSection({ dashboardId, dashboardTitle }: ShareDash
         )}
       </button>
 
-      {/* Collapsible content */}
-      <div 
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${
-          isCollapsed ? 'max-h-0' : 'max-h-96'
-        }`}
-      >
-        <div className="px-4 pb-4 flex flex-col gap-3">
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={shareUrl}
-              readOnly
-              className="flex-1 px-3 py-2 text-sm bg-muted border border-border rounded-md font-mono text-muted-foreground"
-            />
+      {/* Collapsible content - only show in read-only mode */}
+      {readOnlyMode && (
+        <div 
+          className={`overflow-hidden transition-all duration-300 ease-in-out ${
+            isCollapsed ? 'max-h-0' : 'max-h-32'
+          }`}
+        >
+          <div className="px-4 pb-4 flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={shareUrl}
+                readOnly
+                className="flex-1 px-3 py-2 text-sm bg-muted border border-border rounded-md font-mono text-muted-foreground"
+              />
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyLink}
+                className="flex items-center gap-2"
+                disabled={!shareUrl} // Disable until shareUrl is set
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" />
+                    Copy
+                  </>
+                )}
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleShare}
+                className="flex items-center gap-2"
+                disabled={!shareUrl} // Disable until shareUrl is set
+              >
+                <Share className="h-4 w-4" />
+                Share
+              </Button>
+            </div>
             
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCopyLink}
-              className="flex items-center gap-2"
-              disabled={!shareUrl} // Disable until shareUrl is set
-            >
-              {copied ? (
-                <>
-                  <Check className="h-4 w-4" />
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <Copy className="h-4 w-4" />
-                  Copy
-                </>
-              )}
-            </Button>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleShare}
-              className="flex items-center gap-2"
-              disabled={!shareUrl} // Disable until shareUrl is set
-            >
-              <Share className="h-4 w-4" />
-              Share
-            </Button>
+            <p className="text-xs text-muted-foreground">
+              Anyone with this link can view the dashboard in read-only mode.
+            </p>
           </div>
-          
-          <p className="text-xs text-muted-foreground">
-            Anyone with this link can view the dashboard in read-only mode.
+        </div>
+      )}
+      
+      {/* Show message in edit mode */}
+      {!readOnlyMode && (
+        <div className="px-4 py-3">
+          <p className="text-xs text-muted-foreground text-center">
+            Share functionality is available in read-only mode
           </p>
         </div>
-      </div>
+      )}
     </div>
   )
 } 

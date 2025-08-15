@@ -5,6 +5,7 @@ import { useState, useEffect } from "react"
 import { Save, MoreVertical, Edit } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { useCurrentUser } from "@/components/auth-guard"
 
 interface SavedQuery {
   id: number
@@ -41,15 +42,23 @@ export function HistoryPanel({
   const [view, setView] = useState<"queries" | "dashboards">(readOnlyMode ? "dashboards" : "queries")
 
   const router = useRouter();
+  const currentUser = useCurrentUser();
   
   // Dashboards state
   const [dashboards, setDashboards] = useState<SavedDashboard[]>([])
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [dashboardError, setDashboardError] = useState<string | null>(null)
 
-  // For demo purposes, using hardcoded user and company IDs
-  const userId = 1
-  const companyId = 1
+  // Helper function to create headers with user ID
+  const createHeaders = () => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    }
+    if (currentUser) {
+      headers['x-user-id'] = currentUser.id.toString()
+    }
+    return headers
+  }
 
   // Queries loading effect
   useEffect(() => {
@@ -57,8 +66,10 @@ export function HistoryPanel({
       try {
         setLoading(true)
         setError(null)
-        // Fetch from API route
-        const res = await fetch("/api/saved-queries")
+        // Fetch from API route with user authentication
+        const res = await fetch("/api/saved-queries", {
+          headers: createHeaders()
+        })
         if (!res.ok) throw new Error("Failed to fetch saved queries")
         const data = await res.json()
         setQueries(data.queries || [])
@@ -73,7 +84,7 @@ export function HistoryPanel({
     if (!readOnlyMode && view === "queries") {
       loadQueries()
     }
-  }, [readOnlyMode, view])
+  }, [readOnlyMode, view, currentUser])
 
   // Listen for query updates to refresh the list
   useEffect(() => {
@@ -83,7 +94,9 @@ export function HistoryPanel({
         async function refreshQueries() {
           try {
             setLoading(true)
-            const res = await fetch("/api/saved-queries")
+            const res = await fetch("/api/saved-queries", {
+              headers: createHeaders()
+            })
             if (!res.ok) throw new Error("Failed to fetch saved queries")
             const data = await res.json()
             setQueries(data.queries || [])
@@ -104,14 +117,46 @@ export function HistoryPanel({
     }
   }, [readOnlyMode, view])
 
+  // Listen for dashboard updates to refresh the list
+  useEffect(() => {
+    const handleDashboardUpdated = () => {
+      // Refresh dashboards when a dashboard is updated
+      if (view === "dashboards") {
+        async function refreshDashboards() {
+          try {
+            setDashboardLoading(true)
+            const res = await fetch("/api/dashboard", {
+              headers: createHeaders()
+            })
+            if (!res.ok) throw new Error("Failed to fetch dashboards")
+            const data = await res.json()
+            setDashboards(data.dashboards || [])
+          } catch (err: any) {
+            setDashboardError(err.message || "Failed to load dashboards")
+          } finally {
+            setDashboardLoading(false)
+          }
+        }
+        refreshDashboards()
+      }
+    }
+
+    window.addEventListener('dashboardUpdated', handleDashboardUpdated)
+    return () => {
+      window.removeEventListener('dashboardUpdated', handleDashboardUpdated)
+    }
+  }, [view])
+
   // Dashboards loading effect
   useEffect(() => {
     async function loadDashboards() {
       try {
         setDashboardLoading(true)
         setDashboardError(null)
-        // Fetch from API route
-        const res = await fetch("/api/dashboard")
+        // Fetch from API route with user authentication
+        const res = await fetch("/api/dashboard", {
+          headers: createHeaders()
+        })
         if (!res.ok) throw new Error("Failed to fetch dashboards")
         const data = await res.json()
         setDashboards(data.dashboards || [])
@@ -125,7 +170,19 @@ export function HistoryPanel({
     if ((readOnlyMode && view === "dashboards") || (!readOnlyMode && view === "dashboards")) {
       loadDashboards()
     }
-  }, [readOnlyMode, view])
+  }, [readOnlyMode, view, currentUser])
+
+  // Listen for query clearing to remove selection highlighting
+  useEffect(() => {
+    const handleQueryCleared = () => {
+      setSelectedQuery(null);
+    };
+    
+    window.addEventListener('queryCleared', handleQueryCleared);
+    return () => {
+      window.removeEventListener('queryCleared', handleQueryCleared);
+    };
+  }, []);
 
   const handleQueryClick = (query: SavedQuery) => {
     setSelectedQuery(query)
@@ -135,8 +192,13 @@ export function HistoryPanel({
   }
 
   const handleDashboardClick = (dashboard: SavedDashboard) => {
-    // Redirect to read-only mode for the selected dashboard
-    router.push(`/dashboard?d=${dashboard.id}`)
+    if (onSelectDashboard) {
+      // Use the parent's dashboard selection handler (preserves edit mode)
+      onSelectDashboard(dashboard)
+    } else {
+      // Fallback for read-only mode
+      router.push(`/dashboard?d=${dashboard.id}`)
+    }
   }
 
   const handleEditClick = (query: SavedQuery, e: React.MouseEvent) => {
@@ -147,7 +209,7 @@ export function HistoryPanel({
   }
 
   return (
-    <div className="bg-card rounded-lg shadow-md border border-border overflow-hidden h-full flex flex-col min-w-[220px] max-w-[340px]">
+    <div className="bg-card rounded-lg shadow-md border border-border overflow-hidden h-full flex flex-col w-full">
       {/* Title and radio buttons */}
       <div className="bg-card p-4 border-b border-border flex flex-col gap-1">
         <div className="flex items-center gap-2">

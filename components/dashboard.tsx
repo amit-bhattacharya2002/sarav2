@@ -1,10 +1,12 @@
 'use client'
 
-import { ChevronLeft, ChevronRight, Save, Filter, Trash2, AlertTriangle, AlertCircle, XCircle, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Save, Filter, Trash2, AlertTriangle, AlertCircle, XCircle, X, LogOut, Download } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
+import { clearSession } from '@/lib/auth'
+import { useCurrentUser } from '@/components/auth-guard'
 import { BarGraph } from '@/components/bar-graph'
 import { TableView } from '@/components/table-view'
 import { DropZone } from '@/components/drop-zone'
@@ -20,6 +22,8 @@ import { LayoutList, BarChart2, PieChart } from 'lucide-react'
 import { DraggableChart } from '@/components/draggable-chart'
 import { DraggablePieChart } from '@/components/draggable-pie'
 import { ShareDashboardSection } from './share-dashboard-section'
+import * as XLSX from 'xlsx'
+import { toast } from 'sonner'
 
 
 type Visualization = {
@@ -35,6 +39,7 @@ type Visualization = {
 
 export default function Dashboard() {
   const router = useRouter();
+  const currentUser = useCurrentUser();
   const [allVisualizations, setAllVisualizations] = useState<Visualization[]>([]);
   const [quadrants, setQuadrants] = useState<{ topLeft: string | null; topRight: string | null; bottom: string | null }>({
     topLeft: null,
@@ -89,7 +94,7 @@ export default function Dashboard() {
 
 
     const payload = {
-      ...(dashboardIdNumber ? { id: dashboardIdNumber } : {}),
+      ...(dashboardIdNumber ? { action: 'update', dashboardId: dashboardIdNumber } : {}),
       title: dashboardSectionTitle,
       quadrants,
       visualizations: saveReadyVisualizations,
@@ -102,17 +107,40 @@ export default function Dashboard() {
     
     fetch('/api/dashboard', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: createHeaders(),
       body: JSON.stringify(payload),
     })
       .then(res => res.json().then(data => ({ ok: res.ok, data })))
       .then(({ ok, data }) => {
         if (ok) {
-          alert('Dashboard saved!');
+          const isUpdate = !!dashboardIdNumber;
+          alert(isUpdate ? 'Dashboard updated!' : 'Dashboard saved!');
+          
           // If this was a new dashboard (no id before), update the URL and let the app reload with the new ID!
-          if (!dashboardId && data.id) {
-            router.replace(`/?d=${data.id}&edit=true`);
+          if (!dashboardId && data.dashboard?.id) {
+            router.replace(`/dashboard?d=${data.dashboard.id}&edit=true`);
             return;
+          }
+          
+          // If this was an update, reset the change tracking
+          if (isUpdate) {
+            // Update the original data to reflect the current state
+            const updatedOriginalData = {
+              title: dashboardSectionTitle,
+              topLeftTitle,
+              topRightTitle,
+              bottomTitle,
+              quadrants,
+              visualizations: allVisualizations
+            };
+            setOriginalDashboardData(updatedOriginalData);
+            setHasDashboardChanges(false);
+            
+            // Trigger history panel refresh for dashboard updates
+            const event = new CustomEvent('dashboardUpdated', { 
+              detail: { dashboardId: dashboardIdNumber } 
+            });
+            window.dispatchEvent(event);
           }
         } else {
           alert('Error saving dashboard: ' + (data.error || 'Unknown error'));
@@ -123,10 +151,6 @@ export default function Dashboard() {
       });
   }
 
-
-
-
-  
 
 
   
@@ -176,7 +200,7 @@ export default function Dashboard() {
     setSqlQuery(value)
   }, [])
 
-  const stableSetQueryResults = useCallback((value: any[]) => {
+  const stableSetQueryResults = useCallback((value: any[] | null) => {
     setQueryResults(value)
   }, [])
 
@@ -200,6 +224,15 @@ export default function Dashboard() {
   const [editingQueryId, setEditingQueryId] = useState<number | null>(null)
   const [originalQueryData, setOriginalQueryData] = useState<any>(null)
   const [selectedSavedQueryId, setSelectedSavedQueryId] = useState<number | null>(null)
+  const [saveStatus, setSaveStatus] = useState<null | "success" | "error" | "saving">(null)
+  
+  // Chart column selection state
+  const [selectedXColumn, setSelectedXColumn] = useState<string>('')
+  const [selectedYColumn, setSelectedYColumn] = useState<string>('')
+
+  // Add dashboard change tracking state
+  const [originalDashboardData, setOriginalDashboardData] = useState<any>(null)
+  const [hasDashboardChanges, setHasDashboardChanges] = useState(false)
 
   // Add tabbed panel state
   const [activeTabId, setActiveTabId] = useState<string>('active-query')
@@ -217,9 +250,84 @@ export default function Dashboard() {
     }
   ])
 
+  // State for viewing saved queries directly in center pane
+  const [viewingSavedQuery, setViewingSavedQuery] = useState<any>(null)
+
   // Add state for collapsible panels
   // const [showSavedQueries, setShowSavedQueries] = useState(true);
   // const [showCreateDashboard, setShowCreateDashboard] = useState(true);
+
+  // Function to check if dashboard has changes
+  const checkDashboardChanges = () => {
+    if (!originalDashboardData) {
+      // If no original data, we're creating a new dashboard
+      // For new dashboards, we don't need to track changes - just enable save when visualizations are added
+      setHasDashboardChanges(false);
+      console.log('🔍 No original data - new dashboard mode');
+      return;
+    }
+
+    // Don't check for changes if we're still loading the dashboard
+    if (isGlobalLoading) {
+      console.log('🔍 Still loading dashboard, skipping change check');
+      return;
+    }
+
+    const currentData = {
+      title: dashboardSectionTitle,
+      topLeftTitle,
+      topRightTitle,
+      bottomTitle,
+      quadrants,
+      visualizations: allVisualizations
+    };
+
+    const hasChanges = 
+      currentData.title !== originalDashboardData.title ||
+      currentData.topLeftTitle !== originalDashboardData.topLeftTitle ||
+      currentData.topRightTitle !== originalDashboardData.topRightTitle ||
+      currentData.bottomTitle !== originalDashboardData.bottomTitle ||
+      JSON.stringify(currentData.quadrants) !== JSON.stringify(originalDashboardData.quadrants) ||
+      JSON.stringify(currentData.visualizations) !== JSON.stringify(originalDashboardData.visualizations);
+
+    console.log('🔍 Change check for saved dashboard:', {
+      hasChanges,
+      titleChanged: currentData.title !== originalDashboardData.title,
+      topLeftChanged: currentData.topLeftTitle !== originalDashboardData.topLeftTitle,
+      topRightChanged: currentData.topRightTitle !== originalDashboardData.topRightTitle,
+      bottomChanged: currentData.bottomTitle !== originalDashboardData.bottomTitle,
+      quadrantsChanged: JSON.stringify(currentData.quadrants) !== JSON.stringify(originalDashboardData.quadrants),
+      vizChanged: JSON.stringify(currentData.visualizations) !== JSON.stringify(originalDashboardData.visualizations),
+      currentQuadrants: currentData.quadrants,
+      originalQuadrants: originalDashboardData.quadrants,
+      currentTitle: currentData.title,
+      originalTitle: originalDashboardData.title,
+      currentData: currentData,
+      originalDashboardData: originalDashboardData
+    });
+
+    setHasDashboardChanges(hasChanges);
+  };
+
+  // Manual trigger for change detection
+  const triggerChangeDetection = () => {
+    console.log('🔍 Manual change detection triggered');
+    checkDashboardChanges();
+  };
+
+  // Effect to check for changes when dashboard data changes
+  useEffect(() => {
+    checkDashboardChanges();
+  }, [originalDashboardData, dashboardSectionTitle, topLeftTitle, topRightTitle, bottomTitle, quadrants, allVisualizations.length, isGlobalLoading]);
+
+  // Effect to reset change tracking when loading finishes
+  useEffect(() => {
+    if (!isGlobalLoading && originalDashboardData && dashboardIdNumber) {
+      // Dashboard has finished loading, reset change tracking
+      setHasDashboardChanges(false);
+      console.log('🔍 Dashboard loading finished, resetting change tracking');
+    }
+  }, [isGlobalLoading, originalDashboardData, dashboardIdNumber]);
 
   
   
@@ -231,7 +339,9 @@ export default function Dashboard() {
       setIsGlobalLoading(true);
   
       try {
-        const res = await fetch(`/api/dashboard?id=${dashboardId}`);
+        const res = await fetch(`/api/dashboard?id=${dashboardId}`, {
+          headers: createHeaders()
+        });
         const responseData = await res.json();
         
         // Extract dashboard data from the response
@@ -507,7 +617,7 @@ export default function Dashboard() {
     try {
       const res = await fetch('/api/generate-sql', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: createHeaders(),
         body: JSON.stringify({ question }),
       })
 
@@ -518,7 +628,7 @@ export default function Dashboard() {
 
       const resultRes = await fetch('/api/query', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: createHeaders(),
         body: JSON.stringify({ 
           question: question || 'Query',
           sql: data.sql,
@@ -602,65 +712,194 @@ export default function Dashboard() {
     }
   }
 
-  // Handle editing a saved query
-  const handleEditQuery = async (query: any) => {
-    // This function is no longer needed as saved query tabs have their own edit functionality
-    console.log('Edit functionality moved to individual tabs')
-  }
+
 
   // Handle updating a saved query
   const handleUpdateSavedQuery = async () => {
-    // This function is no longer needed as saved query tabs have their own update functionality
-    console.log('Update functionality moved to individual tabs')
+    if (!selectedSavedQueryId) return;
+    
+    try {
+      setSaveStatus("saving");
+      
+      const response = await fetch('/api/query', {
+        method: 'POST',
+        headers: createHeaders(),
+        body: JSON.stringify({
+          action: 'update',
+          id: selectedSavedQueryId,
+          title: question,
+          question: question,
+          sql: sqlQuery,
+          outputMode: outputMode,
+          columns: columns
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update query');
+      }
+
+      setSaveStatus("success");
+      setIsEditingSavedQuery(false);
+      
+      // Update original data to reflect current state
+      setOriginalQueryData({
+        question,
+        sql: sqlQuery,
+        outputMode,
+        data: queryResults,
+        columns,
+        visualConfig: {
+          selectedXColumn,
+          selectedYColumn
+        }
+      });
+      
+      // Trigger history panel refresh
+      const event = new CustomEvent('queryUpdated', { detail: { queryId: selectedSavedQueryId } });
+      window.dispatchEvent(event);
+      
+      setTimeout(() => setSaveStatus(null), 2000);
+    } catch (err: any) {
+      console.error('Error updating query:', err);
+      setSaveStatus("error");
+      setError(err.message || 'Failed to update query');
+      setTimeout(() => setSaveStatus(null), 2000);
+    }
   }
 
-  // Cancel edit mode
+  // Cancel edit mode - clear everything and return to blank active query
   const handleCancelEdit = () => {
-    // This function is no longer needed as saved query tabs have their own cancel functionality
-    console.log('Cancel functionality moved to individual tabs')
+    // Clear the current query and reset to new query mode
+    handleClearQuery();
+    
+    // Trigger history panel to clear selection highlighting
+    const event = new CustomEvent('queryCleared');
+    window.dispatchEvent(event);
+  }
+
+  // Handle deleting a saved query
+  const handleDeleteSavedQuery = async () => {
+    if (!selectedSavedQueryId) return;
+    
+    if (!confirm('Are you sure you want to delete this query?')) return;
+    
+    try {
+      const response = await fetch('/api/query', {
+        method: 'POST',
+        headers: createHeaders(),
+        body: JSON.stringify({
+          action: 'delete',
+          id: selectedSavedQueryId
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete query');
+      }
+
+      // Clear the current query and reset to new query mode
+      handleClearQuery();
+      
+      // Trigger history panel refresh
+      const event = new CustomEvent('queryUpdated', { detail: { queryId: selectedSavedQueryId } });
+      window.dispatchEvent(event);
+      
+    } catch (err: any) {
+      console.error('Error deleting query:', err);
+      setError(err.message || 'Failed to delete query');
+    }
   }
 
   // Check if there are changes from original data
   const hasChanges = () => {
-    // This function is no longer needed as saved query tabs have their own change detection
-    return false
-  }
-
-  // Handle Edit button click for selected saved query
-  const handleEditSavedQuery = () => {
-    // This function is no longer needed as saved query tabs have their own edit functionality
-    console.log('Edit functionality moved to individual tabs')
-  }
-
-  // Handle Delete button click for selected saved query
-  const handleDeleteSavedQuery = async () => {
-    // This function is no longer needed as saved query tabs have their own delete functionality
-    console.log('Delete functionality moved to individual tabs')
-  }
-
-  // Tab management functions
-  const openSavedQueryTab = (query: any) => {
-    const tabId = `saved-query-${query.id}`
+    if (!originalQueryData) return false;
     
-    // Check if tab already exists
-    const existingTab = tabs.find(tab => tab.id === tabId)
-    if (existingTab) {
-      setActiveTabId(tabId)
-      return
-    }
-
-    // Add new tab
-    const newTab = {
-      id: tabId,
-      title: query.title || query.queryText || 'Saved Query',
-      type: 'saved' as const,
-      queryId: query.id,
-      data: query
-    }
-
-    setTabs(prev => [...prev, newTab])
-    setActiveTabId(tabId)
+    return (
+      question !== originalQueryData.question ||
+      sqlQuery !== originalQueryData.sql ||
+      outputMode !== originalQueryData.outputMode
+    );
   }
+
+  // Clear query function
+  const handleClearQuery = () => {
+    setQuestion('');
+    setSqlQuery(null);
+    setQueryResults(null);
+    setColumns([]);
+    setError(null);
+    setSelectedSavedQueryId(null);
+    setIsEditingSavedQuery(false);
+    setOriginalQueryData(null);
+    setSaveStatus(null);
+    setSelectedXColumn('');
+    setSelectedYColumn('');
+  }
+
+
+
+  // Load saved query into main active query panel
+  const loadSavedQueryIntoActivePanel = async (query: any) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Load the saved query data
+      const resultRes = await fetch('/api/query', {
+        method: 'POST',
+        headers: createHeaders(),
+        body: JSON.stringify({ 
+          action: 'fetchSaved',
+          id: query.id
+        }),
+      });
+      
+      const result = await resultRes.json();
+      if (!resultRes.ok) throw new Error(result.error || 'Failed to load saved query');
+      
+      // Populate the main query panel with saved query data
+      setQuestion(result.question || '');
+      setSqlQuery(result.sql || '');
+      setQueryResults(result.data || []);
+      setColumns(result.columns || []);
+      setOutputMode(result.outputMode || 'table');
+      
+      // Load chart configuration if available
+      if (result.visualConfig) {
+        setSelectedXColumn(result.visualConfig.selectedXColumn || '');
+        setSelectedYColumn(result.visualConfig.selectedYColumn || '');
+      } else if (result.columns && result.columns.length >= 2) {
+        // Fallback to first two columns if no visual config
+        setSelectedXColumn(result.columns[0]?.key || '');
+        setSelectedYColumn(result.columns[1]?.key || '');
+      }
+      
+      // Set the selected saved query ID for update functionality
+      setSelectedSavedQueryId(query.id);
+      
+      // Set original data for change tracking
+      setOriginalQueryData({
+        question: result.question,
+        sql: result.sql,
+        outputMode: result.outputMode,
+        data: result.data,
+        columns: result.columns,
+        visualConfig: result.visualConfig
+      });
+      
+      // Automatically go into edit mode for saved queries
+      setIsEditingSavedQuery(true);
+      
+    } catch (err: any) {
+      console.error('Error loading saved query:', err);
+      setError(err.message || 'Failed to load saved query');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const closeTab = (tabId: string) => {
     if (tabId === 'active-query') return // Cannot close active query tab
@@ -671,6 +910,28 @@ export default function Dashboard() {
     if (activeTabId === tabId) {
       setActiveTabId('active-query')
     }
+  }
+
+  // Function to go back to active query
+  const goBackToActiveQuery = () => {
+    setViewingSavedQuery(null)
+  }
+
+  // Helper function to create headers with user ID
+  const createHeaders = () => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    }
+    if (currentUser) {
+      headers['x-user-id'] = currentUser.id.toString()
+    }
+    return headers
+  }
+
+  // Handle logout
+  const handleLogout = () => {
+    clearSession()
+    router.push('/login')
   }
 
   const getCurrentTabData = () => {
@@ -741,11 +1002,13 @@ export default function Dashboard() {
   
   const handleSelectDashboard = async (dashboard: { id: number; title: string }) => {
     // Always update the URL to reflect the selected dashboard and edit mode!
-    router.replace(`/?d=${dashboard.id}&edit=true`);
+    router.replace(`/dashboard?d=${dashboard.id}&edit=true`);
   
     setIsGlobalLoading(true);
     try {
-      const res = await fetch(`/api/dashboard?id=${dashboard.id}`);
+      const res = await fetch(`/api/dashboard?id=${dashboard.id}`, {
+        headers: createHeaders()
+      });
       if (!res.ok) throw new Error("Failed to load dashboard");
       const responseData = await res.json();
       
@@ -848,6 +1111,22 @@ export default function Dashboard() {
           bottom: quadrantMap.bottom || null,
         });
 
+        // Set original dashboard data for change tracking (cache path)
+        const originalData = {
+          title: title || "Untitled Dashboard",
+          topLeftTitle: data.topLeftTitle || "Sample Title",
+          topRightTitle: data.topRightTitle || "Sample Title",
+          bottomTitle: data.bottomTitle || "Sample Title",
+          quadrants: {
+            topLeft: quadrantMap.topLeft || null,
+            topRight: quadrantMap.topRight || null,
+            bottom: quadrantMap.bottom || null,
+          },
+          visualizations: transformedVisualizations
+        };
+        setOriginalDashboardData(originalData);
+        console.log('🔍 Original dashboard data set (cache path):', originalData);
+
         setIsGlobalLoading(false);
         return;
       }
@@ -924,6 +1203,22 @@ export default function Dashboard() {
 
       // Expand the right panel to show the loaded dashboard
       setCollapsedPanels(prev => ({ ...prev, right: false }));
+
+      // Set original dashboard data for change tracking (SQL fallback path)
+      const originalData = {
+        title: title || "Untitled Dashboard",
+        topLeftTitle: data.topLeftTitle || "Sample Title",
+        topRightTitle: data.topRightTitle || "Sample Title",
+        bottomTitle: data.bottomTitle || "Sample Title",
+        quadrants: {
+          topLeft: quadrantMapping.topLeft || null,
+          topRight: quadrantMapping.topRight || null,
+          bottom: quadrantMapping.bottom || null,
+        },
+        visualizations: newVisualizations
+      };
+      setOriginalDashboardData(originalData);
+      console.log('🔍 Original dashboard data set (SQL fallback path):', originalData);
     } catch (err) {
       console.error('Failed to load dashboard:', err);
     } finally {
@@ -1011,13 +1306,13 @@ export default function Dashboard() {
     </button>
   )
 
-  // Tabbed Panel Component - moved outside to prevent recreation
+  // Tabbed Panel Component - TEMPORARILY DISABLED
+  /*
   const renderTabbedPanel = useCallback(() => {
     const currentTab = getCurrentTabData()
     
     return (
       <div className="flex flex-col h-full bg-card rounded-lg border border-border overflow-hidden">
-        {/* Tab Headers */}
         <div className="flex border-b border-border bg-muted/20 relative">
           {tabs.map((tab) => (
             <div
@@ -1047,11 +1342,8 @@ export default function Dashboard() {
               )}
             </div>
           ))}
-          
-
         </div>
 
-        {/* Tab Content */}
         <div className="flex-1 overflow-hidden">
           {currentTab?.type === 'active' ? (
             <QueryPanel
@@ -1081,6 +1373,70 @@ export default function Dashboard() {
       </div>
     )
   }, [activeTabId, tabs, question, stableSetQuestion, outputMode, stableSetOutputMode, isLoading, sqlQuery, stableSetSqlQuery, queryResults, stableSetQueryResults, columns, stableSetColumns, error, stableSetError, handleQuerySubmit, getCurrentTabData, setActiveTabId, closeTab, togglePanel])
+  */
+
+  // Simple Panel Component - shows either active query or saved query
+  const renderSimplePanel = useCallback(() => {
+    return (
+      <div className="flex flex-col h-full bg-card rounded-lg border border-border overflow-hidden">
+        {viewingSavedQuery ? (
+          // Show saved query with back button
+          <div className="flex flex-col h-full">
+            <div className="flex items-center justify-between p-4 border-b border-border bg-muted/20">
+              <h3 className="text-sm font-mono font-semibold text-foreground">
+                {viewingSavedQuery.title || viewingSavedQuery.queryText || 'Saved Query'}
+              </h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={goBackToActiveQuery}
+                className="flex items-center gap-2"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Back to Active Query
+              </Button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <SavedQueryTab
+                query={viewingSavedQuery}
+                onClose={goBackToActiveQuery}
+              />
+            </div>
+          </div>
+        ) : (
+          // Show active query
+          <QueryPanel
+            question={question}
+            setQuestion={stableSetQuestion}
+            outputMode={outputMode}
+            setOutputMode={stableSetOutputMode}
+            isLoading={isLoading}
+            sqlQuery={sqlQuery}
+            setSqlQuery={stableSetSqlQuery}
+            queryResults={queryResults}
+            setQueryResults={stableSetQueryResults}
+            columns={columns}
+            setColumns={stableSetColumns}
+            error={error}
+            setError={stableSetError}
+            onSubmit={handleQuerySubmit}
+            readOnlyMode={readOnlyMode}
+            isEditingSavedQuery={isEditingSavedQuery}
+            handleUpdateSavedQuery={handleUpdateSavedQuery}
+            handleCancelEdit={handleCancelEdit}
+            hasChanges={hasChanges}
+            selectedSavedQueryId={selectedSavedQueryId}
+            handleDeleteSavedQuery={handleDeleteSavedQuery}
+            onClearQuery={handleClearQuery}
+            selectedXColumn={selectedXColumn}
+            setSelectedXColumn={setSelectedXColumn}
+            selectedYColumn={selectedYColumn}
+            setSelectedYColumn={setSelectedYColumn}
+          />
+        )}
+      </div>
+    )
+  }, [viewingSavedQuery, question, stableSetQuestion, outputMode, stableSetOutputMode, isLoading, sqlQuery, stableSetSqlQuery, queryResults, stableSetQueryResults, columns, stableSetColumns, error, stableSetError, handleQuerySubmit, goBackToActiveQuery])
 
   // Saved Query Tab Component
   const SavedQueryTab = ({ query, onClose }: { query: any; onClose: () => void }) => {
@@ -1177,7 +1533,7 @@ export default function Dashboard() {
         try {
           const resultRes = await fetch('/api/query', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: createHeaders(),
             body: JSON.stringify({ 
               action: 'fetchSaved',
               id: query.id
@@ -1254,7 +1610,7 @@ export default function Dashboard() {
       try {
         const res = await fetch('/api/generate-sql', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: createHeaders(),
           body: JSON.stringify({ question: tabQuestion }),
         })
 
@@ -1265,7 +1621,7 @@ export default function Dashboard() {
 
         const resultRes = await fetch('/api/query', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: createHeaders(),
           body: JSON.stringify({ 
             question: tabQuestion || 'Query',
             sql: data.sql,
@@ -1301,7 +1657,7 @@ export default function Dashboard() {
 
         const response = await fetch('/api/query', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: createHeaders(),
           body: JSON.stringify({
             action: 'update',
             id: query.id,
@@ -1325,7 +1681,7 @@ export default function Dashboard() {
         // Reload the data to show updated results
         const resultRes = await fetch('/api/query', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: createHeaders(),
           body: JSON.stringify({ 
             action: 'fetchSaved',
             id: query.id
@@ -1382,7 +1738,7 @@ export default function Dashboard() {
       try {
         const response = await fetch('/api/query', {
           method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
+          headers: createHeaders(),
           body: JSON.stringify({ id: query.id })
         })
 
@@ -1421,6 +1777,50 @@ export default function Dashboard() {
         handleTabSearch()
       }
     }, [handleTabSearch])
+
+    // Excel export function for saved query tabs
+    const handleTabExportToExcel = useCallback(() => {
+      if (!tabQueryResults || !tabColumns.length) return;
+
+      try {
+        // Create a new workbook
+        const workbook = XLSX.utils.book_new();
+        
+        // Convert query results to worksheet format
+        const worksheetData = tabQueryResults.map(row => {
+          const newRow: any = {};
+          tabColumns.forEach(col => {
+            newRow[col.name] = row[col.key];
+          });
+          return newRow;
+        });
+        
+        // Create worksheet from data
+        const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+        
+        // Add worksheet to workbook
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Query Results');
+        
+        // Generate filename with timestamp and query title
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+        const safeTitle = tabCurrentTitle.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
+        const filename = `${safeTitle}_${timestamp}.xlsx`;
+        
+        // Write file and trigger download
+        XLSX.writeFile(workbook, filename);
+        
+        // Show success notification
+        toast.success('Excel file exported successfully!', {
+          description: `File saved as: ${filename}`
+        });
+      } catch (error) {
+        console.error('Error exporting to Excel:', error);
+        setTabError('Failed to export to Excel');
+        toast.error('Failed to export to Excel', {
+          description: 'Please try again'
+        });
+      }
+    }, [tabQueryResults, tabColumns, tabCurrentTitle, setTabError]);
 
     const errorInfo = getTabErrorInfo(tabError || '');
 
@@ -1463,6 +1863,17 @@ export default function Dashboard() {
                 >
                   Delete
                 </Button>
+                {/* Excel Export Button for saved query tabs */}
+                {tabQueryResults && tabQueryResults.length > 0 && tabColumns.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleTabExportToExcel}
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>Excel</span>
+                  </Button>
+                )}
               </>
             )}
             <button
@@ -1735,7 +2146,7 @@ export default function Dashboard() {
       <div className="flex flex-col h-screen relative">
 
         {/* SARA Header */}
-        <header className="flex items-center justify-start py-2 px-6 border-b border-border bg-card mb-4">
+        <header className="flex items-center justify-between py-2 px-6 border-b border-border bg-card mb-4">
           <h1 
             className="text-2xl md:text-3xl inter font-semibold bg-gradient-to-r from-green-800 to-green-500 bg-clip-text text-transparent cursor-pointer hover:opacity-80 transition-opacity"
             onClick={async () => {
@@ -1755,7 +2166,7 @@ export default function Dashboard() {
                   try {
                     const response = await fetch('/api/query', {
                       method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
+                      headers: createHeaders(),
                       body: JSON.stringify({
                         action: 'save',
                         title: question || 'Saved Query',
@@ -1787,29 +2198,46 @@ export default function Dashboard() {
           >
             SARA
           </h1>
+          
+          {/* User Info and Logout */}
+          {currentUser && (
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-muted-foreground">
+                Welcome, {currentUser.username}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLogout}
+                className="flex items-center gap-2"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
+            </div>
+          )}
         </header>
 
         <div className="flex flex-1 overflow-hidden gap-2 px-2 pb-2">
           {/* Left Panel */}
           <div style={{ width: panelWidths.left }} className="relative transition-all duration-500 ease-in-out h-full">
-            {!collapsedPanels.left && (
-              <button
-                className="absolute top-3 right-3 z-10 bg-background/80 backdrop-blur-sm border border-border/50 rounded-full p-1 hover:bg-background/90 transition-all"
-                onClick={() => togglePanel('left')}
-                title="Collapse"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-            )}
             {collapsedPanels.left ? (
               renderCollapsedPanel('left', 'Saved')
             ) : (
+              <div className="relative h-full">
+                <button
+                  className="absolute top-3 right-3 z-10 bg-background/80 backdrop-blur-sm border border-border/50 rounded-full p-1 hover:bg-background/90 transition-all"
+                  onClick={() => togglePanel('left')}
+                  title="Collapse"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
                 <HistoryPanel
                   readOnlyMode={readOnlyMode}   
-                  onSelectQuery={openSavedQueryTab}
+                  onSelectQuery={loadSavedQueryIntoActivePanel}
                   onSelectDashboard={handleSelectDashboard}
-                  onEditQuery={handleEditQuery}
                 />
+              </div>
             )}
           </div>
 
@@ -1821,7 +2249,7 @@ export default function Dashboard() {
           {!readOnlyMode && (
             <div style={{ width: panelWidths.middle }} className="relative transition-all duration-500 ease-in-out overflow-hidden">
               <div className="relative h-full overflow-hidden">
-                {renderTabbedPanel()}
+                {renderSimplePanel()}
               </div>
             </div>
           )}
@@ -1875,7 +2303,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex-1 bg-card rounded-lg p-4 border border-border overflow-auto">
+                  <div className="flex-1 bg-card rounded-lg p-4 pb-24 border border-border overflow-hidden flex flex-col relative">
                     <input
                       type="text"
                       value={dashboardSectionTitle || ""}
@@ -1885,17 +2313,17 @@ export default function Dashboard() {
                         readOnlyMode ? 'cursor-default' : 'cursor-text'
                       }`}
                     />
-                    <div className="grid grid-cols-2 gap-2 mb-2">
+                    <div className="grid grid-cols-2 gap-2 mb-4" style={{ height: '40%' }}>
 
 
                       
-                      <div className="flex flex-col">
+                      <div className="flex flex-col h-full">
                         <input
                           type="text"
                           value={topLeftTitle || ""}
                           onChange={(e) => setTopLeftTitle(e.target.value)}
                           readOnly={readOnlyMode}
-                          className={`text-sm font-mono font-medium text-center mt-2 mb-2 bg-transparent outline-none w-full ${
+                          className={`text-sm font-mono font-medium text-center mt-2 mb-2 bg-transparent outline-none w-full flex-shrink-0 ${
                             readOnlyMode ? 'cursor-default' : 'cursor-text'
                           }`}
                         />
@@ -1906,22 +2334,23 @@ export default function Dashboard() {
                           onRemove={() => setQuadrants((prev) => ({ ...prev, topLeft: null }))}
                           data-quadrant-id="topLeft"
                           readOnlyMode={readOnlyMode}
+                          className="h-full"
                         >
                           {quadrants.topLeft ? renderDroppedViz(quadrants.topLeft) : (
-                            <div className="h-36 flex items-center justify-center font-mono text-sm font-semibold" style={{ color: "#16a34a" }}>
+                            <div className="h-full flex items-center justify-center font-mono text-sm font-semibold" style={{ color: "#16a34a" }}>
                               {readOnlyMode ? "No visualization" : "Drag results here"}
                             </div>
                           )}
                         </DropZone>
                         
                       </div>
-                      <div className="flex flex-col">
+                      <div className="flex flex-col h-full">
                         <input
                           type="text"
                           value={topRightTitle || ""}
                           onChange={(e) => setTopRightTitle(e.target.value)}
                           readOnly={readOnlyMode}
-                          className={`text-sm font-mono font-medium text-center mt-2 mb-2 bg-transparent outline-none w-full ${
+                          className={`text-sm font-mono font-medium text-center mt-2 mb-2 bg-transparent outline-none w-full flex-shrink-0 ${
                             readOnlyMode ? 'cursor-default' : 'cursor-text'
                           }`}
                         />
@@ -1933,9 +2362,10 @@ export default function Dashboard() {
                           onRemove={() => setQuadrants((prev) => ({ ...prev, topRight: null }))}
                           data-quadrant-id="topRight"
                           readOnlyMode={readOnlyMode}
+                          className="h-full"
                         >
                           {quadrants.topRight ? renderDroppedViz(quadrants.topRight) : (
-                            <div className="h-36 flex items-center justify-center font-mono font-semibold text-sm" style={{ color: "#16a34a" }}>
+                            <div className="h-full flex items-center justify-center font-mono font-semibold text-sm" style={{ color: "#16a34a" }}>
                               {readOnlyMode ? "No visualization" : "Drag results here"}
                             </div>
                           )}
@@ -1949,7 +2379,7 @@ export default function Dashboard() {
 
                       
                     </div>
-                    <div className="flex flex-col mt-4">
+                    <div className="flex flex-col" style={{ height: '60%' }}>
 
 
                       
@@ -1958,7 +2388,7 @@ export default function Dashboard() {
                         value={bottomTitle || ""}
                         onChange={(e) => setBottomTitle(e.target.value)}
                         readOnly={readOnlyMode}
-                        className={`text-sm font-mono font-medium text-center mb-1 bg-transparent outline-none w-full ${
+                        className={`text-sm font-mono font-medium text-center mb-1 bg-transparent outline-none w-full flex-shrink-0 ${
                           readOnlyMode ? 'cursor-default' : 'cursor-text'
                         }`}
                       />
@@ -1971,9 +2401,10 @@ export default function Dashboard() {
                         onRemove={() => setQuadrants((prev) => ({ ...prev, bottom: null }))}
                         data-quadrant-id="bottom"
                         readOnlyMode={readOnlyMode}
+                        className="h-full"
                       >
                         {quadrants.bottom ? renderDroppedViz(quadrants.bottom) : (
-                            <div className="h-44 flex items-center justify-center font-mono font-semibold text-sm" style={{ color: "#16a34a" }}>
+                            <div className="h-full flex items-center justify-center font-mono font-semibold text-sm" style={{ color: "#16a34a" }}>
                             {readOnlyMode ? "No visualization" : "Drag results here"}
                           </div>
                         )}
@@ -2041,22 +2472,30 @@ export default function Dashboard() {
                         onClick={handleSaveDashboard}
                         variant="default"
                         className="flex items-center gap-2"
-                        disabled={!Object.values(quadrants).some(Boolean)}
+                        disabled={
+                          !Object.values(quadrants).some(Boolean) || 
+                          (!!dashboardIdNumber && !hasDashboardChanges)
+                        }
                       >
                         <Save className="h-5 w-5" />
-                        <span>Save</span>
+                        <span>{dashboardIdNumber ? 'Update' : 'Save'}</span>
                       </Button>
+
 
                       
                       <Button
                         onClick={() => {
+                          // Clear all dashboard data
                           setQuadrants({ topLeft: null, topRight: null, bottom: null });
+                          setAllVisualizations([]);
                           setDashboardSectionTitle("Untitled Dashboard");
                           setTopLeftTitle("Sample Title");
                           setTopRightTitle("Sample Title");
                           setBottomTitle("Sample Title");
+                          setOriginalDashboardData(null);
+                          setHasDashboardChanges(false);
                           // Remove dashboardId from URL and set to new mode
-                          router.replace('/?edit=true');
+                          router.replace('/dashboard?edit=true');
                         }}
                         variant="ghost"
                         className="flex items-center gap-2"
@@ -2070,14 +2509,14 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {/* Share section for saved dashboards */}
-                {dashboardIdNumber && (
+                {/* Share section for saved dashboards - only in read-only mode */}
+                {dashboardIdNumber && readOnlyMode && (
                   <ShareDashboardSection
                     dashboardId={dashboardIdNumber}
                     dashboardTitle={dashboardSectionTitle}
+                    readOnlyMode={readOnlyMode}
                   />
                 )}
-
 
                 
                 <Button
@@ -2092,6 +2531,8 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+
+
 
 
 
