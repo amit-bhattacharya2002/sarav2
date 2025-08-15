@@ -151,7 +151,51 @@ export default function Dashboard() {
       });
   }
 
+  function handleDeleteDashboard() {
+    if (!dashboardIdNumber) {
+      alert('No dashboard to delete');
+      return;
+    }
 
+    if (!confirm('Are you sure you want to delete this dashboard? This action cannot be undone.')) {
+      return;
+    }
+
+    fetch(`/api/dashboard?id=${dashboardIdNumber}`, {
+      method: 'DELETE',
+      headers: createHeaders(),
+    })
+      .then(res => res.json().then(data => ({ ok: res.ok, data })))
+      .then(({ ok, data }) => {
+        if (ok) {
+          alert('Dashboard deleted successfully!');
+          
+          // Clear all dashboard data
+          setQuadrants({ topLeft: null, topRight: null, bottom: null });
+          setAllVisualizations([]);
+          setDashboardSectionTitle("Untitled Dashboard");
+          setTopLeftTitle("Sample Title");
+          setTopRightTitle("Sample Title");
+          setBottomTitle("Sample Title");
+          setOriginalDashboardData(null);
+          setHasDashboardChanges(false);
+          
+          // Remove dashboardId from URL and set to new mode
+          router.replace('/dashboard?edit=true');
+          
+          // Trigger history panel refresh for dashboard updates
+          const event = new CustomEvent('dashboardUpdated', { 
+            detail: { dashboardId: dashboardIdNumber } 
+          });
+          window.dispatchEvent(event);
+        } else {
+          alert('Error deleting dashboard: ' + (data.error || 'Unknown error'));
+        }
+      })
+      .catch(err => {
+        alert('Error deleting dashboard: ' + err.message);
+      });
+  }
 
   
   const searchParams = useSearchParams();
@@ -566,6 +610,7 @@ export default function Dashboard() {
       readOnlyMode, 
       collapsedPanels, 
       leftCollapsed: collapsedPanels.left,
+      middleCollapsed: collapsedPanels.middle,
       rightCollapsed: collapsedPanels.right 
     });
     
@@ -586,17 +631,48 @@ export default function Dashboard() {
       });
       return;
     }
-    // Regular logic in edit mode
+    
+    // Regular logic in edit mode - handle all three panels
     const fullWidth = 100;
+    
+    // Left panel: fixed size (20% when expanded, 100px when collapsed)
     const leftWidth = collapsedPanels.left ? 3 : 20;
+    
+    // Calculate remaining space for middle and right panels
+    const remainingWidth = fullWidth - leftWidth;
+    
+    // Middle and right panels share the remaining space
+    const middleWidth = collapsedPanels.middle ? 3 : 40;
     const rightWidth = collapsedPanels.right ? 3 : 40;
-    const middleWidth = fullWidth - leftWidth - rightWidth;
+    
+    // Calculate how much space middle and right panels actually need
+    const middleRightUsed = middleWidth + rightWidth;
+    const middleRightRemaining = remainingWidth - middleRightUsed;
+    
+    // Distribute remaining space between middle and right panels only
+    let middleFinal = middleWidth;
+    let rightFinal = rightWidth;
+    
+    if (middleRightRemaining > 0) {
+      const nonCollapsedMiddleRight = [
+        !collapsedPanels.middle,
+        !collapsedPanels.right
+      ].filter(Boolean).length;
+      
+      if (nonCollapsedMiddleRight > 0) {
+        const extraPerPanel = middleRightRemaining / nonCollapsedMiddleRight;
+        if (!collapsedPanels.middle) middleFinal += extraPerPanel;
+        if (!collapsedPanels.right) rightFinal += extraPerPanel;
+      }
+    }
     
     const newPanelWidths = {
-      left: collapsedPanels.left ? collapsedWidth : '20%',
-      middle: `${middleWidth}%`, // Takes remaining space
-      right: collapsedPanels.right ? collapsedWidth : '40%',
+      left: collapsedPanels.left ? collapsedWidth : `${leftWidth}%`,
+      middle: collapsedPanels.middle ? collapsedWidth : `${middleFinal}%`,
+      right: collapsedPanels.right ? collapsedWidth : `${rightFinal}%`,
     };
+    
+    console.log('🔍 Edit mode panel widths:', newPanelWidths);
     setPanelWidths(newPanelWidths);
   }, [collapsedPanels, readOnlyMode]);
   
@@ -1243,7 +1319,7 @@ export default function Dashboard() {
   
     if (viz.type === 'chart' || viz.type === 'visualization') {
       console.log(`🔍 Rendering BarGraph with data:`, viz.data);
-      return <BarGraph data={viz.data || []} height={150} />;
+      return <BarGraph data={viz.data || []} />;
     }
   
     if (viz.type === 'pie') {
@@ -1277,7 +1353,6 @@ export default function Dashboard() {
       return (
         <PieGraph
           data={viz.data || []}
-          height={height}
           compact
           legendScale={legendScale}
         />
@@ -1302,6 +1377,7 @@ export default function Dashboard() {
     >
       {panel === 'right' && <ChevronLeft className="h-4 w-4 mb-1" />}
       {panel === 'left' && <ChevronRight className="h-4 w-4 mb-1" />}
+      {panel === 'middle' && <ChevronRight className="h-4 w-4 mb-1" />}
       <span className="text-xs">{label}</span>
     </button>
   )
@@ -2040,10 +2116,10 @@ export default function Dashboard() {
                         name: row[tabSelectedXColumn] || row.donor || row._id?.name || 'Unknown',
                         value: Number(row[tabSelectedYColumn] || row.totalAmount) || 0,
                       }))}
-                      height={400}
                       type={tabOutputMode}
                       sql={tabSqlQuery || undefined}
                       columns={tabColumns}
+                      showExpandButton={false}
                     />
                   )}
                   
@@ -2053,9 +2129,9 @@ export default function Dashboard() {
                         name: row[tabSelectedXColumn] || row.donor || row._id?.name || 'Unknown',
                         value: Number(row[tabSelectedYColumn] || row.totalAmount) || 0,
                       }))}
-                      height={400}
                       sql={tabSqlQuery || undefined}
                       columns={tabColumns}
+                      showExpandButton={false}
                     />
                   )}
                 </div>
@@ -2098,10 +2174,10 @@ export default function Dashboard() {
                       name: row[tabSelectedXColumn] || row.donor || row._id?.name || 'Unknown',
                       value: Number(row[tabSelectedYColumn] || row.totalAmount) || 0,
                     }))}
-                    height={400}
                     type={tabOutputMode}
                     sql={tabSqlQuery || undefined}
                     columns={tabColumns}
+                    showExpandButton={false}
                   />
                 )}
                 
@@ -2111,9 +2187,9 @@ export default function Dashboard() {
                       name: row[tabSelectedXColumn] || row.donor || row._id?.name || 'Unknown',
                       value: Number(row[tabSelectedYColumn] || row.totalAmount) || 0,
                     }))}
-                    height={400}
                     sql={tabSqlQuery || undefined}
                     columns={tabColumns}
+                    showExpandButton={false}
                   />
                 )}
               </div>
@@ -2248,9 +2324,20 @@ export default function Dashboard() {
           {/* Middle Panel - hidden in read-only mode */}
           {!readOnlyMode && (
             <div style={{ width: panelWidths.middle }} className="relative transition-all duration-500 ease-in-out overflow-hidden">
-              <div className="relative h-full overflow-hidden">
-                {renderSimplePanel()}
-              </div>
+              {collapsedPanels.middle ? (
+                renderCollapsedPanel('middle', 'Query')
+              ) : (
+                <div className="relative h-full overflow-hidden">
+                  <button
+                    className="absolute top-3 right-3 z-10 bg-background/80 backdrop-blur-sm border border-border/50 rounded-full p-1 hover:bg-background/90 transition-all"
+                    onClick={() => togglePanel('middle')}
+                    title="Collapse"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  {renderSimplePanel()}
+                </div>
+              )}
             </div>
           )}
 
@@ -2407,25 +2494,36 @@ export default function Dashboard() {
                   
                   
                 
-                {/* Save & Clear buttons only in edit mode */}
+                {/* Save, Delete & Clear buttons only in edit mode */}
                 {!readOnlyMode && (
                   <div className="p-4 border-t bg-card">
                     <div className="flex flex-row items-center justify-between w-full gap-2">
-                      <Button
-                        onClick={handleSaveDashboard}
-                        variant="default"
-                        className="flex items-center gap-2"
-                        disabled={
-                          !Object.values(quadrants).some(Boolean) || 
-                          (!!dashboardIdNumber && !hasDashboardChanges)
-                        }
-                      >
-                        <Save className="h-5 w-5" />
-                        <span>{dashboardIdNumber ? 'Update' : 'Save'}</span>
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          onClick={handleSaveDashboard}
+                          variant="default"
+                          className="flex items-center gap-2"
+                          disabled={
+                            !Object.values(quadrants).some(Boolean) || 
+                            (!!dashboardIdNumber && !hasDashboardChanges)
+                          }
+                        >
+                          <Save className="h-5 w-5" />
+                          <span>{dashboardIdNumber ? 'Update' : 'Save'}</span>
+                        </Button>
 
+                        {dashboardIdNumber && (
+                          <Button
+                            onClick={handleDeleteDashboard}
+                            variant="destructive"
+                            className="flex items-center gap-2"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span>Delete</span>
+                          </Button>
+                        )}
+                      </div>
 
-                      
                       <Button
                         onClick={() => {
                           // Clear all dashboard data
@@ -2443,11 +2541,9 @@ export default function Dashboard() {
                         variant="ghost"
                         className="flex items-center gap-2"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <X className="h-4 w-4" />
                         <span>Clear</span>
                       </Button>
-
-                      
                     </div>
                   </div>
                 )}

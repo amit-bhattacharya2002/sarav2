@@ -9,16 +9,16 @@ import { FullscreenResultsModal } from "./fullscreen-results-modal"
 
 interface DraggablePieChartProps {
   data: { name: string; value: number }[]
-  height?: number
   sql?: string
   columns?: { key: string; name: string }[]
+  showExpandButton?: boolean
 }
 
 export function DraggablePieChart({
   data,
-  height = 200,
   sql,
   columns = [],
+  showExpandButton = true,
 }: DraggablePieChartProps) {
   const [fullscreenModalOpen, setFullscreenModalOpen] = useState(false)
   const [startInFullscreen, setStartInFullscreen] = useState(false)
@@ -41,24 +41,26 @@ export function DraggablePieChart({
 
   return (
     <>
-      <div ref={drag as any} style={{ opacity: isDragging ? 0.5 : 1 }} className="relative">
-        {/* Expand Button */}
-        <div className="absolute top-2 right-2 z-10">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setStartInFullscreen(true)
-              setFullscreenModalOpen(true)
-            }}
-            className="h-8 w-8 p-0 bg-background/80 backdrop-blur-sm"
-            title="Open in full screen"
-          >
-            <Maximize2 className="h-4 w-4" />
-          </Button>
-        </div>
+      <div ref={drag as any} style={{ opacity: isDragging ? 0.5 : 1 }} className="relative h-full w-full">
+        {/* Expand Button - only show if showExpandButton is true */}
+        {showExpandButton && (
+          <div className="absolute top-2 right-2 z-10">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setStartInFullscreen(true)
+                setFullscreenModalOpen(true)
+              }}
+              className="h-8 w-8 p-0 bg-background/80 backdrop-blur-sm"
+              title="Open in full screen"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
         
-        <PieGraph data={data} height={height} />
+        <PieGraph data={data} />
       </div>
 
       {/* Fullscreen Modal */}

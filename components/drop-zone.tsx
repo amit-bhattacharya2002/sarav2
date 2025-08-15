@@ -53,7 +53,7 @@ function EditableDropZone({ id, onDrop, onRemove, children, className = '' }: Om
 
   return (
     <div
-      ref={drop}
+      ref={drop as any}
       className={`
         relative border rounded-lg transition-colors overflow-hidden flex-1 flex flex-col
         ${isActive ? 'border-primary bg-primary/20' : 'border-border bg-card/60'}
@@ -67,7 +67,7 @@ function EditableDropZone({ id, onDrop, onRemove, children, className = '' }: Om
     >
       <button
         onClick={onRemove}
-        className="absolute top-1 right-1 p-1 rounded-full hover:bg-muted z-10"
+        className="absolute top-1 left-1/2 transform -translate-x-1/2 p-1 rounded-full hover:bg-muted z-10"
         aria-label="Remove visualization"
       >
         <X className="h-4 w-4" />

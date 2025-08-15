@@ -10,18 +10,18 @@ import { FullscreenResultsModal } from "./fullscreen-results-modal"
 
 interface DraggableChartProps {
   data: { name: string; value: number }[]
-  height?: number
   type?: 'chart' | 'pie'
   sql?: string
   columns?: { key: string; name: string }[]
+  showExpandButton?: boolean
 }
 
 export function DraggableChart({
   data,
-  height = 200,
   type = 'chart',
   sql,
   columns = [],
+  showExpandButton = true,
 }: DraggableChartProps) {
   const [fullscreenModalOpen, setFullscreenModalOpen] = useState(false)
   const [startInFullscreen, setStartInFullscreen] = useState(false)
@@ -44,27 +44,29 @@ export function DraggableChart({
 
   return (
     <>
-      <div ref={drag as any} style={{ opacity: isDragging ? 0.5 : 1 }} className="relative">
-        {/* Expand Button */}
-        <div className="absolute top-2 right-2 z-10">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setStartInFullscreen(true)
-              setFullscreenModalOpen(true)
-            }}
-            className="h-8 w-8 p-0 bg-background/80 backdrop-blur-sm"
-            title="Open in full screen"
-          >
-            <Maximize2 className="h-4 w-4" />
-          </Button>
-        </div>
+      <div ref={drag as any} style={{ opacity: isDragging ? 0.5 : 1 }} className="relative h-full w-full">
+        {/* Expand Button - only show if showExpandButton is true */}
+        {showExpandButton && (
+          <div className="absolute top-2 right-2 z-10">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setStartInFullscreen(true)
+                setFullscreenModalOpen(true)
+              }}
+              className="h-8 w-8 p-0 bg-background/80 backdrop-blur-sm"
+              title="Open in full screen"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
         
         {type === 'pie' ? (
-          <PieGraph data={data} height={height} />
+          <PieGraph data={data} />
         ) : (
-          <BarGraph data={data} height={height} />
+          <BarGraph data={data} />
         )}
       </div>
 

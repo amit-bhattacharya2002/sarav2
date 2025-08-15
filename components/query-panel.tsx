@@ -533,7 +533,7 @@ export function QueryPanel({
         {/* Results Area - Always visible with border */}
         <div className="bg-card border-2 border-dashed border-muted-foreground/30 rounded p-4 flex flex-col flex-1 h-full">
         {queryResults && queryResults.length > 0 && columns.length >= 1 ? (
-          <div className="h-full w-full overflow-auto flex-1 min-h-0">
+          <div className="flex flex-col flex-1 min-h-0">
             {outputMode === 'table' && (
               <div className="h-full w-full overflow-hidden">
                 <TableView data={queryResults} columns={columns} sql={sqlQuery || undefined} readOnlyMode={readOnlyMode} />
@@ -541,13 +541,12 @@ export function QueryPanel({
             )}
           
             {outputMode === 'chart' && (
-              <div className="h-full w-full overflow-auto">
+              <div className="flex-1 min-h-0">
                 <DraggableChart
                   data={queryResults.map((row) => ({
                     name: row[selectedXColumn] || row.donor || row._id?.name || 'Unknown',
                     value: Number(row[selectedYColumn] || row.totalAmount) || 0,
                   }))}
-                  height={400}
                   type={outputMode}
                   sql={sqlQuery || undefined}
                   columns={columns}
@@ -556,13 +555,12 @@ export function QueryPanel({
             )}
           
             {outputMode === 'pie' && (
-              <div className="h-full w-full overflow-auto">
+              <div className="flex-1 min-h-0">
                 <DraggablePieChart
                   data={queryResults.map((row) => ({
                     name: row[selectedXColumn] || row.donor || row._id?.name || 'Unknown',
                     value: Number(row[selectedYColumn] || row.totalAmount) || 0,
                   }))}
-                  height={400}
                   sql={sqlQuery || undefined}
                   columns={columns}
                 />
@@ -690,7 +688,7 @@ export function QueryPanel({
                 className="flex items-center gap-2"
                 onClick={handleClearQuery}
               >
-                <Trash2 className="h-5 w-5" />
+                <X className="h-4 w-4" />
                 <span>Clear</span>
               </Button>
             </>

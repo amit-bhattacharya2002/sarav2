@@ -135,3 +135,47 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to save dashboard' }, { status: 500 })
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url)
+    const dashboardId = searchParams.get('id')
+
+    if (!dashboardId) {
+      return NextResponse.json({ error: 'Dashboard ID is required' }, { status: 400 })
+    }
+
+    const userId = getUserIdFromRequest(req)
+
+    // First check if the dashboard exists and belongs to the user
+    const dashboard = await businessPrisma.savedDashboard.findUnique({
+      where: {
+        id: parseInt(dashboardId)
+      },
+      select: {
+        id: true,
+        userId: true,
+      },
+    })
+
+    if (!dashboard) {
+      return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 })
+    }
+
+    if (dashboard.userId !== userId) {
+      return NextResponse.json({ error: 'Unauthorized to delete this dashboard' }, { status: 403 })
+    }
+
+    // Delete the dashboard
+    await businessPrisma.savedDashboard.delete({
+      where: {
+        id: parseInt(dashboardId)
+      },
+    })
+
+    return NextResponse.json({ success: true, message: 'Dashboard deleted successfully' })
+  } catch (error: any) {
+    console.error('[DASHBOARD_DELETE_ERROR]', error)
+    return NextResponse.json({ error: 'Failed to delete dashboard' }, { status: 500 })
+  }
+}

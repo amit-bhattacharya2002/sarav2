@@ -212,7 +212,7 @@ export function TableView({
 
         {/* Table - Scrollable area with dynamic height */}
         <div className="flex-1 overflow-auto min-h-0">
-          <table className={`border-collapse ${compact ? "text-xs" : "text-sm"}`} style={{ minWidth: 'max-content' }}>
+          <table className={`border-collapse w-full ${compact ? "text-xs" : "text-sm"}`}>
             <thead>
               <tr className="bg-muted">
                 {visibleColumns.map((col, i) => {
@@ -222,7 +222,7 @@ export function TableView({
                   return (
                     <th 
                       key={col.key} 
-                      className={`${compact ? "p-1" : "p-2"} text-left font-medium sticky top-0 bg-muted z-10 border-b border-border tracking-normal cursor-move select-none ${
+                      className={`${compact ? "p-1" : "p-2"} text-left font-medium sticky top-0 bg-muted z-10 border-b border-border tracking-normal cursor-move select-none w-full ${
                         draggedColumn === col.key ? 'opacity-50' : ''
                       }`}
                       draggable
@@ -271,7 +271,7 @@ export function TableView({
                     })()
 
                     return (
-                      <td key={j} className={`${compact ? "p-1" : "p-2"} whitespace-nowrap border-r border-border/20`}>
+                      <td key={j} className={`${compact ? "p-1" : "p-2"} whitespace-nowrap border-r border-border/20 w-full`}>
                         {displayValue}
                       </td>
                     )
