@@ -23,10 +23,10 @@ function ReadOnlyDropZone({ id, children, className = '' }: Pick<DropZoneProps, 
       `}
       style={{
         minHeight: id === 'bottom' ? '120px' : '100px',
-        padding: '12px',
+        padding: '4px',
       }}
     >
-      <div className={`h-full w-full overflow-auto ${
+      <div className={`h-full w-full overflow-hidden ${
         children ? 'flex flex-col' : 'flex items-center justify-center'
       }`}>
         {children}
@@ -62,7 +62,7 @@ function EditableDropZone({ id, onDrop, onRemove, children, className = '' }: Om
       `}
       style={{
         minHeight: id === 'bottom' ? '120px' : '180px',
-        padding: '12px',
+        padding: '4px',
       }}
     >
       <button
@@ -72,7 +72,7 @@ function EditableDropZone({ id, onDrop, onRemove, children, className = '' }: Om
       >
         <X className="h-4 w-4" />
       </button>
-      <div className={`h-full w-full overflow-auto ${
+      <div className={`h-full w-full overflow-hidden ${
         children ? 'flex flex-col' : 'flex items-center justify-center'
       }`}>
         {children}

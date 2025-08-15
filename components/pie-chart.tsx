@@ -4,7 +4,6 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recha
 
 interface PieGraphProps {
   data: Array<{ name: string; value: number }>
-  height?: number
   compact?: boolean
   legendScale?: number
 }
@@ -14,7 +13,7 @@ const COLORS = [
   "#ffbb28", "#8dd1e1", "#d0ed57", "#a4de6c"
 ]
 
-export function PieGraph({ data, height = 400, compact = false, legendScale = 1 }: PieGraphProps) {
+export function PieGraph({ data, compact = false, legendScale = 1 }: PieGraphProps) {
   // Debug: Log the data being passed to PieGraph
   console.log("🔍 PieGraph received data:", data);
   

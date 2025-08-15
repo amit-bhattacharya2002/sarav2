@@ -6,11 +6,10 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 interface BarGraphProps {
   data: Array<{ name: string; value: number }>
   color?: string
-  height?: number
   compact?: boolean
 }
 
-export function BarGraph({ data, color = "hsl(var(--chart-1))", height = 200, compact = false }: BarGraphProps) {
+export function BarGraph({ data, color = "hsl(var(--chart-1))", compact = false }: BarGraphProps) {
   // Debug: Log the data being passed to BarGraph
   console.log("🔍 BarGraph received data:", data);
   
@@ -43,29 +42,29 @@ export function BarGraph({ data, color = "hsl(var(--chart-1))", height = 200, co
             <BarChart
               data={data}
               margin={{
-                top: 5,
-                right: 5,
-                left: 50,
-                bottom: 40,
+                top: 2,
+                right: 2,
+                left: 40,
+                bottom: 15,
               }}
             >
               <XAxis
                 dataKey="name"
                 interval={0}
-                height={120}
+                height={40}
                 tick={({ x, y, payload }) => {
                   const label = String(payload?.value ?? "")
                   const words = label.split(" ")
                   return (
                     <text
                       x={x}
-                      y={y + 10}
+                      y={y + 3}
                       textAnchor="middle"
                       fill="currentColor"
-                      fontSize={11}
+                      fontSize={9}
                     >
                       {words.map((word, index) => (
-                        <tspan key={index} x={x} dy={index === 0 ? 0 : 12}>
+                        <tspan key={index} x={x} dy={index === 0 ? 0 : 8}>
                           {word}
                         </tspan>
                       ))}
@@ -78,18 +77,18 @@ export function BarGraph({ data, color = "hsl(var(--chart-1))", height = 200, co
                 tickLine={false}
                 axisLine={false}
                 tickMargin={compact ? 2 : 5}
-                fontSize={compact ? 9 : 11}
+                fontSize={compact ? 9 : 10}
                 tickFormatter={(value) => value.toLocaleString()}
                 stroke="currentColor"
                 tick={{ fill: "currentColor" }}
-                width={compact ? 20 : 30}
+                width={compact ? 20 : 25}
               />
               <ChartTooltip content={<ChartTooltipContent />} cursor={false} />
               <Bar
                 dataKey="value"
                 fill="var(--color-value)"
                 radius={[4, 4, 0, 0]}
-                maxBarSize={compact ? 30 : 50}
+                maxBarSize={compact ? 30 : 40}
               />
             </BarChart>
           </ResponsiveContainer>

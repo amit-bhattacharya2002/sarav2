@@ -2303,155 +2303,98 @@ export default function Dashboard() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex-1 bg-card rounded-lg p-4 pb-24 border border-border overflow-hidden flex flex-col relative">
+                  <div className="flex-1 bg-card rounded-lg p-4 pb-24 border border-border overflow-hidden flex flex-col relative min-h-0">
                     <input
                       type="text"
                       value={dashboardSectionTitle || ""}
                       onChange={(e) => setDashboardSectionTitle(e.target.value)}
                       readOnly={readOnlyMode}
-                      className={`text-lg font-mono font-semibold mt-1 mb-4 bg-transparent outline-none w-full text-center ${
+                      className={`text-lg font-mono font-semibold mt-1 mb-3 bg-transparent outline-none w-full text-center ${
                         readOnlyMode ? 'cursor-default' : 'cursor-text'
                       }`}
                     />
-                    <div className="grid grid-cols-2 gap-2 mb-4" style={{ height: '40%' }}>
-
-
-                      
-                      <div className="flex flex-col h-full">
+                    {/* NEW unified grid — fills available height */}
+                    <div className="grid grid-rows-2 grid-cols-2 gap-2 flex-1 min-h-0">
+                      {/* Top Left */}
+                      <div className="flex flex-col min-h-0">
                         <input
                           type="text"
                           value={topLeftTitle || ""}
                           onChange={(e) => setTopLeftTitle(e.target.value)}
                           readOnly={readOnlyMode}
-                          className={`text-sm font-mono font-medium text-center mt-2 mb-2 bg-transparent outline-none w-full flex-shrink-0 ${
+                          className={`text-sm font-mono font-medium text-center mt-1 mb-2 bg-transparent outline-none w-full flex-shrink-0 ${
                             readOnlyMode ? 'cursor-default' : 'cursor-text'
                           }`}
                         />
-
                         <DropZone
                           id="topLeft"
-                          onDrop={(item) => handleDrop("topLeft", item)}
+                          onDrop={(item) => handleDrop('topLeft', item)}
                           onRemove={() => setQuadrants((prev) => ({ ...prev, topLeft: null }))}
                           data-quadrant-id="topLeft"
                           readOnlyMode={readOnlyMode}
-                          className="h-full"
+                          className="flex-1 min-h-0"
                         >
                           {quadrants.topLeft ? renderDroppedViz(quadrants.topLeft) : (
-                            <div className="h-full flex items-center justify-center font-mono text-sm font-semibold" style={{ color: "#16a34a" }}>
-                              {readOnlyMode ? "No visualization" : "Drag results here"}
+                            <div className="h-full flex items-center justify-center font-mono text-sm font-semibold" style={{ color: '#16a34a' }}>
+                              {readOnlyMode ? 'No visualization' : 'Drag results here'}
                             </div>
                           )}
                         </DropZone>
-                        
                       </div>
-                      <div className="flex flex-col h-full">
+
+                      {/* Top Right */}
+                      <div className="flex flex-col min-h-0">
                         <input
                           type="text"
                           value={topRightTitle || ""}
                           onChange={(e) => setTopRightTitle(e.target.value)}
                           readOnly={readOnlyMode}
-                          className={`text-sm font-mono font-medium text-center mt-2 mb-2 bg-transparent outline-none w-full flex-shrink-0 ${
+                          className={`text-sm font-mono font-medium text-center mt-1 mb-2 bg-transparent outline-none w-full flex-shrink-0 ${
                             readOnlyMode ? 'cursor-default' : 'cursor-text'
                           }`}
                         />
-
-                        
                         <DropZone
                           id="topRight"
-                          onDrop={(item) => handleDrop("topRight", item)}
+                          onDrop={(item) => handleDrop('topRight', item)}
                           onRemove={() => setQuadrants((prev) => ({ ...prev, topRight: null }))}
                           data-quadrant-id="topRight"
                           readOnlyMode={readOnlyMode}
-                          className="h-full"
+                          className="flex-1 min-h-0"
                         >
                           {quadrants.topRight ? renderDroppedViz(quadrants.topRight) : (
-                            <div className="h-full flex items-center justify-center font-mono font-semibold text-sm" style={{ color: "#16a34a" }}>
-                              {readOnlyMode ? "No visualization" : "Drag results here"}
+                            <div className="h-full flex items-center justify-center font-mono font-semibold text-sm" style={{ color: '#16a34a' }}>
+                              {readOnlyMode ? 'No visualization' : 'Drag results here'}
                             </div>
                           )}
                         </DropZone>
-
-
-                        
                       </div>
 
-
-
-                      
-                    </div>
-                    <div className="flex flex-col" style={{ height: '60%' }}>
-
-
-                      
-                      <input
-                        type="text"
-                        value={bottomTitle || ""}
-                        onChange={(e) => setBottomTitle(e.target.value)}
-                        readOnly={readOnlyMode}
-                        className={`text-sm font-mono font-medium text-center mb-1 bg-transparent outline-none w-full flex-shrink-0 ${
-                          readOnlyMode ? 'cursor-default' : 'cursor-text'
-                        }`}
-                      />
-
-
-                      
-                      <DropZone
-                        id="bottom"
-                        onDrop={(item) => handleDrop('bottom', item)}
-                        onRemove={() => setQuadrants((prev) => ({ ...prev, bottom: null }))}
-                        data-quadrant-id="bottom"
-                        readOnlyMode={readOnlyMode}
-                        className="h-full"
-                      >
-                        {quadrants.bottom ? renderDroppedViz(quadrants.bottom) : (
-                            <div className="h-full flex items-center justify-center font-mono font-semibold text-sm" style={{ color: "#16a34a" }}>
-                            {readOnlyMode ? "No visualization" : "Drag results here"}
-                          </div>
-                        )}
-                      </DropZone>
-
-
-                      
-                      
-                      {/** Diagnostics for all quadrants */}
-{/*                       <div className="mt-4 bg-muted p-2 rounded text-xs border">
-                        <div className="font-semibold mb-2">🛠 Dashboard Quadrant Diagnostics</div>
-                        {(['topLeft', 'topRight', 'bottom'] as const).map((pos) => {
-                          const vizId = quadrants[pos];
-                          const viz = getVisualizationById(vizId);
-                          if (!viz) return (
-                            <div key={pos} className="mb-2">
-                              <div className="font-semibold">{pos}:</div>
-                              <div className="text-muted-foreground">No visualization assigned.</div>
+                      {/* Bottom (spans full width) */}
+                      <div className="flex flex-col min-h-0 col-span-2">
+                        <input
+                          type="text"
+                          value={bottomTitle || ""}
+                          onChange={(e) => setBottomTitle(e.target.value)}
+                          readOnly={readOnlyMode}
+                          className={`text-sm font-mono font-medium text-center mb-1 bg-transparent outline-none w-full flex-shrink-0 ${
+                            readOnlyMode ? 'cursor-default' : 'cursor-text'
+                          }`}
+                        />
+                        <DropZone
+                          id="bottom"
+                          onDrop={(item) => handleDrop('bottom', item)}
+                          onRemove={() => setQuadrants((prev) => ({ ...prev, bottom: null }))}
+                          data-quadrant-id="bottom"
+                          readOnlyMode={readOnlyMode}
+                          className="flex-1 min-h-0"
+                        >
+                          {quadrants.bottom ? renderDroppedViz(quadrants.bottom) : (
+                            <div className="h-full flex items-center justify-center font-mono font-semibold text-sm" style={{ color: '#16a34a' }}>
+                              {readOnlyMode ? 'No visualization' : 'Drag results here'}
                             </div>
-                          );
-                          const { data, ...meta } = viz;
-                          return (
-                            <div key={pos} className="mb-4">
-                              <div className="font-semibold">{pos}:</div>
-                              <pre>{JSON.stringify(meta, null, 2)}</pre>
-                              {viz.sql && (
-                                <>
-                                  <div className="font-semibold">SQL:</div>
-                                  <pre className="whitespace-pre-wrap break-words">{viz.sql}</pre>
-                                </>
-                              )}
-                              {Array.isArray(data) && data.length > 0 && (
-                                <>
-                                  <div className="font-semibold">Output Data (sample):</div>
-                                  <pre className="whitespace-pre-wrap break-words">
-                                    {JSON.stringify(data.slice(0, 3), null, 2)}
-                                  </pre>
-                                </>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>  */}
-
-
-
-                      
+                          )}
+                        </DropZone>
+                      </div>
                     </div>
                   </div>
                 )}
