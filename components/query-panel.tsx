@@ -83,6 +83,11 @@ export function QueryPanel({
   const [showGhostIndicator, setShowGhostIndicator] = useState(false)
   const [ghostMessage, setGhostMessage] = useState("")
   
+  // Memoized callback for column order changes to prevent infinite loops
+  const handleColumnOrderChange = useCallback((reorderedColumns: { key: string; name: string }[]) => {
+    setColumns(reorderedColumns)
+  }, [setColumns])
+  
   // Chart column selection state - use props if provided, otherwise use local state
   const [localSelectedXColumn, setLocalSelectedXColumn] = useState<string>('')
   const [localSelectedYColumn, setLocalSelectedYColumn] = useState<string>('')
@@ -564,7 +569,13 @@ export function QueryPanel({
           <div className="flex flex-col flex-1 min-h-0">
             {outputMode === 'table' && (
               <div className="h-full w-full overflow-hidden">
-                <TableView data={queryResults} columns={columns} sql={sqlQuery || undefined} readOnlyMode={readOnlyMode} />
+                <TableView 
+                  data={queryResults} 
+                  columns={columns} 
+                  sql={sqlQuery || undefined} 
+                  readOnlyMode={readOnlyMode}
+                  onColumnOrderChange={handleColumnOrderChange}
+                />
               </div>
             )}
           

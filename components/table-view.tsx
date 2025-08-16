@@ -1,7 +1,7 @@
 'use client'
 
 import { useDrag } from 'react-dnd'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Maximize2, Filter } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -16,6 +16,7 @@ interface TableViewProps {
   sql?: string        // <-- ADD THIS LINE
   hideExpandButton?: boolean // Add this prop to hide expand button in modal
   readOnlyMode?: boolean // Add this prop to control dragging behavior
+  onColumnOrderChange?: (reorderedColumns: { key: string; name: string }[]) => void // Add callback for column order changes
 }
 
 export function TableView({
@@ -27,6 +28,7 @@ export function TableView({
   sql,                // <-- ADD THIS LINE
   hideExpandButton = false, // Add this prop
   readOnlyMode = false, // Add this prop
+  onColumnOrderChange, // Add this prop
 }: TableViewProps) {
   const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set(columns.map(col => col.key)))
   const [columnOrder, setColumnOrder] = useState<string[]>(columns.map(col => col.key))
@@ -34,12 +36,18 @@ export function TableView({
   const [fullscreenModalOpen, setFullscreenModalOpen] = useState(false)
   const [startInFullscreen, setStartInFullscreen] = useState(false)
   const [isColumnSelectorModalOpen, setIsColumnSelectorModalOpen] = useState(false)
+  const lastColumnOrderRef = useRef<string[]>(columns.map(col => col.key))
 
   // Initialize selected columns and order when columns change
   useEffect(() => {
     setSelectedColumns(new Set(columns.map(col => col.key)))
     setColumnOrder(columns.map(col => col.key))
   }, [columns])
+
+  // Filter and order columns based on selection and order
+  const visibleColumns = columnOrder
+    .map(key => columns.find(col => col.key === key))
+    .filter((col): col is { key: string; name: string } => col !== undefined && selectedColumns.has(col.key))
 
   // All hooks must be called before any early returns
   const [{ isDragging }, drag] = useDrag(() => ({
@@ -49,7 +57,7 @@ export function TableView({
       type: outputMode,
       title: 'Query Result',
       data,
-      columns, // Always use all columns for the data, not just visible ones
+      columns: visibleColumns, // Use reordered visible columns for dragging
       color: 'hsl(var(--chart-4))',
       sql,              // <-- ADD THIS LINE
     },
@@ -57,7 +65,7 @@ export function TableView({
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
-  }), [data, columns, outputMode, sql, readOnlyMode]) // Use all columns, not just visible ones
+  }), [data, visibleColumns, outputMode, sql, readOnlyMode]) // Use visibleColumns instead of columns
 
   // Early return if no data or columns
   if (!data || !Array.isArray(data) || data.length === 0) {
@@ -129,15 +137,28 @@ export function TableView({
     setDraggedColumn(null)
   }
 
+  // Call the callback when column order changes - only when order actually changes
+  useEffect(() => {
+    if (onColumnOrderChange && columnOrder.length > 0) {
+      // Check if the order has actually changed from the last time we called the callback
+      const hasOrderChanged = columnOrder.length !== lastColumnOrderRef.current.length ||
+        columnOrder.some((key, index) => key !== lastColumnOrderRef.current[index])
+      
+      if (hasOrderChanged) {
+        const reorderedColumns = columnOrder
+          .map(key => columns.find(col => col.key === key))
+          .filter((col): col is { key: string; name: string } => col !== undefined)
+        
+        onColumnOrderChange(reorderedColumns)
+        lastColumnOrderRef.current = [...columnOrder]
+      }
+    }
+  }, [columnOrder, columns, onColumnOrderChange])
+
   const handleColumnDragEnd = (e: React.DragEvent) => {
     e.stopPropagation() // Prevent triggering table drag
     setDraggedColumn(null)
   }
-
-  // Filter and order columns based on selection and order
-  const visibleColumns = columnOrder
-    .map(key => columns.find(col => col.key === key))
-    .filter((col): col is { key: string; name: string } => col !== undefined && selectedColumns.has(col.key))
 
   const handleExpandClick = () => {
     setStartInFullscreen(true)

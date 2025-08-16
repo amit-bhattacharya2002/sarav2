@@ -138,7 +138,8 @@ export default function Dashboard() {
               quadrants,
               visualizations: allVisualizations
             };
-            setOriginalDashboardData(updatedOriginalData);
+            // Don't update originalDashboardData when saving - it should only be set on initial load
+            // setOriginalDashboardData(updatedOriginalData);
             setHasDashboardChanges(false);
             
             // Trigger history panel refresh for dashboard updates
@@ -288,6 +289,7 @@ export default function Dashboard() {
   // Add dashboard change tracking state
   const [originalDashboardData, setOriginalDashboardData] = useState<any>(null)
   const [hasDashboardChanges, setHasDashboardChanges] = useState(false)
+  const isUserActionRef = useRef(false)
 
   // Add tabbed panel state
   const [activeTabId, setActiveTabId] = useState<string>('active-query')
@@ -337,28 +339,34 @@ export default function Dashboard() {
       visualizations: allVisualizations
     };
 
-    const hasChanges = 
-      currentData.title !== originalDashboardData.title ||
-      currentData.topLeftTitle !== originalDashboardData.topLeftTitle ||
-      currentData.topRightTitle !== originalDashboardData.topRightTitle ||
-      currentData.bottomTitle !== originalDashboardData.bottomTitle ||
-      JSON.stringify(currentData.quadrants) !== JSON.stringify(originalDashboardData.quadrants) ||
-      JSON.stringify(currentData.visualizations) !== JSON.stringify(originalDashboardData.visualizations);
+    // More robust change detection
+    const titleChanged = currentData.title !== originalDashboardData.title;
+    const topLeftChanged = currentData.topLeftTitle !== originalDashboardData.topLeftTitle;
+    const topRightChanged = currentData.topRightTitle !== originalDashboardData.topRightTitle;
+    const bottomChanged = currentData.bottomTitle !== originalDashboardData.bottomTitle;
+    const quadrantsChanged = JSON.stringify(currentData.quadrants) !== JSON.stringify(originalDashboardData.quadrants);
+    
+    // Simplified visualization change detection
+    const vizChanged = allVisualizations.length !== originalDashboardData.visualizations.length ||
+      JSON.stringify(allVisualizations.map(v => ({ id: v.id, type: v.type }))) !== 
+      JSON.stringify(originalDashboardData.visualizations.map(v => ({ id: v.id, type: v.type })));
+
+    const hasChanges = titleChanged || topLeftChanged || topRightChanged || bottomChanged || quadrantsChanged || vizChanged;
 
     console.log('🔍 Change check for saved dashboard:', {
       hasChanges,
-      titleChanged: currentData.title !== originalDashboardData.title,
-      topLeftChanged: currentData.topLeftTitle !== originalDashboardData.topLeftTitle,
-      topRightChanged: currentData.topRightTitle !== originalDashboardData.topRightTitle,
-      bottomChanged: currentData.bottomTitle !== originalDashboardData.bottomTitle,
-      quadrantsChanged: JSON.stringify(currentData.quadrants) !== JSON.stringify(originalDashboardData.quadrants),
-      vizChanged: JSON.stringify(currentData.visualizations) !== JSON.stringify(originalDashboardData.visualizations),
+      titleChanged,
+      topLeftChanged,
+      topRightChanged,
+      bottomChanged,
+      quadrantsChanged,
+      vizChanged,
+      currentVizCount: allVisualizations.length,
+      originalVizCount: originalDashboardData.visualizations.length,
       currentQuadrants: currentData.quadrants,
       originalQuadrants: originalDashboardData.quadrants,
       currentTitle: currentData.title,
-      originalTitle: originalDashboardData.title,
-      currentData: currentData,
-      originalDashboardData: originalDashboardData
+      originalTitle: originalDashboardData.title
     });
 
     setHasDashboardChanges(hasChanges);
@@ -367,22 +375,92 @@ export default function Dashboard() {
   // Manual trigger for change detection
   const triggerChangeDetection = () => {
     console.log('🔍 Manual change detection triggered');
+    console.log('🔍 Current visualizations count:', allVisualizations.length);
+    console.log('🔍 Original visualizations count:', originalDashboardData?.visualizations?.length || 0);
+    
+    isUserActionRef.current = true;
+    
+    // Force set changes to true immediately for user actions
+    setHasDashboardChanges(true);
+    console.log('🔍 Forced hasDashboardChanges to true');
+    
+    // Then run the proper check
     checkDashboardChanges();
+    
+    // Reset the flag after a longer delay
+    setTimeout(() => {
+      isUserActionRef.current = false;
+      console.log('🔍 Reset user action flag');
+    }, 2000);
+  };
+
+  // Simplified change detection - only consider it changed if there's an actual difference
+  const hasDashboardChangesSimplified = () => {
+    if (!originalDashboardData) return false;
+    
+    // Check if visualization count changed
+    if (allVisualizations.length !== originalDashboardData.visualizations.length) {
+      console.log('🔍 Simplified change detection: visualization count changed', {
+        current: allVisualizations.length,
+        original: originalDashboardData.visualizations.length
+      });
+      return true;
+    }
+    
+    // Check if any visualization IDs or types are different
+    const currentVizData = allVisualizations.map(v => ({ id: v.id, type: v.type }));
+    const originalVizData = originalDashboardData.visualizations.map(v => ({ id: v.id, type: v.type }));
+    
+    const vizChanged = JSON.stringify(currentVizData) !== JSON.stringify(originalVizData);
+    
+    if (vizChanged) {
+      console.log('🔍 Simplified change detection: visualization content changed', {
+        current: currentVizData,
+        original: originalVizData
+      });
+      return true;
+    }
+    
+    // Check other dashboard properties
+    const titleChanged = dashboardSectionTitle !== originalDashboardData.title;
+    const topLeftChanged = topLeftTitle !== originalDashboardData.topLeftTitle;
+    const topRightChanged = topRightTitle !== originalDashboardData.topRightTitle;
+    const bottomChanged = bottomTitle !== originalDashboardData.bottomTitle;
+    const quadrantsChanged = JSON.stringify(quadrants) !== JSON.stringify(originalDashboardData.quadrants);
+    
+    const hasChanges = titleChanged || topLeftChanged || topRightChanged || bottomChanged || quadrantsChanged;
+    
+    if (hasChanges) {
+      console.log('🔍 Simplified change detection: other properties changed', {
+        titleChanged,
+        topLeftChanged,
+        topRightChanged,
+        bottomChanged,
+        quadrantsChanged
+      });
+      return true;
+    }
+    
+    console.log('🔍 Simplified change detection: no changes detected');
+    return false;
   };
 
   // Effect to check for changes when dashboard data changes
-  useEffect(() => {
-    checkDashboardChanges();
-  }, [originalDashboardData, dashboardSectionTitle, topLeftTitle, topRightTitle, bottomTitle, quadrants, allVisualizations.length, isGlobalLoading]);
+  // Temporarily disabled to prevent overriding manual change detection
+  // useEffect(() => {
+  //   checkDashboardChanges();
+  // }, [originalDashboardData, dashboardSectionTitle, topLeftTitle, topRightTitle, bottomTitle, quadrants, allVisualizations.length, isGlobalLoading]);
 
   // Effect to reset change tracking when loading finishes
-  useEffect(() => {
-    if (!isGlobalLoading && originalDashboardData && dashboardIdNumber) {
-      // Dashboard has finished loading, reset change tracking
-      setHasDashboardChanges(false);
-      console.log('🔍 Dashboard loading finished, resetting change tracking');
-    }
-  }, [isGlobalLoading, originalDashboardData, dashboardIdNumber]);
+  // Temporarily disabled to prevent overriding manual change detection
+  // useEffect(() => {
+  //   if (!isGlobalLoading && originalDashboardData && dashboardIdNumber && !isUserActionRef.current) {
+  //     // Dashboard has finished loading, reset change tracking
+  //     // Only reset if we're not in the middle of a user action
+  //     setHasDashboardChanges(false);
+  //     console.log('🔍 Dashboard loading finished, resetting change tracking');
+  //   }
+  // }, [isGlobalLoading, originalDashboardData, dashboardIdNumber, isUserActionRef]);
 
   
   
@@ -916,10 +994,22 @@ export default function Dashboard() {
   const hasChanges = () => {
     if (!originalQueryData) return false;
     
+    // Check for column order changes
+    const hasColumnOrderChanged = () => {
+      if (!originalQueryData.columns || !columns) return false;
+      if (originalQueryData.columns.length !== columns.length) return true;
+      
+      return originalQueryData.columns.some((originalCol: any, index: number) => {
+        const currentCol = columns[index];
+        return !currentCol || originalCol.key !== currentCol.key;
+      });
+    };
+    
     return (
       question !== originalQueryData.question ||
       sqlQuery !== originalQueryData.sql ||
-      outputMode !== originalQueryData.outputMode
+      outputMode !== originalQueryData.outputMode ||
+      hasColumnOrderChanged()
     );
   }
 
@@ -1043,12 +1133,17 @@ export default function Dashboard() {
   const handleDrop = (quadrantId: 'topLeft' | 'topRight' | 'bottom', item: Visualization) => {
     setLastDroppedItem(item);
     console.log('🪄 Diagnostics: Last Dropped Item', item);
+    console.log('🪄 Adding chart to dashboard - triggering change detection');
   
     const itemId = item.id;
     const itemExists = allVisualizations.some((v) => v.id === itemId);
   
     if (!itemExists) {
-      setAllVisualizations((prev) => [...prev, item]);
+      setAllVisualizations((prev) => {
+        const newVisualizations = [...prev, item];
+        console.log('🪄 Added visualization, new count:', newVisualizations.length);
+        return newVisualizations;
+      });
     }
   
     // Reset and assign to prevent rendering conflicts
@@ -1062,6 +1157,8 @@ export default function Dashboard() {
         ...prev,
         [quadrantId]: itemId,
       }));
+      
+      // Change detection is now triggered in the setAllVisualizations callback
   
       // Improved diagnostics: only log error if data.length > 0, table is in DOM, and after enough time
       setTimeout(() => {
@@ -1560,6 +1657,11 @@ export default function Dashboard() {
 
     // Ref for textarea focus
     const textareaRef = useRef<HTMLTextAreaElement>(null)
+    
+    // Memoized callback for column order changes to prevent infinite loops
+    const handleTabColumnOrderChange = useCallback((reorderedColumns: { key: string; name: string }[]) => {
+      setTabColumns(reorderedColumns)
+    }, [])
 
     // Function to determine error type and icon for tabs
     const getTabErrorInfo = (errorMessage: string) => {
@@ -1865,12 +1967,24 @@ export default function Dashboard() {
     const hasTabChanges = useCallback(() => {
       if (!tabIsEditing || !tabOriginalData) return false
       
+      // Check for column order changes
+      const hasColumnOrderChanged = () => {
+        if (!tabOriginalData.columns || !tabColumns) return false;
+        if (tabOriginalData.columns.length !== tabColumns.length) return true;
+        
+        return tabOriginalData.columns.some((originalCol: any, index: number) => {
+          const currentCol = tabColumns[index];
+          return !currentCol || originalCol.key !== currentCol.key;
+        });
+      };
+      
       return (
         tabQuestion !== tabOriginalData.question ||
         tabSqlQuery !== tabOriginalData.sql ||
-        tabOutputMode !== tabOriginalData.outputMode
+        tabOutputMode !== tabOriginalData.outputMode ||
+        hasColumnOrderChanged()
       )
-    }, [tabIsEditing, tabOriginalData, tabQuestion, tabSqlQuery, tabOutputMode])
+    }, [tabIsEditing, tabOriginalData, tabQuestion, tabSqlQuery, tabOutputMode, tabColumns])
 
     const handleQuestionChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
       setTabQuestion(e.target.value)
@@ -2136,7 +2250,13 @@ export default function Dashboard() {
               <div className="flex-1 overflow-auto bg-card border rounded p-4">
                 <div className="overflow-x-auto">
                   {tabOutputMode === 'table' && (
-                    <TableView data={tabQueryResults} columns={tabColumns} sql={tabSqlQuery || undefined} readOnlyMode={readOnlyMode} />
+                    <TableView 
+                      data={tabQueryResults} 
+                      columns={tabColumns} 
+                      sql={tabSqlQuery || undefined} 
+                      readOnlyMode={readOnlyMode}
+                      onColumnOrderChange={handleTabColumnOrderChange}
+                    />
                   )}
                   
                   {tabOutputMode === 'chart' && (
@@ -2194,7 +2314,13 @@ export default function Dashboard() {
             {tabQueryResults && tabQueryResults.length > 0 && tabColumns.length >= 1 && (
               <div className="flex-1 overflow-auto">
                 {tabOutputMode === 'table' && (
-                  <TableView data={tabQueryResults} columns={tabColumns} compact readOnlyMode={readOnlyMode} />
+                  <TableView 
+                    data={tabQueryResults} 
+                    columns={tabColumns} 
+                    compact 
+                    readOnlyMode={readOnlyMode}
+                                          onColumnOrderChange={handleTabColumnOrderChange}
+                  />
                 )}
                 
                 {tabOutputMode === 'chart' && (
@@ -2428,7 +2554,10 @@ export default function Dashboard() {
                     <input
                       type="text"
                       value={dashboardSectionTitle || ""}
-                      onChange={(e) => setDashboardSectionTitle(e.target.value)}
+                                                  onChange={(e) => {
+                              setDashboardSectionTitle(e.target.value);
+                              setTimeout(() => triggerChangeDetection(), 100);
+                            }}
                       readOnly={readOnlyMode}
                       className={`text-lg font-mono font-semibold mt-1 mb-3 bg-transparent outline-none w-full text-center ${
                         readOnlyMode ? 'cursor-default' : 'cursor-text'
@@ -2441,7 +2570,10 @@ export default function Dashboard() {
                         <input
                           type="text"
                           value={topLeftTitle || ""}
-                          onChange={(e) => setTopLeftTitle(e.target.value)}
+                                                      onChange={(e) => {
+                              setTopLeftTitle(e.target.value);
+                              setTimeout(() => triggerChangeDetection(), 100);
+                            }}
                           readOnly={readOnlyMode}
                           className={`text-sm font-mono font-medium text-center mt-1 mb-2 bg-transparent outline-none w-full flex-shrink-0 ${
                             readOnlyMode ? 'cursor-default' : 'cursor-text'
@@ -2450,7 +2582,10 @@ export default function Dashboard() {
                         <DropZone
                           id="topLeft"
                           onDrop={(item) => handleDrop('topLeft', item)}
-                          onRemove={() => setQuadrants((prev) => ({ ...prev, topLeft: null }))}
+                          onRemove={() => {
+                          setQuadrants((prev) => ({ ...prev, topLeft: null }));
+                          setTimeout(() => triggerChangeDetection(), 100);
+                        }}
                           data-quadrant-id="topLeft"
                           readOnlyMode={readOnlyMode}
                           className="flex-1 min-h-0 rounded-lg border border-border bg-card overflow-hidden"
@@ -2468,7 +2603,10 @@ export default function Dashboard() {
                         <input
                           type="text"
                           value={topRightTitle || ""}
-                          onChange={(e) => setTopRightTitle(e.target.value)}
+                                                      onChange={(e) => {
+                              setTopRightTitle(e.target.value);
+                              setTimeout(() => triggerChangeDetection(), 100);
+                            }}
                           readOnly={readOnlyMode}
                           className={`text-sm font-mono font-medium text-center mt-1 mb-2 bg-transparent outline-none w-full flex-shrink-0 ${
                             readOnlyMode ? 'cursor-default' : 'cursor-text'
@@ -2477,7 +2615,10 @@ export default function Dashboard() {
                         <DropZone
                           id="topRight"
                           onDrop={(item) => handleDrop('topRight', item)}
-                          onRemove={() => setQuadrants((prev) => ({ ...prev, topRight: null }))}
+                          onRemove={() => {
+                          setQuadrants((prev) => ({ ...prev, topRight: null }));
+                          setTimeout(() => triggerChangeDetection(), 100);
+                        }}
                           data-quadrant-id="topRight"
                           readOnlyMode={readOnlyMode}
                           className="flex-1 min-h-0 rounded-lg border border-border bg-card overflow-hidden"
@@ -2495,7 +2636,10 @@ export default function Dashboard() {
                         <input
                           type="text"
                           value={bottomTitle || ""}
-                          onChange={(e) => setBottomTitle(e.target.value)}
+                                                      onChange={(e) => {
+                              setBottomTitle(e.target.value);
+                              setTimeout(() => triggerChangeDetection(), 100);
+                            }}
                           readOnly={readOnlyMode}
                           className={`text-sm font-mono font-medium text-center mb-1 bg-transparent outline-none w-full flex-shrink-0 ${
                             readOnlyMode ? 'cursor-default' : 'cursor-text'
@@ -2504,7 +2648,10 @@ export default function Dashboard() {
                         <DropZone
                           id="bottom"
                           onDrop={(item) => handleDrop('bottom', item)}
-                          onRemove={() => setQuadrants((prev) => ({ ...prev, bottom: null }))}
+                          onRemove={() => {
+                          setQuadrants((prev) => ({ ...prev, bottom: null }));
+                          setTimeout(() => triggerChangeDetection(), 100);
+                        }}
                           data-quadrant-id="bottom"
                           readOnlyMode={readOnlyMode}
                           className="flex-1 min-h-0 rounded-lg border border-border bg-card overflow-hidden"
@@ -2541,7 +2688,7 @@ export default function Dashboard() {
                             className="flex items-center gap-2"
                             disabled={
                               !Object.values(quadrants).some(Boolean) || 
-                              (!!dashboardIdNumber && !hasDashboardChanges)
+                              (!!dashboardIdNumber && !hasDashboardChangesSimplified())
                             }
                           >
                             <Save className="h-5 w-5" />

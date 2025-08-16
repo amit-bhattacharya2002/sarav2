@@ -137,15 +137,15 @@ export function generateSQLFromQuestion(question: string): string {
   if (lowerQuestion.includes('top') && lowerQuestion.includes('donor')) {
     return `
       SELECT 
-        c.FULLNAME as "Donor Name",
-        SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as "Total Amount",
-        YEAR(g.GIFTDATE) as "Year",
+        c.FULLNAME as 'Donor Name',
+        SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as 'Total Amount',
+        YEAR(g.GIFTDATE) as 'Year',
         g.*,
         c.EMAIL
       FROM gifts g 
       JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID
       GROUP BY g.ACCOUNTID, c.FULLNAME
-      ORDER BY "Total Amount" ASC
+      ORDER BY 'Total Amount' ASC
       LIMIT 10
     `
   }
@@ -153,13 +153,13 @@ export function generateSQLFromQuestion(question: string): string {
   if (lowerQuestion.includes('gift') && lowerQuestion.includes('source')) {
     return `
       SELECT 
-        g.SOURCECODE as "Source",
-        COUNT(*) as "Gift Count",
-        SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as "Total Amount"
+        g.SOURCECODE as 'Source',
+        COUNT(*) as 'Gift Count',
+        SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as 'Total Amount'
       FROM gifts g
       JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID
       GROUP BY g.SOURCECODE
-      ORDER BY "Total Amount" ASC
+      ORDER BY 'Total Amount' ASC
       LIMIT 20
     `
   }
@@ -167,13 +167,13 @@ export function generateSQLFromQuestion(question: string): string {
   if (lowerQuestion.includes('designation')) {
     return `
       SELECT 
-        g.DESIGNATION as "Designation",
-        COUNT(*) as "Gift Count",
-        SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as "Total Amount"
+        g.DESIGNATION as 'Designation',
+        COUNT(*) as 'Gift Count',
+        SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as 'Total Amount'
       FROM gifts g
       JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID
       GROUP BY g.DESIGNATION
-      ORDER BY "Total Amount" ASC
+      ORDER BY 'Total Amount' ASC
       LIMIT 20
     `
   }
@@ -181,13 +181,13 @@ export function generateSQLFromQuestion(question: string): string {
   if (lowerQuestion.includes('payment method')) {
     return `
       SELECT 
-        g.PAYMENTMETHOD as "Payment Method",
-        COUNT(*) as "Gift Count",
-        SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as "Total Amount"
+        g.PAYMENTMETHOD as 'Payment Method',
+        COUNT(*) as 'Gift Count',
+        SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as 'Total Amount'
       FROM gifts g
       JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID
       GROUP BY g.PAYMENTMETHOD
-      ORDER BY "Total Amount" ASC
+      ORDER BY 'Total Amount' ASC
       LIMIT 20
     `
   }
@@ -195,11 +195,11 @@ export function generateSQLFromQuestion(question: string): string {
   // Default query with better column ordering
   return `
     SELECT 
-      c.FULLNAME as "Donor Name",
-      g.GIFTAMOUNT as "Donation Amount",
-      g.GIFTDATE as "Gift Date",
-      g.SOURCECODE as "Source",
-      g.DESIGNATION as "Designation",
+      c.FULLNAME as 'Donor Name',
+      g.GIFTAMOUNT as 'Donation Amount',
+      g.GIFTDATE as 'Gift Date',
+      g.SOURCECODE as 'Source',
+      g.DESIGNATION as 'Designation',
       g.*,
       c.EMAIL
     FROM gifts g

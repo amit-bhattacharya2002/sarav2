@@ -160,8 +160,11 @@ export async function POST(req: NextRequest) {
         )
       }
 
+      // Use frontend columns if provided (preserves reordering), otherwise use database columns
+      const columnsToSave = columns && columns.length > 0 ? columns : queryResult.columns || []
+      
       // Transform column names to human-readable aliases before saving
-      const transformedColumns = transformColumnsToHumanReadable(queryResult.columns || [])
+      const transformedColumns = transformColumnsToHumanReadable(columnsToSave)
       
       const savedQuery = await businessPrisma.savedQuery.create({
         data: {
@@ -216,8 +219,11 @@ export async function POST(req: NextRequest) {
         )
       }
 
+      // Use frontend columns if provided (preserves reordering), otherwise use database columns
+      const columnsToSave = columns && columns.length > 0 ? columns : queryResult.columns || []
+      
       // Transform column names to human-readable aliases before updating
-      const transformedColumns = transformColumnsToHumanReadable(queryResult.columns || [])
+      const transformedColumns = transformColumnsToHumanReadable(columnsToSave)
       
       const updatedQuery = await businessPrisma.savedQuery.update({
         where: { id: parseInt(id) },

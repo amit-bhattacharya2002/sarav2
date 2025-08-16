@@ -84,69 +84,70 @@ export async function POST(req: NextRequest) {
     - Always include the most relevant information first in the SELECT clause
     
     MANDATORY ALIAS MAPPINGS - Use these exact aliases for better readability:
-    - g.ACCOUNTID as "Account ID"
-    - g.GIFTID as "Gift ID"
-    - g.GIFTDATE as "Gift Date"
-    - g.GIFTAMOUNT as "Gift Amount"
-    - g.TRANSACTIONTYPE as "Transaction Type"
-    - g.GIFTTYPE as "Gift Type"
-    - g.PAYMENTMETHOD as "Payment Method"
-    - g.PLEDGEID as "Pledge ID"
-    - g.SOFTCREDITINDICATOR as "Soft Credit Indicator"
-    - g.SOFTCREDITAMOUNT as "Soft Credit Amount"
-    - g.SOFTCREDITID as "Soft Credit ID"
-    - g.SOURCECODE as "Source Code"
-    - g.DESIGNATION as "Designation"
-    - g.UNIT as "Unit"
-    - g.PURPOSECATEGORY as "Purpose Category"
-    - g.APPEAL as "Appeal"
-    - g.GIVINGLEVEL as "Giving Level"
-    - c.LOOKUPID as "Lookup ID"
-    - c.TYPE as "Type"
-    - c.DONORTYPE1 as "Donor Type"
-    - c.PERSONORGANIZATIONINDICATOR as "Person Organization Indicator"
-    - c.ALUMNITYPE as "Alumni Type"
-    - c.UNDERGRADUATEDEGREE1 as "Undergraduate Degree"
-    - c.UNDERGRADUATIONYEAR1 as "Undergraduate Year"
-    - c.UNDERGRADUATEPREFERREDCLASSYEAR1 as "Undergraduate Preferred Class Year"
-    - c.UNDERGRADUATESCHOOL1 as "Undergraduate School"
-    - c.GRADUATEDEGREE1 as "Graduate Degree"
-    - c.GRADUATEGRADUATIONYEAR1 as "Graduate Graduation Year"
-    - c.GRADUATEPREFERREDCLASSYEAR1 as "Graduate Preferred Class Year"
-    - c.GRADUATESCHOOL1 as "Graduate School"
-    - c.GENDER as "Gender"
-    - c.DECEASED as "Deceased"
-    - c.SOLICITATIONRESTRICTIONS as "Solicitation Restrictions"
-    - c.DONOTMAIL as "Do Not Mail"
-    - c.DONOTPHONE as "Do Not Phone"
-    - c.DONOTEMAIL as "Do Not Email"
-    - c.MARRIEDTOALUM as "Married To Alum"
-    - c.SPOUSELOOKUPID as "Spouse Lookup ID"
-    - c.SPOUSEID as "Spouse ID"
-    - c.ASSIGNEDACCOUNT as "Assigned Account"
-    - c.VOLUNTEER as "Volunteer"
-    - c.WEALTHSCORE as "Wealth Score"
-    - c.GEPSTATUS as "GEP Status"
-    - c.EVENTSATTENDED as "Events Attended"
-    - c.EVENTS as "Events"
-    - c.AGE as "Age"
-    - c.FULLNAME as "Full Name"
-    - c.PMFULLNAME as "PM Full Name"
-    - c.FULLADDRESS as "Full Address"
-    - c.HOMETELEPHONE as "Home Telephone"
-    - c.EMAIL as "Email"
+    IMPORTANT: Use the actual database column names (in UPPERCASE) with these aliases:
+    - g.ACCOUNTID as 'Account ID'
+    - g.GIFTID as 'Gift ID'
+    - g.GIFTDATE as 'Gift Date'
+    - g.GIFTAMOUNT as 'Gift Amount'
+    - g.TRANSACTIONTYPE as 'Transaction Type'
+    - g.GIFTTYPE as 'Gift Type'
+    - g.PAYMENTMETHOD as 'Payment Method'
+    - g.PLEDGEID as 'Pledge ID'
+    - g.SOFTCREDITINDICATOR as 'Soft Credit Indicator'
+    - g.SOFTCREDITAMOUNT as 'Soft Credit Amount'
+    - g.SOFTCREDITID as 'Soft Credit ID'
+    - g.SOURCECODE as 'Source Code'
+    - g.DESIGNATION as 'Designation'
+    - g.UNIT as 'Unit'
+    - g.PURPOSECATEGORY as 'Purpose Category'
+    - g.APPEAL as 'Appeal'
+    - g.GIVINGLEVEL as 'Giving Level'
+    - c.LOOKUPID as 'Lookup ID'
+    - c.TYPE as 'Type'
+    - c.DONORTYPE1 as 'Donor Type'
+    - c.PERSONORGANIZATIONINDICATOR as 'Person Organization Indicator'
+    - c.ALUMNITYPE as 'Alumni Type'
+    - c.UNDERGRADUATEDEGREE1 as 'Undergraduate Degree'
+    - c.UNDERGRADUATIONYEAR1 as 'Undergraduate Year'
+    - c.UNDERGRADUATEPREFERREDCLASSYEAR1 as 'Undergraduate Preferred Class Year'
+    - c.UNDERGRADUATESCHOOL1 as 'Undergraduate School'
+    - c.GRADUATEDEGREE1 as 'Graduate Degree'
+    - c.GRADUATEGRADUATIONYEAR1 as 'Graduate Graduation Year'
+    - c.GRADUATEPREFERREDCLASSYEAR1 as 'Graduate Preferred Class Year'
+    - c.GRADUATESCHOOL1 as 'Graduate School'
+    - c.GENDER as 'Gender'
+    - c.DECEASED as 'Deceased'
+    - c.SOLICITATIONRESTRICTIONS as 'Solicitation Restrictions'
+    - c.DONOTMAIL as 'Do Not Mail'
+    - c.DONOTPHONE as 'Do Not Phone'
+    - c.DONOTEMAIL as 'Do Not Email'
+    - c.MARRIEDTOALUM as 'Married To Alum'
+    - c.SPOUSELOOKUPID as 'Spouse Lookup ID'
+    - c.SPOUSEID as 'Spouse ID'
+    - c.ASSIGNEDACCOUNT as 'Assigned Account'
+    - c.VOLUNTEER as 'Volunteer'
+    - c.WEALTHSCORE as 'Wealth Score'
+    - c.GEPSTATUS as 'GEP Status'
+    - c.EVENTSATTENDED as 'Events Attended'
+    - c.EVENTS as 'Events'
+    - c.AGE as 'Age'
+    - c.FULLNAME as 'Full Name'
+    - c.PMFULLNAME as 'PM Full Name'
+    - c.FULLADDRESS as 'Full Address'
+    - c.HOMETELEPHONE as 'Home Telephone'
+    - c.EMAIL as 'Email'
 
     Common patterns with proper column ordering:
-    - For "top donors": SELECT c.FULLNAME as "Full Name", SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as "Total Amount", YEAR(g.GIFTDATE) as "Year", g.GIFTID as "Gift ID", g.GIFTDATE as "Gift Date", g.GIFTAMOUNT as "Gift Amount", g.PAYMENTMETHOD as "Payment Method", g.PLEDGEID as "Pledge ID", g.SOFTCREDITINDICATOR as "Soft Credit Indicator", g.SOFTCREDITAMOUNT as "Soft Credit Amount", g.SOFTCREDITID as "Soft Credit ID", g.SOURCECODE as "Source Code", g.DESIGNATION as "Designation", c.EMAIL as "Email" FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID GROUP BY g.ACCOUNTID, c.FULLNAME ORDER BY "Total Amount" ASC LIMIT 10
-    - For "top donors by year": SELECT c.FULLNAME as "Full Name", SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as "Total Amount", YEAR(g.GIFTDATE) as "Year", g.GIFTID as "Gift ID", g.GIFTDATE as "Gift Date", g.GIFTAMOUNT as "Gift Amount", g.PAYMENTMETHOD as "Payment Method", g.PLEDGEID as "Pledge ID", g.SOFTCREDITINDICATOR as "Soft Credit Indicator", g.SOFTCREDITAMOUNT as "Soft Credit Amount", g.SOFTCREDITID as "Soft Credit ID", g.SOURCECODE as "Source Code", g.DESIGNATION as "Designation", c.EMAIL as "Email" FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE YEAR(g.GIFTDATE) = [YEAR] GROUP BY g.ACCOUNTID, c.FULLNAME ORDER BY "Total Amount" ASC LIMIT 10
-    - For "gifts by donor": SELECT c.FULLNAME as "Full Name", g.GIFTAMOUNT as "Gift Amount", g.GIFTDATE as "Gift Date", g.GIFTID as "Gift ID", g.PAYMENTMETHOD as "Payment Method", g.PLEDGEID as "Pledge ID", g.SOFTCREDITINDICATOR as "Soft Credit Indicator", g.SOFTCREDITAMOUNT as "Soft Credit Amount", g.SOFTCREDITID as "Soft Credit ID", g.SOURCECODE as "Source Code", g.DESIGNATION as "Designation", c.EMAIL as "Email" FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE c.FULLNAME = 'Donor Name' ORDER BY g.GIFTDATE ASC LIMIT 100
-    - For "alumni donors": SELECT c.FULLNAME as "Full Name", c.ALUMNITYPE as "Alumni Type", g.GIFTAMOUNT as "Gift Amount", g.GIFTID as "Gift ID", g.GIFTDATE as "Gift Date", g.PAYMENTMETHOD as "Payment Method", g.PLEDGEID as "Pledge ID", g.SOFTCREDITINDICATOR as "Soft Credit Indicator", g.SOFTCREDITAMOUNT as "Soft Credit Amount", g.SOFTCREDITID as "Soft Credit ID", g.SOURCECODE as "Source Code", g.DESIGNATION as "Designation", c.EMAIL as "Email" FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE c.ALUMNITYPE IS NOT NULL ORDER BY g.GIFTDATE ASC LIMIT 50
-    - For "donors by gender": SELECT c.FULLNAME as "Full Name", c.GENDER as "Gender", SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as "Total Amount", g.GIFTID as "Gift ID", g.GIFTDATE as "Gift Date", g.PAYMENTMETHOD as "Payment Method", g.PLEDGEID as "Pledge ID", g.SOFTCREDITINDICATOR as "Soft Credit Indicator", g.SOFTCREDITAMOUNT as "Soft Credit Amount", g.SOFTCREDITID as "Soft Credit ID", g.SOURCECODE as "Source Code", g.DESIGNATION as "Designation" FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID GROUP BY c.GENDER, c.FULLNAME ORDER BY "Total Amount" ASC LIMIT 25
-    - For "donors by age": SELECT c.FULLNAME as "Full Name", c.AGE as "Age", AVG(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as "Average Amount", g.GIFTID as "Gift ID", g.GIFTDATE as "Gift Date", g.PAYMENTMETHOD as "Payment Method", g.PLEDGEID as "Pledge ID", g.SOFTCREDITINDICATOR as "Soft Credit Indicator", g.SOFTCREDITAMOUNT as "Soft Credit Amount", g.SOFTCREDITID as "Soft Credit ID", g.SOURCECODE as "Source Code", g.DESIGNATION as "Designation" FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID GROUP BY c.AGE, c.FULLNAME ORDER BY "Average Amount" ASC LIMIT 25
-    - For "volunteer donors": SELECT c.FULLNAME as "Full Name", c.VOLUNTEER as "Volunteer", g.GIFTAMOUNT as "Gift Amount", g.GIFTID as "Gift ID", g.GIFTDATE as "Gift Date", g.PAYMENTMETHOD as "Payment Method", g.PLEDGEID as "Pledge ID", g.SOFTCREDITINDICATOR as "Soft Credit Indicator", g.SOFTCREDITAMOUNT as "Soft Credit Amount", g.SOFTCREDITID as "Soft Credit ID", g.SOURCECODE as "Source Code", g.DESIGNATION as "Designation" FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE c.VOLUNTEER = 'Yes' ORDER BY g.GIFTDATE ASC LIMIT 50
-    - For "high wealth donors": SELECT c.FULLNAME as "Full Name", c.WEALTHSCORE as "Wealth Score", g.GIFTAMOUNT as "Gift Amount", g.GIFTID as "Gift ID", g.GIFTDATE as "Gift Date", g.PAYMENTMETHOD as "Payment Method", g.PLEDGEID as "Pledge ID", g.SOFTCREDITINDICATOR as "Soft Credit Indicator", g.SOFTCREDITAMOUNT as "Soft Credit Amount", g.SOFTCREDITID as "Soft Credit ID", g.SOURCECODE as "Source Code", g.DESIGNATION as "Designation" FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE c.WEALTHSCORE > 50 ORDER BY c.WEALTHSCORE ASC LIMIT 50
-    - For "gifts by source": SELECT g.SOURCECODE as "Source Code", COUNT(*) as "Gift Count", SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as "Total Amount" FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID GROUP BY g.SOURCECODE ORDER BY "Total Amount" ASC LIMIT 20
-    - For "gifts by designation": SELECT g.DESIGNATION as "Designation", COUNT(*) as "Gift Count", SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as "Total Amount" FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID GROUP BY g.DESIGNATION ORDER BY "Total Amount" ASC LIMIT 20
+    - For "top donors": SELECT c.FULLNAME as 'Full Name', SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as 'Total Amount', YEAR(g.GIFTDATE) as 'Year', g.GIFTID as 'Gift ID', g.GIFTDATE as 'Gift Date', g.GIFTAMOUNT as 'Gift Amount', g.PAYMENTMETHOD as 'Payment Method', g.PLEDGEID as 'Pledge ID', g.SOFTCREDITINDICATOR as 'Soft Credit Indicator', g.SOFTCREDITAMOUNT as 'Soft Credit Amount', g.SOFTCREDITID as 'Soft Credit ID', g.SOURCECODE as 'Source Code', g.DESIGNATION as 'Designation', c.EMAIL as 'Email' FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID GROUP BY g.ACCOUNTID, c.FULLNAME ORDER BY 'Total Amount' ASC LIMIT 10
+    - For "top donors by year": SELECT c.FULLNAME as 'Full Name', SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as 'Total Amount', YEAR(g.GIFTDATE) as 'Year', g.GIFTID as 'Gift ID', g.GIFTDATE as 'Gift Date', g.GIFTAMOUNT as 'Gift Amount', g.PAYMENTMETHOD as 'Payment Method', g.PLEDGEID as 'Pledge ID', g.SOFTCREDITINDICATOR as 'Soft Credit Indicator', g.SOFTCREDITAMOUNT as 'Soft Credit Amount', g.SOFTCREDITID as 'Soft Credit ID', g.SOURCECODE as 'Source Code', g.DESIGNATION as 'Designation', c.EMAIL as 'Email' FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE YEAR(g.GIFTDATE) = [YEAR] GROUP BY g.ACCOUNTID, c.FULLNAME ORDER BY 'Total Amount' ASC LIMIT 10
+    - For "gifts by donor": SELECT c.FULLNAME as 'Full Name', g.GIFTAMOUNT as 'Gift Amount', g.GIFTDATE as 'Gift Date', g.GIFTID as 'Gift ID', g.PAYMENTMETHOD as 'Payment Method', g.PLEDGEID as 'Pledge ID', g.SOFTCREDITINDICATOR as 'Soft Credit Indicator', g.SOFTCREDITAMOUNT as 'Soft Credit Amount', g.SOFTCREDITID as 'Soft Credit ID', g.SOURCECODE as 'Source Code', g.DESIGNATION as 'Designation', c.EMAIL as 'Email' FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE c.FULLNAME = 'Donor Name' ORDER BY g.GIFTDATE ASC LIMIT 100
+    - For "alumni donors": SELECT c.FULLNAME as 'Full Name', c.ALUMNITYPE as 'Alumni Type', g.GIFTAMOUNT as 'Gift Amount', g.GIFTID as 'Gift ID', g.GIFTDATE as 'Gift Date', g.PAYMENTMETHOD as 'Payment Method', g.PLEDGEID as 'Pledge ID', g.SOFTCREDITINDICATOR as 'Soft Credit Indicator', g.SOFTCREDITAMOUNT as 'Soft Credit Amount', g.SOFTCREDITID as 'Soft Credit ID', g.SOURCECODE as 'Source Code', g.DESIGNATION as 'Designation', c.EMAIL as 'Email' FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE c.ALUMNITYPE IS NOT NULL ORDER BY g.GIFTDATE ASC LIMIT 50
+    - For "donors by gender": SELECT c.FULLNAME as 'Full Name', c.GENDER as 'Gender', SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as 'Total Amount', g.GIFTID as 'Gift ID', g.GIFTDATE as 'Gift Date', g.PAYMENTMETHOD as 'Payment Method', g.PLEDGEID as 'Pledge ID', g.SOFTCREDITINDICATOR as 'Soft Credit Indicator', g.SOFTCREDITAMOUNT as 'Soft Credit Amount', g.SOFTCREDITID as 'Soft Credit ID', g.SOURCECODE as 'Source Code', g.DESIGNATION as 'Designation' FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID GROUP BY c.GENDER, c.FULLNAME ORDER BY 'Total Amount' ASC LIMIT 25
+    - For "donors by age": SELECT c.FULLNAME as 'Full Name', c.AGE as 'Age', AVG(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as 'Average Amount', g.GIFTID as 'Gift ID', g.GIFTDATE as 'Gift Date', g.PAYMENTMETHOD as 'Payment Method', g.PLEDGEID as 'Pledge ID', g.SOFTCREDITINDICATOR as 'Soft Credit Indicator', g.SOFTCREDITAMOUNT as 'Soft Credit Amount', g.SOFTCREDITID as 'Soft Credit ID', g.SOURCECODE as 'Source Code', g.DESIGNATION as 'Designation' FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID GROUP BY c.AGE, c.FULLNAME ORDER BY 'Average Amount' ASC LIMIT 25
+    - For "volunteer donors": SELECT c.FULLNAME as 'Full Name', c.VOLUNTEER as 'Volunteer', g.GIFTAMOUNT as 'Gift Amount', g.GIFTID as 'Gift ID', g.GIFTDATE as 'Gift Date', g.PAYMENTMETHOD as 'Payment Method', g.PLEDGEID as 'Pledge ID', g.SOFTCREDITINDICATOR as 'Soft Credit Indicator', g.SOFTCREDITAMOUNT as 'Soft Credit Amount', g.SOFTCREDITID as 'Soft Credit ID', g.SOURCECODE as 'Source Code', g.DESIGNATION as 'Designation' FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE c.VOLUNTEER = 'Yes' ORDER BY g.GIFTDATE ASC LIMIT 50
+    - For "high wealth donors": SELECT c.FULLNAME as 'Full Name', c.WEALTHSCORE as 'Wealth Score', g.GIFTAMOUNT as 'Gift Amount', g.GIFTID as 'Gift ID', g.GIFTDATE as 'Gift Date', g.PAYMENTMETHOD as 'Payment Method', g.PLEDGEID as 'Pledge ID', g.SOFTCREDITINDICATOR as 'Soft Credit Indicator', g.SOFTCREDITAMOUNT as 'Soft Credit Amount', g.SOFTCREDITID as 'Soft Credit ID', g.SOURCECODE as 'Source Code', g.DESIGNATION as 'Designation' FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE c.WEALTHSCORE > 50 ORDER BY c.WEALTHSCORE ASC LIMIT 50
+    - For "gifts by source": SELECT g.SOURCECODE as 'Source Code', COUNT(*) as 'Gift Count', SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as 'Total Amount' FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID GROUP BY g.SOURCECODE ORDER BY 'Total Amount' ASC LIMIT 20
+    - For "gifts by designation": SELECT g.DESIGNATION as 'Designation', COUNT(*) as 'Gift Count', SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) as 'Total Amount' FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID GROUP BY g.DESIGNATION ORDER BY 'Total Amount' ASC LIMIT 20
 
     JOIN Guidelines:
     - When queries involve donor/constituent information, use JOIN to connect gifts and constituents tables
@@ -174,6 +175,13 @@ export async function POST(req: NextRequest) {
     CRITICAL: Always use the human-readable aliases provided above instead of SELECT *. 
     Include the most relevant fields with proper aliases for better readability.
     Never use SELECT * - always specify individual columns with their aliases.
+    
+    CRITICAL SQL SYNTAX RULES:
+    - Use actual database column names (FULLNAME, GIFTAMOUNT, etc.) in SELECT statements
+    - Apply aliases using 'as' keyword (e.g., c.FULLNAME as 'Full Name')
+    - Do NOT use backticks around column names in SELECT
+    - Use single quotes for string literals and aliases
+    - Example: SELECT c.FULLNAME as 'Full Name', g.GIFTAMOUNT as 'Gift Amount'
     `;
     
     const fullSystemPrompt = `${schemaText}\n\n${baseInstruction}`
