@@ -138,8 +138,8 @@ export default function Dashboard() {
               quadrants,
               visualizations: allVisualizations
             };
-            // Don't update originalDashboardData when saving - it should only be set on initial load
-            // setOriginalDashboardData(updatedOriginalData);
+            // Update originalDashboardData to reflect the newly saved state
+            setOriginalDashboardData(updatedOriginalData);
             setHasDashboardChanges(false);
             
             // Trigger history panel refresh for dashboard updates
@@ -1628,6 +1628,8 @@ export default function Dashboard() {
             setSelectedXColumn={setSelectedXColumn}
             selectedYColumn={selectedYColumn}
             setSelectedYColumn={setSelectedYColumn}
+            currentUser={currentUser}
+            setOriginalQueryData={setOriginalQueryData}
           />
         )}
       </div>

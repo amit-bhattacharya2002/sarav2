@@ -46,6 +46,8 @@ interface QueryPanelProps {
   setSelectedXColumn?: (value: string) => void
   selectedYColumn?: string
   setSelectedYColumn?: (value: string) => void
+  currentUser?: any // Add currentUser prop
+  setOriginalQueryData?: (data: any) => void // Add setOriginalQueryData prop
 }
 
 export function QueryPanel({
@@ -75,6 +77,8 @@ export function QueryPanel({
   setSelectedXColumn: propSetSelectedXColumn,
   selectedYColumn: propSelectedYColumn,
   setSelectedYColumn: propSetSelectedYColumn,
+  currentUser,
+  setOriginalQueryData,
 }: QueryPanelProps) {
   const [showSql, setShowSql] = useState(false)
   const [saveStatus, setSaveStatus] = useState<null | "success" | "error" | "saving">(null);
@@ -345,14 +349,38 @@ export function QueryPanel({
         visualConfig,
         // userId, companyId, panelPosition: add if needed
       };
+      // Create headers with user ID
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      }
+      if (currentUser) {
+        headers['x-user-id'] = currentUser.id.toString()
+      }
+
       const res = await fetch("/api/query", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (res.ok && data.success) {
         setSaveStatus("success");
+        
+        // Update originalQueryData to reflect the newly saved state
+        if (setOriginalQueryData) {
+          setOriginalQueryData({
+            question,
+            sql: sqlQuery,
+            outputMode,
+            data: queryResults,
+            columns,
+            visualConfig: {
+              selectedXColumn,
+              selectedYColumn
+            }
+          });
+        }
+        
         // Show ghost indicator
         setGhostMessage("Your query has been saved successfully.");
         setShowGhostIndicator(true);
