@@ -4,14 +4,16 @@ import { useState, useCallback, useRef, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 
-import { Loader2, Save, Trash2, LayoutList, BarChart2, PieChart, X, AlertTriangle, AlertCircle, XCircle, ChevronDown, ChevronUp, Download } from "lucide-react"
+import { Loader2, Save, Trash2, LayoutList, BarChart2, PieChart, X, AlertTriangle, AlertCircle, XCircle, Download, Settings } from "lucide-react"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { TableView } from "@/components/table-view"
 import { DraggableChart } from './draggable-chart'
 import { DraggablePieChart } from './draggable-pie'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { GhostIndicator } from '@/components/ui/ghost-indicator'
 import * as XLSX from 'xlsx'
 import { toast } from 'sonner'
 
@@ -76,6 +78,10 @@ export function QueryPanel({
 }: QueryPanelProps) {
   const [showSql, setShowSql] = useState(false)
   const [saveStatus, setSaveStatus] = useState<null | "success" | "error" | "saving">(null);
+  const [isChartConfigModalOpen, setIsChartConfigModalOpen] = useState(false)
+  const [showChartGhostText, setShowChartGhostText] = useState(false)
+  const [showGhostIndicator, setShowGhostIndicator] = useState(false)
+  const [ghostMessage, setGhostMessage] = useState("")
   
   // Chart column selection state - use props if provided, otherwise use local state
   const [localSelectedXColumn, setLocalSelectedXColumn] = useState<string>('')
@@ -196,7 +202,7 @@ export function QueryPanel({
   }, [outputMode, columns, question, queryResults, setSelectedXColumn, setSelectedYColumn, selectedSavedQueryId])
   
   // Chart configuration panel collapse state
-  const [isChartConfigCollapsed, setIsChartConfigCollapsed] = useState(false)
+
 
   // Ref for textarea focus
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -228,6 +234,15 @@ export function QueryPanel({
       setSelectedYColumn(yColumn)
     }
   }, [queryResults, outputMode, columns, question, setSelectedXColumn, setSelectedYColumn, selectedSavedQueryId])
+
+  // Show ghost text when charts load
+  useEffect(() => {
+    if ((outputMode === 'chart' || outputMode === 'pie') && queryResults && queryResults.length > 0) {
+      setShowChartGhostText(true)
+    } else {
+      setShowChartGhostText(false)
+    }
+  }, [queryResults, outputMode])
 
   // Stable event handlers
   const handleQuestionChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -333,9 +348,14 @@ export function QueryPanel({
       const data = await res.json();
       if (res.ok && data.success) {
         setSaveStatus("success");
+        // Show ghost indicator
+        setGhostMessage("Your query has been saved successfully.");
+        setShowGhostIndicator(true);
         // Dispatch event to refresh history panel
         const event = new CustomEvent('queryUpdated', { detail: { action: 'saved' } });
         window.dispatchEvent(event);
+        // Hide ghost indicator after 3 seconds
+        setTimeout(() => setShowGhostIndicator(false), 3000);
       } else {
         setSaveStatus("error");
       }
@@ -390,7 +410,12 @@ export function QueryPanel({
 
   
   return (
-    <div className="flex flex-col h-full bg-card rounded-lg shadow-md border border-border overflow-hidden">
+    <>
+      <GhostIndicator 
+        message={ghostMessage}
+        isVisible={showGhostIndicator}
+      />
+      <div className="flex flex-col h-full bg-card  shadow-md  overflow-hidden">
       <div className="flex-shrink-0 p-4 pb-0">
         <h2 className="text-xl font-mono font-semibold mb-2">Current Query</h2>
 
@@ -454,38 +479,41 @@ export function QueryPanel({
 
           <Button 
             onClick={onSubmit} 
-            disabled={isLoading || (isEditingSavedQuery && (!hasChanges || !hasChanges())) || (!!selectedSavedQueryId && !isEditingSavedQuery)}
+            disabled={isLoading || (!!selectedSavedQueryId && !isEditingSavedQuery)}
           >
             {isLoading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "Search"}
           </Button>
         </div>
 
-        {/* Column Selection for Charts */}
+        {/* Chart Configuration Filter Button */}
         {(outputMode === 'chart' || outputMode === 'pie') && columns.length >= 2 && (
-          <div className="mb-2 bg-muted/20 rounded border border-border">
-            {/* Collapsible Header */}
-            <button
-              onClick={() => setIsChartConfigCollapsed(!isChartConfigCollapsed)}
-              className="w-full p-3 flex items-center justify-between text-left hover:bg-muted/10 transition-colors rounded-t"
-            >
-              <span className="text-sm font-medium">Chart Configuration</span>
-              {isChartConfigCollapsed ? (
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              ) : (
-                <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {showChartGhostText && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-md border border-border transition-opacity duration-1000 ease-in-out">
+                  <span>💡</span>
+                  <span>Adjust X and Y values in the Chart Configuration for better results</span>
+                </div>
               )}
-            </button>
-            
-            {/* Collapsible Content */}
-            {!isChartConfigCollapsed && (
-              <div className="px-3 pb-3 border-t border-border/50">
-                <div className="grid grid-cols-2 gap-2 mt-2">
+            </div>
+            <Dialog open={isChartConfigModalOpen} onOpenChange={setIsChartConfigModalOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  <span>Chart Configuration</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Chart Column Configuration</DialogTitle>
+                </DialogHeader>
+                <div className="grid grid-cols-1 gap-4 py-4">
                   <div>
-                    <label className="text-xs text-muted-foreground block mb-1">
+                    <label className="text-sm font-medium text-muted-foreground block mb-2">
                       X-Axis ({outputMode === 'chart' ? 'Categories' : 'Labels'})
                     </label>
                     <Select value={selectedXColumn} onValueChange={setSelectedXColumn}>
-                      <SelectTrigger className="h-8">
+                      <SelectTrigger>
                         <SelectValue placeholder="Select column" />
                       </SelectTrigger>
                       <SelectContent>
@@ -500,11 +528,11 @@ export function QueryPanel({
                     </Select>
                   </div>
                   <div>
-                    <label className="text-xs text-muted-foreground block mb-1">
+                    <label className="text-sm font-medium text-muted-foreground block mb-2">
                       Y-Axis ({outputMode === 'chart' ? 'Values' : 'Sizes'})
                     </label>
                     <Select value={selectedYColumn} onValueChange={setSelectedYColumn}>
-                      <SelectTrigger className="h-8">
+                      <SelectTrigger>
                         <SelectValue placeholder="Select column" />
                       </SelectTrigger>
                       <SelectContent>
@@ -519,8 +547,8 @@ export function QueryPanel({
                     </Select>
                   </div>
                 </div>
-              </div>
-            )}
+              </DialogContent>
+            </Dialog>
           </div>
         )}
       </div>
@@ -665,7 +693,7 @@ export function QueryPanel({
                 onClick={handleCancelEdit}
               >
                 <X className="h-5 w-5" />
-                <span>Cancel</span>
+                <span>Clear</span>
               </Button>
             </>
           ) : (
@@ -695,8 +723,8 @@ export function QueryPanel({
           )}
         </div>
 
-        {/* Excel Export Button - shown when there are query results */}
-        {queryResults && queryResults.length > 0 && columns.length > 0 && (
+        {/* Excel Export Button - shown when there are query results and output mode is table */}
+        {queryResults && queryResults.length > 0 && columns.length > 0 && outputMode === 'table' && (
           <Button
             variant="outline"
             className="flex items-center gap-2"
@@ -708,5 +736,6 @@ export function QueryPanel({
         )}
       </div>
     </div>
+    </>
   )
 }

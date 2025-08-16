@@ -2,8 +2,9 @@
 
 import { useDrag } from 'react-dnd'
 import { useState, useEffect } from 'react'
-import { Maximize2 } from "lucide-react"
+import { Maximize2, Filter } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { FullscreenResultsModal } from "./fullscreen-results-modal"
 
 interface TableViewProps {
@@ -28,11 +29,11 @@ export function TableView({
   readOnlyMode = false, // Add this prop
 }: TableViewProps) {
   const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set(columns.map(col => col.key)))
-  const [showColumnSelector, setShowColumnSelector] = useState(false)
   const [columnOrder, setColumnOrder] = useState<string[]>(columns.map(col => col.key))
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null)
   const [fullscreenModalOpen, setFullscreenModalOpen] = useState(false)
   const [startInFullscreen, setStartInFullscreen] = useState(false)
+  const [isColumnSelectorModalOpen, setIsColumnSelectorModalOpen] = useState(false)
 
   // Initialize selected columns and order when columns change
   useEffect(() => {
@@ -157,21 +158,48 @@ export function TableView({
         className={`h-full w-full flex flex-col ${readOnlyMode ? '' : 'cursor-move'}`} 
         style={{ opacity: isDragging ? 0.5 : 1 }}
       >
-        {/* Header with Expand Button */}
+        {/* Header with Column Selector and Expand Button */}
         <div className="flex items-center justify-between mb-2 p-2 bg-muted/20 rounded border border-border flex-shrink-0">
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowColumnSelector(!showColumnSelector)}
-              className="text-sm font-mono font-medium text-primary hover:underline"
-            >
-              {showColumnSelector ? "▼ Hide" : "▶ Show"} Column Selector
-            </button>
-            <button
-              onClick={toggleAllColumns}
-              className="text-xs font-mono text-muted-foreground hover:text-foreground"
-            >
-              {selectedColumns.size === columns.length ? "Deselect All" : "Select All"}
-            </button>
+            <Dialog open={isColumnSelectorModalOpen} onOpenChange={setIsColumnSelectorModalOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="flex items-center gap-2">
+                  <Filter className="h-4 w-4" />
+                  <span>Columns</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Table Column Selection</DialogTitle>
+                </DialogHeader>
+                <div className="py-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-medium">Select columns to display:</span>
+                    <button
+                      onClick={toggleAllColumns}
+                      className="text-xs font-mono text-muted-foreground hover:text-foreground underline"
+                    >
+                      {selectedColumns.size === columns.length ? "Deselect All" : "Select All"}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
+                    {columns.map((col) => {
+                      return (
+                        <label key={col.key} className="flex items-center gap-3 text-sm font-mono cursor-pointer hover:bg-muted/50 p-2 rounded">
+                          <input
+                            type="checkbox"
+                            checked={selectedColumns.has(col.key)}
+                            onChange={() => toggleColumn(col.key)}
+                            className="rounded"
+                          />
+                          <span className="truncate">{col.name}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
           {!hideExpandButton && (
             <Button
@@ -186,29 +214,7 @@ export function TableView({
           )}
         </div>
         
-        {showColumnSelector && (
-          <div className="mb-2 p-2 bg-muted/20 rounded border border-border flex-shrink-0">
-            <div className="grid grid-cols-2 gap-2">
-              {columns.map((col) => {
-                const readableName = col.name
-                  .replace(/_/g, ' ')
-                  .replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase())
-                
-                return (
-                  <label key={col.key} className="flex items-center gap-2 text-sm font-mono cursor-pointer hover:bg-muted/50 p-1 rounded">
-                    <input
-                      type="checkbox"
-                      checked={selectedColumns.has(col.key)}
-                      onChange={() => toggleColumn(col.key)}
-                      className="rounded"
-                    />
-                    <span className="truncate">{readableName}</span>
-                  </label>
-                )
-              })}
-            </div>
-          </div>
-        )}
+
 
         {/* Table - Scrollable area with dynamic height */}
         <div className="flex-1 overflow-auto min-h-0">
@@ -216,13 +222,10 @@ export function TableView({
             <thead>
               <tr className="bg-muted">
                 {visibleColumns.map((col, i) => {
-                  const readableName = col.name
-                    .replace(/_/g, ' ')              // replace underscores with spaces
-                    .replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase()) // Title Case
                   return (
                     <th 
                       key={col.key} 
-                      className={`${compact ? "p-1" : "p-2"} text-left font-medium sticky top-0 bg-muted z-10 border-b border-border tracking-normal cursor-move select-none w-full ${
+                      className={`${compact ? "p-1" : "p-2"} text-left font-medium sticky top-0 bg-muted z-10 border-b border-border tracking-normal cursor-move select-none w-full h-10 ${
                         draggedColumn === col.key ? 'opacity-50' : ''
                       }`}
                       draggable
@@ -232,9 +235,9 @@ export function TableView({
                       onDragEnd={handleColumnDragEnd}
                       title="Drag to reorder column"
                     >
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 h-full">
                         <span className="text-xs text-muted-foreground">⋮⋮</span>
-                        {readableName}
+                        <span className="truncate leading-tight">{col.name}</span>
                       </div>
                     </th>
                   )
@@ -259,7 +262,12 @@ export function TableView({
                       }
                       
                       if (typeof cellValue === 'number' || (!isNaN(cellValue) && cellValue !== null && cellValue !== '')) {
-                        return Math.round(Number(cellValue)).toLocaleString('en-US', { maximumFractionDigits: 0 })
+                        const numValue = Number(cellValue)
+                        // Special handling for year values (4-digit numbers between 1900-2100)
+                        if (numValue >= 1900 && numValue <= 2100 && numValue.toString().length === 4) {
+                          return numValue.toString() // Return year without formatting
+                        }
+                        return Math.round(numValue).toLocaleString('en-US', { maximumFractionDigits: 0 })
                       }
                       if (typeof cellValue === 'string' && cellValue.match(/^\d{4}-\d{2}-\d{2}T/)) {
                         return new Date(cellValue).toLocaleDateString('en-CA') // e.g., 2024-05-10

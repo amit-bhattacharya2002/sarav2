@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronLeft, ChevronRight, Save, Filter, Trash2, AlertTriangle, AlertCircle, XCircle, X, LogOut, Download } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Save, Filter, Trash2, AlertTriangle, AlertCircle, XCircle, X, LogOut, Download, Share } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { DndProvider } from 'react-dnd'
@@ -22,6 +22,7 @@ import { LayoutList, BarChart2, PieChart } from 'lucide-react'
 import { DraggableChart } from '@/components/draggable-chart'
 import { DraggablePieChart } from '@/components/draggable-pie'
 import { ShareDashboardSection } from './share-dashboard-section'
+import { GhostIndicator } from '@/components/ui/ghost-indicator'
 import * as XLSX from 'xlsx'
 import { toast } from 'sonner'
 
@@ -114,7 +115,11 @@ export default function Dashboard() {
       .then(({ ok, data }) => {
         if (ok) {
           const isUpdate = !!dashboardIdNumber;
-          alert(isUpdate ? 'Dashboard updated!' : 'Dashboard saved!');
+          // Show ghost indicator instead of alert
+          setGhostMessage(isUpdate ? "Your dashboard has been updated successfully." : "Your dashboard has been saved successfully.");
+          setShowGhostIndicator(true);
+          // Hide ghost indicator after 3 seconds
+          setTimeout(() => setShowGhostIndicator(false), 3000);
           
           // If this was a new dashboard (no id before), update the URL and let the app reload with the new ID!
           if (!dashboardId && data.dashboard?.id) {
@@ -168,7 +173,11 @@ export default function Dashboard() {
       .then(res => res.json().then(data => ({ ok: res.ok, data })))
       .then(({ ok, data }) => {
         if (ok) {
-          alert('Dashboard deleted successfully!');
+          // Show ghost indicator instead of alert
+          setGhostMessage("Your dashboard has been deleted successfully.");
+          setShowGhostIndicator(true);
+          // Hide ghost indicator after 3 seconds
+          setTimeout(() => setShowGhostIndicator(false), 3000);
           
           // Clear all dashboard data
           setQuadrants({ topLeft: null, topRight: null, bottom: null });
@@ -269,6 +278,8 @@ export default function Dashboard() {
   const [originalQueryData, setOriginalQueryData] = useState<any>(null)
   const [selectedSavedQueryId, setSelectedSavedQueryId] = useState<number | null>(null)
   const [saveStatus, setSaveStatus] = useState<null | "success" | "error" | "saving">(null)
+  const [showGhostIndicator, setShowGhostIndicator] = useState(false)
+  const [ghostMessage, setGhostMessage] = useState("")
   
   // Chart column selection state
   const [selectedXColumn, setSelectedXColumn] = useState<string>('')
@@ -819,6 +830,12 @@ export default function Dashboard() {
       setSaveStatus("success");
       setIsEditingSavedQuery(false);
       
+      // Show ghost indicator
+      setGhostMessage("Your query has been updated successfully.");
+      setShowGhostIndicator(true);
+      // Hide ghost indicator after 3 seconds
+      setTimeout(() => setShowGhostIndicator(false), 3000);
+      
       // Update original data to reflect current state
       setOriginalQueryData({
         question,
@@ -875,6 +892,12 @@ export default function Dashboard() {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to delete query');
       }
+
+      // Show ghost indicator
+      setGhostMessage("Your query has been deleted successfully.");
+      setShowGhostIndicator(true);
+      // Hide ghost indicator after 3 seconds
+      setTimeout(() => setShowGhostIndicator(false), 3000);
 
       // Clear the current query and reset to new query mode
       handleClearQuery();
@@ -1388,7 +1411,7 @@ export default function Dashboard() {
     const currentTab = getCurrentTabData()
     
     return (
-      <div className="flex flex-col h-full bg-card rounded-lg border border-border overflow-hidden">
+      <div className="flex flex-col h-full bg-card rounded-lg border border-border shadow-md overflow-hidden">
         <div className="flex border-b border-border bg-muted/20 relative">
           {tabs.map((tab) => (
             <div
@@ -1454,7 +1477,7 @@ export default function Dashboard() {
   // Simple Panel Component - shows either active query or saved query
   const renderSimplePanel = useCallback(() => {
     return (
-      <div className="flex flex-col h-full bg-card rounded-lg border border-border overflow-hidden">
+      <div className="flex flex-col h-full bg-card rounded-lg border border-border shadow-md overflow-hidden">
         {viewingSavedQuery ? (
           // Show saved query with back button
           <div className="flex flex-col h-full">
@@ -1822,6 +1845,12 @@ export default function Dashboard() {
           throw new Error('Failed to delete query')
         }
 
+        // Show ghost indicator
+        setGhostMessage("Your query has been deleted successfully.");
+        setShowGhostIndicator(true);
+        // Hide ghost indicator after 3 seconds
+        setTimeout(() => setShowGhostIndicator(false), 3000);
+
         // Dispatch event to refresh history panel
         const event = new CustomEvent('queryUpdated', { detail: { action: 'deleted', queryId: query.id } })
         window.dispatchEvent(event)
@@ -1939,8 +1968,8 @@ export default function Dashboard() {
                 >
                   Delete
                 </Button>
-                {/* Excel Export Button for saved query tabs */}
-                {tabQueryResults && tabQueryResults.length > 0 && tabColumns.length > 0 && (
+                {/* Excel Export Button for saved query tabs - only for table output */}
+                {tabQueryResults && tabQueryResults.length > 0 && tabColumns.length > 0 && tabOutputMode === 'table' && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -2217,7 +2246,12 @@ export default function Dashboard() {
 
   
   return (
-    <DndProvider backend={HTML5Backend}>
+    <>
+      <GhostIndicator 
+        message={ghostMessage}
+        isVisible={showGhostIndicator}
+      />
+      <DndProvider backend={HTML5Backend}>
       
       <div className="flex flex-col h-screen relative">
 
@@ -2345,8 +2379,8 @@ export default function Dashboard() {
 
 
           
-          {/* Right Panel */}
-          <div style={{ width: panelWidths.right }} className="relative flex flex-col transition-all duration-500 ease-in-out h-full">
+                      {/* Right Panel */}
+            <div style={{ width: panelWidths.right }} className="relative flex flex-col rounded-lg border border-border bg-card overflow-hidden transition-all duration-500 ease-in-out h-full">
             {collapsedPanels.right ? (
               renderCollapsedPanel('right', 'Dashboard')
             ) : (
@@ -2390,7 +2424,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex-1 bg-card rounded-lg p-4 pb-24 border border-border overflow-hidden flex flex-col relative min-h-0">
+                  <div className="flex-1 p-4 pb-24 overflow-hidden border-b border-border flex flex-col relative min-h-0">
                     <input
                       type="text"
                       value={dashboardSectionTitle || ""}
@@ -2419,7 +2453,7 @@ export default function Dashboard() {
                           onRemove={() => setQuadrants((prev) => ({ ...prev, topLeft: null }))}
                           data-quadrant-id="topLeft"
                           readOnlyMode={readOnlyMode}
-                          className="flex-1 min-h-0"
+                          className="flex-1 min-h-0 rounded-lg border border-border bg-card overflow-hidden"
                         >
                           {quadrants.topLeft ? renderDroppedViz(quadrants.topLeft) : (
                             <div className="h-full flex items-center justify-center font-mono text-sm font-semibold" style={{ color: '#16a34a' }}>
@@ -2446,7 +2480,7 @@ export default function Dashboard() {
                           onRemove={() => setQuadrants((prev) => ({ ...prev, topRight: null }))}
                           data-quadrant-id="topRight"
                           readOnlyMode={readOnlyMode}
-                          className="flex-1 min-h-0"
+                          className="flex-1 min-h-0 rounded-lg border border-border bg-card overflow-hidden"
                         >
                           {quadrants.topRight ? renderDroppedViz(quadrants.topRight) : (
                             <div className="h-full flex items-center justify-center font-mono font-semibold text-sm" style={{ color: '#16a34a' }}>
@@ -2473,7 +2507,7 @@ export default function Dashboard() {
                           onRemove={() => setQuadrants((prev) => ({ ...prev, bottom: null }))}
                           data-quadrant-id="bottom"
                           readOnlyMode={readOnlyMode}
-                          className="flex-1 min-h-0"
+                          className="flex-1 min-h-0 rounded-lg border border-border bg-card overflow-hidden"
                         >
                           {quadrants.bottom ? renderDroppedViz(quadrants.bottom) : (
                             <div className="h-full flex items-center justify-center font-mono font-semibold text-sm" style={{ color: '#16a34a' }}>
@@ -2494,68 +2528,89 @@ export default function Dashboard() {
                   
                   
                 
-                {/* Save, Delete & Clear buttons only in edit mode */}
-                {!readOnlyMode && (
-                  <div className="p-4 border-t bg-card">
-                    <div className="flex flex-row items-center justify-between w-full gap-2">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          onClick={handleSaveDashboard}
-                          variant="default"
-                          className="flex items-center gap-2"
-                          disabled={
-                            !Object.values(quadrants).some(Boolean) || 
-                            (!!dashboardIdNumber && !hasDashboardChanges)
-                          }
-                        >
-                          <Save className="h-5 w-5" />
-                          <span>{dashboardIdNumber ? 'Update' : 'Save'}</span>
-                        </Button>
-
-                        {dashboardIdNumber && (
+                {/* Action buttons - different for edit vs read-only mode */}
+                <div className="p-4 bg-card">
+                  <div className="flex flex-row items-center justify-between w-full gap-2">
+                    {!readOnlyMode ? (
+                      // Edit mode buttons
+                      <>
+                        <div className="flex items-center gap-2">
                           <Button
-                            onClick={handleDeleteDashboard}
-                            variant="destructive"
+                            onClick={handleSaveDashboard}
+                            variant="default"
+                            className="flex items-center gap-2"
+                            disabled={
+                              !Object.values(quadrants).some(Boolean) || 
+                              (!!dashboardIdNumber && !hasDashboardChanges)
+                            }
+                          >
+                            <Save className="h-5 w-5" />
+                            <span>{dashboardIdNumber ? 'Update' : 'Save'}</span>
+                          </Button>
+
+                          {dashboardIdNumber && (
+                            <Button
+                              onClick={handleDeleteDashboard}
+                              variant="destructive"
+                              className="flex items-center gap-2"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              <span>Delete</span>
+                            </Button>
+                          )}
+
+                          {dashboardIdNumber && (
+                            <Button
+                              onClick={() => setShareDialogOpen(true)}
+                              variant="outline"
+                              className="flex items-center gap-2"
+                            >
+                              <Share className="h-4 w-4" />
+                              <span>Share</span>
+                            </Button>
+                          )}
+                        </div>
+
+                        <Button
+                          onClick={() => {
+                            // Clear all dashboard data
+                            setQuadrants({ topLeft: null, topRight: null, bottom: null });
+                            setAllVisualizations([]);
+                            setDashboardSectionTitle("Untitled Dashboard");
+                            setTopLeftTitle("Sample Title");
+                            setTopRightTitle("Sample Title");
+                            setBottomTitle("Sample Title");
+                            setOriginalDashboardData(null);
+                            setHasDashboardChanges(false);
+                            // Remove dashboardId from URL and set to new mode
+                            router.replace('/dashboard?edit=true');
+                          }}
+                          variant="ghost"
+                          className="flex items-center gap-2"
+                        >
+                          <X className="h-4 w-4" />
+                          <span>Clear</span>
+                        </Button>
+                      </>
+                    ) : (
+                      // Read-only mode - only share button
+                      dashboardIdNumber && (
+                        <div className="flex items-center gap-2">
+                          <Button
+                            onClick={() => setShareDialogOpen(true)}
+                            variant="outline"
                             className="flex items-center gap-2"
                           >
-                            <Trash2 className="h-4 w-4" />
-                            <span>Delete</span>
+                            <Share className="h-4 w-4" />
+                            <span>Share Dashboard</span>
                           </Button>
-                        )}
-                      </div>
-
-                      <Button
-                        onClick={() => {
-                          // Clear all dashboard data
-                          setQuadrants({ topLeft: null, topRight: null, bottom: null });
-                          setAllVisualizations([]);
-                          setDashboardSectionTitle("Untitled Dashboard");
-                          setTopLeftTitle("Sample Title");
-                          setTopRightTitle("Sample Title");
-                          setBottomTitle("Sample Title");
-                          setOriginalDashboardData(null);
-                          setHasDashboardChanges(false);
-                          // Remove dashboardId from URL and set to new mode
-                          router.replace('/dashboard?edit=true');
-                        }}
-                        variant="ghost"
-                        className="flex items-center gap-2"
-                      >
-                        <X className="h-4 w-4" />
-                        <span>Clear</span>
-                      </Button>
-                    </div>
+                        </div>
+                      )
+                    )}
                   </div>
-                )}
+                </div>
 
-                {/* Share section for saved dashboards - only in read-only mode */}
-                {dashboardIdNumber && readOnlyMode && (
-                  <ShareDashboardSection
-                    dashboardId={dashboardIdNumber}
-                    dashboardTitle={dashboardSectionTitle}
-                    readOnlyMode={readOnlyMode}
-                  />
-                )}
+
 
                 
                 <Button
@@ -2581,12 +2636,8 @@ export default function Dashboard() {
         <ShareLinkDialog
           open={shareDialogOpen}
           onOpenChange={setShareDialogOpen}
-          State={{
-            quadrants,
-            visualizations: allVisualizations.filter((v) =>
-              Object.values(quadrants).includes(v.id)
-            ),
-          }}
+          dashboardId={dashboardIdNumber || undefined}
+          dashboardTitle={dashboardSectionTitle}
         />
 
 
@@ -2683,5 +2734,6 @@ export default function Dashboard() {
 
       
     </DndProvider>
+    </>
   )
 }

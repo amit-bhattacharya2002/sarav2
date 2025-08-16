@@ -5,6 +5,76 @@ import { features } from '@/lib/config'
 import { rateLimiters, createRateLimitHeaders, checkRateLimit } from '@/lib/rate-limiter'
 import { DEMO_USERS } from '@/lib/auth'
 
+// Function to transform column names to human-readable aliases
+function transformColumnsToHumanReadable(columns: any[]) {
+  const aliasMapping: { [key: string]: string } = {
+    'ACCOUNTID': 'Account ID',
+    'GIFTID': 'Gift ID',
+    'GIFTDATE': 'Gift Date',
+    'GIFTAMOUNT': 'Gift Amount',
+    'TRANSACTIONTYPE': 'Transaction Type',
+    'GIFTTYPE': 'Gift Type',
+    'PAYMENTMETHOD': 'Payment Method',
+    'PLEDGEID': 'Pledge ID',
+    'SOFTCREDITINDICATOR': 'Soft Credit Indicator',
+    'SOFTCREDITAMOUNT': 'Soft Credit Amount',
+    'SOFTCREDITID': 'Soft Credit ID',
+    'SOURCECODE': 'Source Code',
+    'DESIGNATION': 'Designation',
+    'UNIT': 'Unit',
+    'PURPOSECATEGORY': 'Purpose Category',
+    'APPEAL': 'Appeal',
+    'GIVINGLEVEL': 'Giving Level',
+    'LOOKUPID': 'Lookup ID',
+    'TYPE': 'Type',
+    'DONORTYPE1': 'Donor Type',
+    'PERSONORGANIZATIONINDICATOR': 'Person Organization Indicator',
+    'ALUMNITYPE': 'Alumni Type',
+    'UNDERGRADUATEDEGREE1': 'Undergraduate Degree',
+    'UNDERGRADUATIONYEAR1': 'Undergraduate Year',
+    'UNDERGRADUATEPREFERREDCLASSYEAR1': 'Undergraduate Preferred Class Year',
+    'UNDERGRADUATESCHOOL1': 'Undergraduate School',
+    'GRADUATEDEGREE1': 'Graduate Degree',
+    'GRADUATEGRADUATIONYEAR1': 'Graduate Graduation Year',
+    'GRADUATEPREFERREDCLASSYEAR1': 'Graduate Preferred Class Year',
+    'GRADUATESCHOOL1': 'Graduate School',
+    'GENDER': 'Gender',
+    'DECEASED': 'Deceased',
+    'SOLICITATIONRESTRICTIONS': 'Solicitation Restrictions',
+    'DONOTMAIL': 'Do Not Mail',
+    'DONOTPHONE': 'Do Not Phone',
+    'DONOTEMAIL': 'Do Not Email',
+    'MARRIEDTOALUM': 'Married To Alum',
+    'SPOUSELOOKUPID': 'Spouse Lookup ID',
+    'SPOUSEID': 'Spouse ID',
+    'ASSIGNEDACCOUNT': 'Assigned Account',
+    'VOLUNTEER': 'Volunteer',
+    'WEALTHSCORE': 'Wealth Score',
+    'GEPSTATUS': 'GEP Status',
+    'EVENTSATTENDED': 'Events Attended',
+    'EVENTS': 'Events',
+    'AGE': 'Age',
+    'FULLNAME': 'Full Name',
+    'PMFULLNAME': 'PM Full Name',
+    'FULLADDRESS': 'Full Address',
+    'HOMETELEPHONE': 'Home Telephone',
+    'EMAIL': 'Email',
+    'Year': 'Year',
+    'Total Amount': 'Total Amount',
+    'Average Amount': 'Average Amount',
+    'Gift Count': 'Gift Count',
+    'Donor Name': 'Full Name', // Map old alias to new
+    'Donation Amount': 'Gift Amount', // Map old alias to new
+    'Source': 'Source Code', // Map old alias to new
+  }
+
+  return columns.map(column => ({
+    ...column,
+    name: aliasMapping[column.name] || column.name,
+    key: column.key // Keep the original key for data access
+  }))
+}
+
 // Helper function to get user ID from request headers
 function getUserIdFromRequest(req: NextRequest): number {
   const userIdHeader = req.headers.get('x-user-id')
@@ -90,6 +160,9 @@ export async function POST(req: NextRequest) {
         )
       }
 
+      // Transform column names to human-readable aliases before saving
+      const transformedColumns = transformColumnsToHumanReadable(queryResult.columns || [])
+      
       const savedQuery = await businessPrisma.savedQuery.create({
         data: {
           userId,
@@ -101,7 +174,7 @@ export async function POST(req: NextRequest) {
           visualConfig: visualConfig ? JSON.stringify(visualConfig) : null,
           panelPosition,
           resultData: JSON.stringify(queryResult.rows || []),
-          resultColumns: JSON.stringify(queryResult.columns || []),
+          resultColumns: JSON.stringify(transformedColumns),
         },
       })
 
@@ -143,6 +216,9 @@ export async function POST(req: NextRequest) {
         )
       }
 
+      // Transform column names to human-readable aliases before updating
+      const transformedColumns = transformColumnsToHumanReadable(queryResult.columns || [])
+      
       const updatedQuery = await businessPrisma.savedQuery.update({
         where: { id: parseInt(id) },
         data: {
@@ -152,7 +228,7 @@ export async function POST(req: NextRequest) {
           outputMode: output_mode,
           visualConfig: visualConfig ? JSON.stringify(visualConfig) : null,
           resultData: JSON.stringify(queryResult.rows || []),
-          resultColumns: JSON.stringify(queryResult.columns || []),
+          resultColumns: JSON.stringify(transformedColumns),
           updatedAt: new Date(),
         },
       })
@@ -227,6 +303,9 @@ export async function POST(req: NextRequest) {
       const data = savedQuery.resultData ? JSON.parse(savedQuery.resultData) : []
       const columns = savedQuery.resultColumns ? JSON.parse(savedQuery.resultColumns) : []
       
+      // Transform column names to human-readable aliases
+      const transformedColumns = transformColumnsToHumanReadable(columns)
+      
       const outputMode = savedQuery.outputMode === 2 ? 'chart' : savedQuery.outputMode === 3 ? 'pie' : 'table'
       
       // Parse visual config if it exists
@@ -236,7 +315,7 @@ export async function POST(req: NextRequest) {
         NextResponse.json({
           success: true,
           data,
-          columns,
+          columns: transformedColumns,
           sql: savedQuery.sqlText,
           question: savedQuery.queryText,
           outputMode,
@@ -265,11 +344,15 @@ export async function POST(req: NextRequest) {
     }
 
     console.timeEnd("🔁 TOTAL /api/query")
+    
+    // Transform column names to human-readable aliases
+    const transformedColumns = transformColumnsToHumanReadable(result.columns || [])
+    
     return addRateLimitHeaders(
       NextResponse.json({
         success: true,
         data: result.rows || [],
-        columns: result.columns || [],
+        columns: transformedColumns,
         sql: sql,
         question: question,
         outputMode: outputMode,

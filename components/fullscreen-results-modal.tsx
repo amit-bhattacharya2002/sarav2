@@ -127,7 +127,12 @@ export function FullscreenResultsModal({
                                   return JSON.stringify(cellValue)
                                 }
                                 if (typeof cellValue === 'number' || (!isNaN(cellValue) && cellValue !== null && cellValue !== '')) {
-                                  return Math.round(Number(cellValue)).toLocaleString('en-US', { maximumFractionDigits: 0 })
+                                  const numValue = Number(cellValue)
+                                  // Special handling for year values (4-digit numbers between 1900-2100)
+                                  if (numValue >= 1900 && numValue <= 2100 && numValue.toString().length === 4) {
+                                    return numValue.toString() // Return year without formatting
+                                  }
+                                  return Math.round(numValue).toLocaleString('en-US', { maximumFractionDigits: 0 })
                                 }
                                 if (typeof cellValue === 'string' && cellValue.match(/^\d{4}-\d{2}-\d{2}T/)) {
                                   return new Date(cellValue).toLocaleDateString('en-CA')

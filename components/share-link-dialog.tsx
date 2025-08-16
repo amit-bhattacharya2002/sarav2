@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Check, Copy, Link } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -12,19 +12,33 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { encryptDashboardId } from "@/lib/encryption"
 
 interface ShareLinkDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  dashboardState?: any // This would contain the actual dashboard state in a real implementation
+  dashboardId?: number
+  dashboardTitle?: string
 }
 
-export function ShareLinkDialog({ open, onOpenChange, dashboardState }: ShareLinkDialogProps) {
+export function ShareLinkDialog({ open, onOpenChange, dashboardId, dashboardTitle }: ShareLinkDialogProps) {
   const [copied, setCopied] = useState(false)
+  const [shareableLink, setShareableLink] = useState("")
 
-  // In a real implementation, this would be a unique URL that encodes the dashboard state
-  // For now, we'll use a sample URL
-  const shareableLink = "https://dashboard-tool.vercel.app/share/d123456789"
+  // Generate encrypted shareable link using dashboard ID
+  useEffect(() => {
+    if (dashboardId && typeof window !== 'undefined') {
+      try {
+        const encryptedId = encryptDashboardId(dashboardId)
+        setShareableLink(`${window.location.origin}/share/${encryptedId}`)
+      } catch (error) {
+        console.error('Failed to generate share URL:', error)
+        setShareableLink("")
+      }
+    } else {
+      setShareableLink("https://dashboard-tool.vercel.app/share/d123456789")
+    }
+  }, [dashboardId])
 
   const copyToClipboard = async () => {
     try {
@@ -45,18 +59,18 @@ export function ShareLinkDialog({ open, onOpenChange, dashboardState }: ShareLin
             Anyone with this link will be able to view this dashboard configuration.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex items-center space-x-2 mt-2">
-          <div className="grid flex-1 gap-2">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Link className="h-4 w-4" />
-              <span>Dashboard link</span>
-            </div>
-            <Input readOnly value={shareableLink} className="font-mono text-sm" />
+        <div className="mt-2">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+            <Link className="h-4 w-4" />
+            <span>Dashboard link</span>
           </div>
-          <Button size="icon" onClick={copyToClipboard} className="flex-shrink-0">
-            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-            <span className="sr-only">Copy link</span>
-          </Button>
+          <div className="flex items-center space-x-2">
+            <Input readOnly value={shareableLink} className="font-mono text-sm flex-1" />
+            <Button size="icon" onClick={copyToClipboard} className="flex-shrink-0">
+              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              <span className="sr-only">Copy link</span>
+            </Button>
+          </div>
         </div>
         <DialogFooter className="mt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>

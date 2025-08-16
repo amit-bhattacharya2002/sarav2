@@ -71,9 +71,52 @@ export async function executeSQLQuery(sql: string, originalQuestion?: string): P
       }
     })
 
+    // Post-process results to ensure ascending order by first numeric column
+    let sortedRows = rows
+    if (rows.length > 0) {
+      const firstRow = rows[0]
+      
+      // Look for common numeric column names first
+      const priorityColumns = ['Total Amount', 'Gift Amount', 'Donation Amount', 'Average Amount', 'Gift Count']
+      let primaryNumericColumn = null
+      
+      // First try to find priority columns
+      for (const colName of priorityColumns) {
+        if (firstRow.hasOwnProperty(colName)) {
+          primaryNumericColumn = colName
+          break
+        }
+      }
+      
+      // If no priority column found, look for any numeric column
+      if (!primaryNumericColumn) {
+        const numericColumns = Object.keys(firstRow).filter(key => {
+          const value = firstRow[key]
+          return typeof value === 'number' || (typeof value === 'string' && !isNaN(Number(value)))
+        })
+        
+        if (numericColumns.length > 0) {
+          primaryNumericColumn = numericColumns[0]
+        }
+      }
+      
+      // Sort if we found a numeric column
+      if (primaryNumericColumn) {
+        console.log(`🔢 Sorting by column: "${primaryNumericColumn}"`)
+        sortedRows = [...rows].sort((a, b) => {
+          const aVal = Number(a[primaryNumericColumn]) || 0
+          const bVal = Number(b[primaryNumericColumn]) || 0
+          return aVal - bVal // Ascending order
+        })
+        console.log(`📊 Sorted ${sortedRows.length} rows in ascending order`)
+      } else {
+        console.log('⚠️ No numeric column found for sorting')
+      }
+    }
+
     return {
       success: true,
-      rows,
+      rows: sortedRows,
       columns
     }
 
@@ -102,7 +145,7 @@ export function generateSQLFromQuestion(question: string): string {
       FROM gifts g 
       JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID
       GROUP BY g.ACCOUNTID, c.FULLNAME
-      ORDER BY "Total Amount" DESC
+      ORDER BY "Total Amount" ASC
       LIMIT 10
     `
   }
@@ -116,7 +159,7 @@ export function generateSQLFromQuestion(question: string): string {
       FROM gifts g
       JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID
       GROUP BY g.SOURCECODE
-      ORDER BY "Total Amount" DESC
+      ORDER BY "Total Amount" ASC
       LIMIT 20
     `
   }
@@ -130,7 +173,7 @@ export function generateSQLFromQuestion(question: string): string {
       FROM gifts g
       JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID
       GROUP BY g.DESIGNATION
-      ORDER BY "Total Amount" DESC
+      ORDER BY "Total Amount" ASC
       LIMIT 20
     `
   }
@@ -144,7 +187,7 @@ export function generateSQLFromQuestion(question: string): string {
       FROM gifts g
       JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID
       GROUP BY g.PAYMENTMETHOD
-      ORDER BY "Total Amount" DESC
+      ORDER BY "Total Amount" ASC
       LIMIT 20
     `
   }
@@ -161,7 +204,7 @@ export function generateSQLFromQuestion(question: string): string {
       c.EMAIL
     FROM gifts g
     JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID
-    ORDER BY g.GIFTDATE DESC
+    ORDER BY g.GIFTDATE ASC
     LIMIT 50
   `
 } 

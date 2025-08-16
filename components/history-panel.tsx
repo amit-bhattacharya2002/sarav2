@@ -2,9 +2,9 @@
 
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
-import { Save, MoreVertical, Edit } from "lucide-react"
+import { Save } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+
 import { useCurrentUser } from "@/components/auth-guard"
 
 interface SavedQuery {
@@ -220,7 +220,7 @@ export function HistoryPanel({
         </div>
         {/* Radio selector: only in edit mode */}
         {!readOnlyMode && (
-          <div className="flex items-center gap-4 mt-2 ml-1">
+          <div className="flex items-center  gap-4 mt-2 ml-1">
             <label className="flex items-center gap-1">
               <input
                 type="radio"
@@ -273,31 +273,14 @@ export function HistoryPanel({
               <div className="space-y-2">
                 {queries.map((query) => (
                   <div key={query.id}>
-                    <div
-                      className={`relative group w-full text-left p-3 rounded-md border border-border hover:bg-muted transition-colors ${
+                    <button
+                      className={`w-full text-left p-3 rounded-md border border-border bg-[#121212] hover:bg-muted transition-colors ${
                         selectedQuery?.id === query.id ? "bg-muted" : ""
                       }`}
+                      onClick={() => handleQueryClick(query)}
                     >
-                      <button
-                        className="w-full text-left"
-                        onClick={() => handleQueryClick(query)}
-                      >
-                        <span className="font-mono font-medium text-lg">{query.title}</span>
-                      </button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-background/50">
-                            <MoreVertical className="h-4 w-4" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={(e) => handleEditClick(query, e)}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                      <span className="font-mono font-medium text-lg">{query.title}</span>
+                    </button>
                   </div>
                 ))}
               </div>
@@ -330,33 +313,21 @@ export function HistoryPanel({
                   readOnlyMode ? (
                     <button
                       key={dashboard.id}
-                      className="block w-full text-left p-3 rounded-md border border-border hover:bg-muted transition-colors"
+                      className="block w-full text-left p-3 rounded-md border border-border bg-[#121212] hover:bg-muted transition-colors"
                       onClick={() => router.push(`/dashboard?d=${dashboard.id}`)}
                     >
                       <span className="font-mono font-medium text-lg">{dashboard.title}</span>
                     </button>
                   ) : (
-                    <div
+                    <button
                       key={dashboard.id}
-                      className={`flex items-center justify-between w-full p-3 rounded-md border border-border hover:bg-muted transition-colors ${
+                      className={`w-full text-left p-3 rounded-md border border-border bg-[#121212] hover:bg-muted transition-colors ${
                         selectedDashboard?.id === dashboard.id ? "bg-muted" : ""
                       }`}
+                      onClick={() => handleDashboardClick(dashboard)}
                     >
-                      <button
-                        className="flex-1 text-left"
-                        onClick={() => handleDashboardClick(dashboard)}
-                      >
-                        <span className="font-mono font-medium text-lg">{dashboard.title}</span>
-                      </button>
-                      <button
-                        className="ml-2 p-1 rounded hover:bg-accent"
-                        aria-label="Dashboard actions"
-                        type="button"
-                        // No modal logic yet
-                      >
-                        <MoreVertical className="w-5 h-5" />
-                      </button>
-                    </div>
+                      <span className="font-mono font-medium text-lg">{dashboard.title}</span>
+                    </button>
                   )
                 )}
               </div>
