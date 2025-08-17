@@ -1480,7 +1480,7 @@ export default function Dashboard() {
     }
   
     if (viz.type === 'table') {
-      return <TableView data={viz.data || []} columns={viz.columns || []} compact readOnlyMode={readOnlyMode} />;
+      return <TableView data={viz.data || []} columns={viz.columns || []} compact readOnlyMode={readOnlyMode} inDashboard={true} />;
     }
   
     return <div className="text-sm text-muted-foreground">Unsupported viz type</div>;
@@ -1663,7 +1663,15 @@ export default function Dashboard() {
     // Memoized callback for column order changes to prevent infinite loops
     const handleTabColumnOrderChange = useCallback((reorderedColumns: { key: string; name: string }[]) => {
       setTabColumns(reorderedColumns)
-    }, [])
+      
+      // Update tabOriginalData to reflect the new column order for change detection
+      if (tabOriginalData) {
+        setTabOriginalData({
+          ...tabOriginalData,
+          columns: reorderedColumns
+        })
+      }
+    }, [tabOriginalData])
 
     // Function to determine error type and icon for tabs
     const getTabErrorInfo = (errorMessage: string) => {
@@ -2258,6 +2266,7 @@ export default function Dashboard() {
                       sql={tabSqlQuery || undefined} 
                       readOnlyMode={readOnlyMode}
                       onColumnOrderChange={handleTabColumnOrderChange}
+                      inDashboard={true}
                     />
                   )}
                   
@@ -2321,7 +2330,8 @@ export default function Dashboard() {
                     columns={tabColumns} 
                     compact 
                     readOnlyMode={readOnlyMode}
-                                          onColumnOrderChange={handleTabColumnOrderChange}
+                    onColumnOrderChange={handleTabColumnOrderChange}
+                    inDashboard={true}
                   />
                 )}
                 

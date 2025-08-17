@@ -229,6 +229,7 @@ export function FullscreenResultsModal({
                   compact={false}
                   hideExpandButton={true}
                   readOnlyMode={readOnlyMode}
+                  inDashboard={true}
                 />
               )}
 

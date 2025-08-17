@@ -17,6 +17,7 @@ interface TableViewProps {
   hideExpandButton?: boolean // Add this prop to hide expand button in modal
   readOnlyMode?: boolean // Add this prop to control dragging behavior
   onColumnOrderChange?: (reorderedColumns: { key: string; name: string }[]) => void // Add callback for column order changes
+  inDashboard?: boolean // Add this prop to indicate if table is in a dashboard
 }
 
 export function TableView({
@@ -29,6 +30,7 @@ export function TableView({
   hideExpandButton = false, // Add this prop
   readOnlyMode = false, // Add this prop
   onColumnOrderChange, // Add this prop
+  inDashboard = false, // Add this prop
 }: TableViewProps) {
   const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set(columns.map(col => col.key)))
   const [columnOrder, setColumnOrder] = useState<string[]>(columns.map(col => col.key))
@@ -106,18 +108,36 @@ export function TableView({
 
   // Handle column reordering
   const handleColumnDragStart = (e: React.DragEvent, columnKey: string) => {
+    // Disable column reordering for charts and tables in dashboards
+    if (outputMode === 'chart' || outputMode === 'pie' || inDashboard) {
+      e.preventDefault()
+      return
+    }
+    
     e.stopPropagation() // Prevent triggering table drag
     setDraggedColumn(columnKey)
     e.dataTransfer.effectAllowed = 'move'
   }
 
   const handleColumnDragOver = (e: React.DragEvent) => {
+    // Disable column reordering for charts and tables in dashboards
+    if (outputMode === 'chart' || outputMode === 'pie' || inDashboard) {
+      e.preventDefault()
+      return
+    }
+    
     e.preventDefault()
     e.stopPropagation() // Prevent triggering table drag
     e.dataTransfer.dropEffect = 'move'
   }
 
   const handleColumnDrop = (e: React.DragEvent, targetColumnKey: string) => {
+    // Disable column reordering for charts and tables in dashboards
+    if (outputMode === 'chart' || outputMode === 'pie' || inDashboard) {
+      e.preventDefault()
+      return
+    }
+    
     e.preventDefault()
     e.stopPropagation() // Prevent triggering table drag
     if (!draggedColumn || draggedColumn === targetColumnKey) return
@@ -139,6 +159,11 @@ export function TableView({
 
   // Call the callback when column order changes - only when order actually changes
   useEffect(() => {
+    // Disable column reordering for charts and tables in dashboards
+    if (outputMode === 'chart' || outputMode === 'pie' || inDashboard) {
+      return
+    }
+    
     if (onColumnOrderChange && columnOrder.length > 0) {
       // Check if the order has actually changed from the last time we called the callback
       const hasOrderChanged = columnOrder.length !== lastColumnOrderRef.current.length ||
@@ -153,9 +178,15 @@ export function TableView({
         lastColumnOrderRef.current = [...columnOrder]
       }
     }
-  }, [columnOrder, columns, onColumnOrderChange])
+  }, [columnOrder, columns, onColumnOrderChange, outputMode, inDashboard])
 
   const handleColumnDragEnd = (e: React.DragEvent) => {
+    // Disable column reordering for charts and tables in dashboards
+    if (outputMode === 'chart' || outputMode === 'pie' || inDashboard) {
+      e.preventDefault()
+      return
+    }
+    
     e.stopPropagation() // Prevent triggering table drag
     setDraggedColumn(null)
   }
@@ -246,18 +277,20 @@ export function TableView({
                   return (
                     <th 
                       key={col.key} 
-                      className={`${compact ? "p-1" : "p-2"} text-left font-medium sticky top-0 bg-muted z-10 border-b border-border tracking-normal cursor-move select-none w-full h-10 ${
+                      className={`${compact ? "p-1" : "p-2"} text-left font-medium sticky top-0 bg-muted z-10 border-b border-border tracking-normal select-none w-full h-10 ${
                         draggedColumn === col.key ? 'opacity-50' : ''
-                      }`}
-                      draggable
+                      } ${(outputMode === 'chart' || outputMode === 'pie' || inDashboard) ? 'cursor-default' : 'cursor-move'}`}
+                      draggable={outputMode !== 'chart' && outputMode !== 'pie' && !inDashboard}
                       onDragStart={(e) => handleColumnDragStart(e, col.key)}
                       onDragOver={handleColumnDragOver}
                       onDrop={(e) => handleColumnDrop(e, col.key)}
                       onDragEnd={handleColumnDragEnd}
-                      title="Drag to reorder column"
+                      title={(outputMode === 'chart' || outputMode === 'pie') ? "Column reordering disabled for charts" : inDashboard ? "Column reordering disabled in dashboard" : "Drag to reorder column"}
                     >
                       <div className="flex items-center gap-1 h-full">
-                        <span className="text-xs text-muted-foreground">⋮⋮</span>
+                        {(outputMode !== 'chart' && outputMode !== 'pie' && !inDashboard) && (
+                          <span className="text-xs text-muted-foreground">⋮⋮</span>
+                        )}
                         <span className="truncate leading-tight">{col.name}</span>
                       </div>
                     </th>

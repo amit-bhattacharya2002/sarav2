@@ -153,7 +153,7 @@ export default function SharedDashboard() {
     }
 
     if (viz.type === 'table') {
-      return <TableView data={viz.data || []} columns={viz.columns || []} compact readOnlyMode={true} />
+      return <TableView data={viz.data || []} columns={viz.columns || []} compact readOnlyMode={true} inDashboard={true} />
     }
 
     return <div className="text-sm text-muted-foreground">Unsupported visualization type</div>
