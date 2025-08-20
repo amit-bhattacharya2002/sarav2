@@ -450,7 +450,7 @@ export function QueryPanel({
       />
       <div className="flex flex-col h-full bg-card  shadow-md  overflow-hidden">
       <div className="flex-shrink-0 p-4 pb-0">
-        <h2 className="text-xl font-mono font-semibold mb-2">Current Query</h2>
+        <h2 className="text-xl font-semibold mb-2">Current Query</h2>
 
         <Textarea
           ref={textareaRef}

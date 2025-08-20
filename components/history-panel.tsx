@@ -214,7 +214,7 @@ export function HistoryPanel({
       <div className="bg-card p-4 border-b border-border flex flex-col gap-1">
         <div className="flex items-center gap-2">
           <Save className="h-5 w-5" />
-          <h2 className="text-xl font-mono font-bold px-1 py-0.5 bg-black text-white rounded" style={{ letterSpacing: "-0.5px" }}>
+          <h2 className="text-xl font-bold px-1 py-0.5 bg-black text-white rounded" style={{ letterSpacing: "-0.5px" }}>
             {readOnlyMode ? "Saved Dashboards" : "Saved"}
           </h2>
         </div>
@@ -230,7 +230,7 @@ export function HistoryPanel({
                 onChange={() => setView("queries")}
                 className="form-radio accent-white"
               />
-              <span className="text-sm font-mono font-medium">Queries</span>
+              <span className="text-sm font-medium">Queries</span>
             </label>
             <label className="flex items-center gap-1">
               <input
@@ -241,7 +241,7 @@ export function HistoryPanel({
                 onChange={() => setView("dashboards")}
                 className="form-radio accent-white"
               />
-              <span className="text-sm font-mono font-medium">Dashboards</span>
+              <span className="text-sm font-medium">Dashboards</span>
             </label>
           </div>
         )}
@@ -279,7 +279,7 @@ export function HistoryPanel({
                       }`}
                       onClick={() => handleQueryClick(query)}
                     >
-                      <span className="font-mono font-medium text-lg">{query.title}</span>
+                      <span className="font-medium text-lg">{query.title}</span>
                     </button>
                   </div>
                 ))}
@@ -316,7 +316,7 @@ export function HistoryPanel({
                       className="block w-full text-left p-3 rounded-md border border-border bg-[#121212] hover:bg-muted transition-colors"
                       onClick={() => router.push(`/dashboard?d=${dashboard.id}`)}
                     >
-                      <span className="font-mono font-medium text-lg">{dashboard.title}</span>
+                      <span className="font-medium text-lg">{dashboard.title}</span>
                     </button>
                   ) : (
                     <button
@@ -326,7 +326,7 @@ export function HistoryPanel({
                       }`}
                       onClick={() => handleDashboardClick(dashboard)}
                     >
-                      <span className="font-mono font-medium text-lg">{dashboard.title}</span>
+                      <span className="font-medium text-lg">{dashboard.title}</span>
                     </button>
                   )
                 )}

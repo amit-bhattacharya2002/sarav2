@@ -148,10 +148,10 @@ export default function LoginPage() {
         <div className="w-full max-w-2xl">
           {/* Header */}
           <div className="text-start flex flex-row items-center gap-10 border-b border-white/30  justify-start mb-12">
-            <h1 className="text-[5rem] font-bold bg-gradient-to-r from-green-800 to-green-500 bg-clip-text text-transparent ">
+            <h1 className="text-[5rem] font-bold bg-gradient-to-r from-green-800 to-green-500 bg-clip-text text-transparent sara-brand">
               SARA
             </h1>
-            <p className="text-xl text-white/70 font-light">
+            <p className="text-xl text-white/70 font-light sara-brand">
               Smart Analytics <br /> Reporting Assistant
             </p>
           </div>

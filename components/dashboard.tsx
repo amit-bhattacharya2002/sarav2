@@ -1662,7 +1662,7 @@ setIsEditingSavedQuery(true);
               className={`
                 flex items-center gap-2 px-4 py-3 cursor-pointer border-r border-border transition-colors
                 ${activeTabId === tab.id 
-                  ? 'bg-background border-b-0 font-mono font-medium text-foreground' 
+                  ? 'bg-background border-b-0 font-medium text-foreground' 
                   : 'hover:bg-muted/50 text-muted-foreground'
                 }
               `}
@@ -1728,7 +1728,7 @@ setIsEditingSavedQuery(true);
           // Show saved query with back button
           <div className="flex flex-col h-full">
             <div className="flex items-center justify-between p-4 border-b border-border bg-muted/20">
-              <h3 className="text-sm font-mono font-semibold text-foreground">
+              <h3 className="text-sm font-semibold text-foreground">
                 {viewingSavedQuery.title || viewingSavedQuery.queryText || 'Saved Query'}
               </h3>
               <Button
@@ -2323,7 +2323,7 @@ useEffect(() => {
     return (
       <div className="flex flex-col h-full p-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-mono font-semibold">{tabCurrentTitle}</h2>
+          <h2 className="text-xl font-semibold">{tabCurrentTitle}</h2>
           <div className="flex items-center gap-2">
             {tabIsEditing ? (
               <>
@@ -2417,7 +2417,7 @@ useEffect(() => {
                     <div className="text-sm text-gray-600 mb-2">
                       {errorInfo.description}
                     </div>
-                    <div className="text-sm font-mono bg-white/50 p-2 rounded border text-gray-700">
+                    <div className="text-sm bg-white/50 p-2 rounded border text-gray-700">
                       {tabError}
                     </div>
                   </div>
@@ -2438,7 +2438,7 @@ useEffect(() => {
         {tabIsEditing ? (
           // Edit mode - show query interface with same layout as Active Query
           <div key={`edit-mode-${query?.id}`} className="flex flex-col h-full overflow-hidden">
-            <h2 className="text-xl font-mono font-semibold mb-2">Edit Query</h2>
+            <h2 className="text-xl font-semibold mb-2">Edit Query</h2>
 
             <Textarea
               ref={textareaRef}
@@ -2542,7 +2542,7 @@ useEffect(() => {
             </Button>
 
             {/* Results Title */}
-            <div className="font-mono font-bold text-lg mb-2 mt-2" style={{ color: "#16a34a" }}>Results:</div>
+            <div className="font-bold text-lg mb-2 mt-2" style={{ color: "#16a34a" }}>Results:</div>
 
             {/* Results Panel - Scrollable */}
             {tabQueryResults && tabQueryResults.length > 0 && tabColumns.length >= 1 && (
@@ -2599,12 +2599,12 @@ useEffect(() => {
                   <div className="mt-4">
                     <button
                       onClick={() => setTabShowSql(!tabShowSql)}
-                      className="text-left text-sm font-mono font-semibold text-primary hover:underline focus:outline-none"
+                      className="text-left text-sm font-semibold text-primary hover:underline focus:outline-none"
                     >
                       {tabShowSql ? "▼ Hide SQL" : "▶ Show SQL"}
                     </button>
                     {tabShowSql && (
-                      <div className="mt-1 bg-muted p-2 rounded text-sm font-mono text-muted-foreground border border-border overflow-x-auto">
+                      <div className="mt-1 bg-muted p-2 rounded text-sm text-muted-foreground border border-border overflow-x-auto">
                         <pre className="whitespace-pre-wrap break-words">{tabSqlQuery}</pre>
                       </div>
                     )}
@@ -2703,7 +2703,7 @@ useEffect(() => {
         {/* SARA Header */}
         <header className="flex items-center justify-between py-2 px-6 border-b border-border bg-card mb-4">
           <h1 
-            className="text-2xl md:text-3xl inter font-semibold bg-gradient-to-r from-green-800 to-green-500 bg-clip-text text-transparent cursor-pointer hover:opacity-80 transition-opacity"
+            className="text-2xl md:text-3xl sara-brand font-semibold bg-gradient-to-r from-green-800 to-green-500 bg-clip-text text-transparent cursor-pointer hover:opacity-80 transition-opacity"
             onClick={async () => {
               // In read-only mode, navigate directly without save prompt
               if (readOnlyMode) {
@@ -2853,7 +2853,7 @@ useEffect(() => {
                               </svg>
                             </div>
                             <div>
-                              <h3 className="text-lg font-mono font-semibold text-foreground mb-2">
+                              <h3 className="text-lg font-semibold text-foreground mb-2">
                                 No Dashboard Selected
                               </h3>
                               <p className="text-sm text-muted-foreground mb-1">
@@ -2878,7 +2878,7 @@ useEffect(() => {
                               setTimeout(() => triggerChangeDetection(), 100);
                             }}
                       readOnly={readOnlyMode}
-                      className={`text-lg font-mono font-semibold mt-1 mb-3 bg-transparent outline-none w-full text-center ${
+                      className={`text-lg font-semibold mt-1 mb-3 bg-transparent outline-none w-full text-center ${
                         readOnlyMode ? 'cursor-default' : 'cursor-text'
                       }`}
                     />
@@ -2894,7 +2894,7 @@ useEffect(() => {
                               setTimeout(() => triggerChangeDetection(), 100);
                             }}
                           readOnly={readOnlyMode}
-                          className={`text-sm font-mono font-medium text-center mt-1 mb-2 bg-transparent outline-none w-full flex-shrink-0 ${
+                          className={`text-sm font-medium text-center mt-1 mb-2 bg-transparent outline-none w-full flex-shrink-0 ${
                             readOnlyMode ? 'cursor-default' : 'cursor-text'
                           }`}
                         />
@@ -2910,7 +2910,7 @@ useEffect(() => {
                           className="flex-1 min-h-0 rounded-lg border border-border bg-card overflow-hidden"
                         >
                           {quadrants.topLeft ? renderDroppedViz(quadrants.topLeft) : (
-                            <div className="h-full flex items-center justify-center font-mono text-sm font-semibold" style={{ color: '#16a34a' }}>
+                            <div className="h-full flex items-center justify-center text-sm font-semibold" style={{ color: '#16a34a' }}>
                               {readOnlyMode ? 'No visualization' : 'Drag results here'}
                             </div>
                           )}
@@ -2927,7 +2927,7 @@ useEffect(() => {
                               setTimeout(() => triggerChangeDetection(), 100);
                             }}
                           readOnly={readOnlyMode}
-                          className={`text-sm font-mono font-medium text-center mt-1 mb-2 bg-transparent outline-none w-full flex-shrink-0 ${
+                          className={`text-sm font-medium text-center mt-1 mb-2 bg-transparent outline-none w-full flex-shrink-0 ${
                             readOnlyMode ? 'cursor-default' : 'cursor-text'
                           }`}
                         />
@@ -2943,7 +2943,7 @@ useEffect(() => {
                           className="flex-1 min-h-0 rounded-lg border border-border bg-card overflow-hidden"
                         >
                           {quadrants.topRight ? renderDroppedViz(quadrants.topRight) : (
-                            <div className="h-full flex items-center justify-center font-mono font-semibold text-sm" style={{ color: '#16a34a' }}>
+                            <div className="h-full flex items-center justify-center font-semibold text-sm" style={{ color: '#16a34a' }}>
                               {readOnlyMode ? 'No visualization' : 'Drag results here'}
                             </div>
                           )}
@@ -2960,7 +2960,7 @@ useEffect(() => {
                               setTimeout(() => triggerChangeDetection(), 100);
                             }}
                           readOnly={readOnlyMode}
-                          className={`text-sm font-mono font-medium text-center mt-1 mb-2 bg-transparent outline-none w-full flex-shrink-0 ${
+                          className={`text-sm font-medium text-center mt-1 mb-2 bg-transparent outline-none w-full flex-shrink-0 ${
   readOnlyMode ? 'cursor-default' : 'cursor-text'
 }`}
                         />
@@ -2976,7 +2976,7 @@ useEffect(() => {
                           className="flex-1 min-h-0 rounded-lg border border-border bg-card overflow-hidden"
                         >
                           {quadrants.bottom ? renderDroppedViz(quadrants.bottom) : (
-                            <div className="h-full flex items-center justify-center font-mono font-semibold text-sm" style={{ color: '#16a34a' }}>
+                            <div className="h-full flex items-center justify-center font-semibold text-sm" style={{ color: '#16a34a' }}>
                               {readOnlyMode ? 'No visualization' : 'Drag results here'}
                             </div>
                           )}

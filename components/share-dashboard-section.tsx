@@ -65,7 +65,7 @@ export function ShareDashboardSection({ dashboardId, dashboardTitle, readOnlyMod
         onClick={() => setIsCollapsed(!isCollapsed)}
         className="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors"
       >
-        <h3 className="text-sm font-mono font-semibold text-foreground">Share Dashboard</h3>
+        <h3 className="text-sm font-semibold text-foreground">Share Dashboard</h3>
         {isCollapsed ? (
           <ChevronUp className="h-4 w-4 text-muted-foreground" />
         ) : (

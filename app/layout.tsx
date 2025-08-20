@@ -6,13 +6,6 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { Analytics } from "@vercel/analytics/next"
 
 // Configure Inter font with robust fallback options
-// If Google Fonts continues to cause build issues, you can replace this with:
-// import localFont from 'next/font/local'
-// const inter = localFont({ 
-//   src: './fonts/Inter-Regular.woff2',
-//   display: 'swap',
-//   variable: '--font-inter'
-// })
 const inter = Inter({ 
   subsets: ["latin"],
   display: 'swap', // Use swap to prevent layout shift

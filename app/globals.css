@@ -1,9 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Jost:wght@400;700&display=swap');
-
 
 @tailwind base;
 @tailwind components;
@@ -18,14 +16,18 @@
   font-family: 'Noto Sans', sans-serif;
   font-weight: 400;
 }
-.inter {
-  font-family: 'Inter', sans-serif;
-  font-weight: 400, 500, 600, 700;
-}
+
 .jost {
   font-family: 'Jost', sans-serif;
   font-weight: 400, 500, 600, 700;
 }
+
+/* Custom class for SARA logo and tagline to preserve original styling */
+.sara-brand {
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -87,7 +89,7 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
-    font-family: 'Geist', Arial, Helvetica, sans-serif;
+    font-family: 'Inter', Arial, Helvetica, sans-serif;
     font-size: 18px;
     height: 100vh;
     overflow: hidden;

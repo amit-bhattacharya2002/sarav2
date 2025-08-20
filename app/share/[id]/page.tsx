@@ -184,7 +184,7 @@ export default function SharedDashboard() {
         {/* SARA Header */}
         <header className="flex-shrink-0 flex items-center justify-start py-2 px-6 border-b border-border bg-card">
           <h1 
-            className="text-2xl md:text-3xl inter font-semibold bg-gradient-to-r from-green-800 to-green-500 bg-clip-text text-transparent cursor-pointer hover:opacity-80 transition-opacity"
+            className="text-2xl md:text-3xl sara-brand font-semibold bg-gradient-to-r from-green-800 to-green-500 bg-clip-text text-transparent cursor-pointer hover:opacity-80 transition-opacity"
             onClick={() => window.location.href = '/'}
           >
             SARA
