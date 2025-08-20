@@ -51,11 +51,17 @@ export function TableView({
     .map(key => columns.find(col => col.key === key))
     .filter((col): col is { key: string; name: string } => col !== undefined && selectedColumns.has(col.key))
 
+  // Create a stable ID based on content and column order
+          const stableId = `table-${outputMode}-${JSON.stringify(data).slice(0, 100)}-${JSON.stringify(visibleColumns.map(col => col.key)).slice(0, 50)}-${sql ? sql.slice(0, 50) : 'no-sql'}`
+        console.log('🪄 TableView generating stableId:', stableId)
+        console.log('🪄 TableView columns prop:', columns)
+        console.log('🪄 TableView visibleColumns:', visibleColumns)
+
   // All hooks must be called before any early returns
   const [{ isDragging }, drag] = useDrag(() => ({
     type: 'visualization',
     item: readOnlyMode ? null : {
-      id: `viz-${Date.now()}`,
+      id: stableId,
       type: outputMode,
       title: 'Query Result',
       data,
@@ -67,7 +73,7 @@ export function TableView({
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
-  }), [data, visibleColumns, outputMode, sql, readOnlyMode]) // Use visibleColumns instead of columns
+  }), [stableId, data, visibleColumns, outputMode, sql, readOnlyMode]) // Use visibleColumns instead of columns
 
   // Early return if no data or columns
   if (!data || !Array.isArray(data) || data.length === 0) {
@@ -270,16 +276,25 @@ export function TableView({
 
         {/* Table - Scrollable area with dynamic height */}
         <div className="flex-1 overflow-auto min-h-0">
-          <table className={`border-collapse w-full ${compact ? "text-xs" : "text-sm"}`}>
+          <table 
+            className={`border-collapse w-full ${compact ? "text-xs" : "text-sm"}`} 
+            style={{ 
+              tableLayout: 'auto',
+              width: '100%'
+            }}
+          >
             <thead>
               <tr className="bg-muted">
                 {visibleColumns.map((col, i) => {
                   return (
                     <th 
                       key={col.key} 
-                      className={`${compact ? "p-1" : "p-2"} text-left font-medium sticky top-0 bg-muted z-10 border-b border-border tracking-normal select-none w-full h-10 ${
+                      className={`${compact ? "p-1" : "p-2"} text-left font-medium sticky top-0 bg-muted z-10 border-b border-border tracking-normal select-none h-10 ${
                         draggedColumn === col.key ? 'opacity-50' : ''
                       } ${(outputMode === 'chart' || outputMode === 'pie' || inDashboard) ? 'cursor-default' : 'cursor-move'}`}
+                      style={{ 
+                        whiteSpace: 'nowrap'
+                      }}
                       draggable={outputMode !== 'chart' && outputMode !== 'pie' && !inDashboard}
                       onDragStart={(e) => handleColumnDragStart(e, col.key)}
                       onDragOver={handleColumnDragOver}
@@ -291,7 +306,7 @@ export function TableView({
                         {(outputMode !== 'chart' && outputMode !== 'pie' && !inDashboard) && (
                           <span className="text-xs text-muted-foreground">⋮⋮</span>
                         )}
-                        <span className="truncate leading-tight">{col.name}</span>
+                        <span className="leading-tight">{col.name}</span>
                       </div>
                     </th>
                   )
@@ -326,14 +341,14 @@ export function TableView({
                       if (typeof cellValue === 'string' && cellValue.match(/^\d{4}-\d{2}-\d{2}T/)) {
                         return new Date(cellValue).toLocaleDateString('en-CA') // e.g., 2024-05-10
                       }
-                      if (compact && typeof cellValue === "string" && cellValue.length > 10) {
-                        return cellValue.substring(0, 10) + "..."
-                      }
+                      // Removed truncation logic to show full content
                       return cellValue
                     })()
 
                     return (
-                      <td key={j} className={`${compact ? "p-1" : "p-2"} whitespace-nowrap border-r border-border/20 w-full`}>
+                      <td key={j} className={`${compact ? "p-1" : "p-2"} border-r border-border/20`}                       style={{ 
+                        whiteSpace: 'nowrap'
+                      }}>
                         {displayValue}
                       </td>
                     )

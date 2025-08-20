@@ -23,10 +23,14 @@ export function DraggablePieChart({
   const [fullscreenModalOpen, setFullscreenModalOpen] = useState(false)
   const [startInFullscreen, setStartInFullscreen] = useState(false)
 
+  // Create a stable ID based on content and column order
+  const stableId = `pie-${JSON.stringify(data).slice(0, 100)}-${JSON.stringify(columns.map(col => col.key)).slice(0, 50)}-${sql ? sql.slice(0, 50) : 'no-sql'}`
+  console.log('🪄 DraggablePieChart generating stableId:', stableId)
+
   const [{ isDragging }, drag] = useDrag(() => ({
     type: 'visualization',
     item: {
-      id: `viz-${Date.now()}`,
+      id: stableId,
       type: 'pie',
       title: 'Query Result',
       data,
@@ -37,7 +41,7 @@ export function DraggablePieChart({
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
-  }), [data, sql, columns])
+  }), [stableId, data, sql, columns])
 
   return (
     <>

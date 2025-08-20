@@ -26,10 +26,14 @@ export function DraggableChart({
   const [fullscreenModalOpen, setFullscreenModalOpen] = useState(false)
   const [startInFullscreen, setStartInFullscreen] = useState(false)
 
+  // Create a stable ID based on content and column order
+          const stableId = `chart-${type}-${JSON.stringify(data).slice(0, 100)}-${JSON.stringify(columns.map(col => col.key)).slice(0, 50)}-${sql ? sql.slice(0, 50) : 'no-sql'}`
+        console.log('🪄 DraggableChart generating stableId:', stableId)
+
   const [{ isDragging }, drag] = useDrag(() => ({
     type: 'visualization',
     item: {
-      id: `viz-${Date.now()}`,
+      id: stableId,
       type,
       title: 'Query Result',
       data,
@@ -40,7 +44,7 @@ export function DraggableChart({
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
-  }), [data, type, sql, columns])
+  }), [stableId, data, type, sql, columns])
 
   return (
     <>

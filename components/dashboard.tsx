@@ -638,8 +638,11 @@ export default function Dashboard() {
                     }))
                   : result.data;
   
+              // Create stable ID based on content and column order
+              const stableId = `load-${viz.type}-${JSON.stringify(chartData).slice(0, 100)}-${JSON.stringify(result.columns?.map(col => col.key) || []).slice(0, 50)}-${viz.sql ? viz.sql.slice(0, 50) : 'no-sql'}`
+
               const newViz = {
-                id: `viz-${Date.now()}-${Math.random()}`,
+                id: stableId,
                 type: viz.type,
                 title: viz.title || 'Query Result',
                 data: chartData,
@@ -808,9 +811,13 @@ export default function Dashboard() {
       setQueryResults(result.data || [])
       setColumns(result.columns || [])
 
+      // Create stable ID based on content and column order
+      const stableId = `query-${outputMode}-${JSON.stringify(result.data).slice(0, 100)}-${JSON.stringify(result.columns?.map(col => col.key) || []).slice(0, 50)}-${data.sql ? data.sql.slice(0, 50) : 'no-sql'}`
+      console.log('🪄 handleQuerySubmit generating stableId:', stableId)
+
       // Save as draggable visualization -- REMOVE `data`, ADD `sql`
       const newViz = {
-        id: `viz-${Date.now()}`,
+        id: stableId,
         type: outputMode,
         title: 'Query Result',
         columns:
@@ -855,9 +862,12 @@ export default function Dashboard() {
       setQueryResults(result.data || [])
       setColumns(result.columns || [])
   
+      // Create stable ID based on content
+      const stableId = `sql-${mode}-${JSON.stringify(result.data).slice(0, 100)}-${JSON.stringify(result.columns?.map(col => col.key) || []).slice(0, 50)}-${sql ? sql.slice(0, 50) : 'no-sql'}`
+
       // Save as draggable visualization -- REMOVE `data`, ADD `sql`
       const newViz = {
-        id: `viz-${Date.now()}`,
+        id: stableId,
         type: mode,
         title: 'Query Result',
         columns:
@@ -884,21 +894,31 @@ export default function Dashboard() {
     if (!selectedSavedQueryId) return;
     
     try {
-      setSaveStatus("saving");
-      
-      const response = await fetch('/api/query', {
-        method: 'POST',
-        headers: createHeaders(),
-        body: JSON.stringify({
-          action: 'update',
-          id: selectedSavedQueryId,
-          title: question,
-          question: question,
-          sql: sqlQuery,
-          outputMode: outputMode,
-          columns: columns
-        })
-      });
+  setSaveStatus("saving");
+  
+  // Prepare visual config for charts
+const visualConfig = (outputMode === 'chart' || outputMode === 'pie') && selectedXColumn && selectedYColumn ? {
+  selectedXColumn,
+  selectedYColumn,
+  outputMode
+} : null;
+
+console.log('🪄 Updating saved query with visualConfig:', visualConfig);
+  
+  const response = await fetch('/api/query', {
+    method: 'POST',
+    headers: createHeaders(),
+    body: JSON.stringify({
+      action: 'update',
+      id: selectedSavedQueryId,
+      title: question,
+      question: question,
+      sql: sqlQuery,
+      outputMode: outputMode,
+      columns: columns,
+      visualConfig
+    })
+  });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -991,27 +1011,88 @@ export default function Dashboard() {
   }
 
   // Check if there are changes from original data
-  const hasChanges = () => {
-    if (!originalQueryData) return false;
+const hasChanges = () => {
+  if (!originalQueryData) return false;
+  
+  // Check for column order changes
+  const hasColumnOrderChanged = () => {
+    if (!originalQueryData.columns || !columns) return false;
+    if (originalQueryData.columns.length !== columns.length) return true;
     
-    // Check for column order changes
-    const hasColumnOrderChanged = () => {
-      if (!originalQueryData.columns || !columns) return false;
-      if (originalQueryData.columns.length !== columns.length) return true;
-      
-      return originalQueryData.columns.some((originalCol: any, index: number) => {
-        const currentCol = columns[index];
-        return !currentCol || originalCol.key !== currentCol.key;
+    return originalQueryData.columns.some((originalCol: any, index: number) => {
+      const currentCol = columns[index];
+      return !currentCol || originalCol.key !== currentCol.key;
+    });
+  };
+  
+  // Check for chart configuration changes
+  const hasChartConfigChanged = () => {
+    if (outputMode !== 'chart' && outputMode !== 'pie') return false;
+    
+    const originalVisualConfig = originalQueryData.visualConfig;
+    const currentXColumn = selectedXColumn;
+    const currentYColumn = selectedYColumn;
+    
+    console.log('🪄 hasChartConfigChanged check:', {
+      outputMode,
+      originalVisualConfig,
+      currentXColumn,
+      currentYColumn
+    });
+    
+    // If no original visual config, check if current config is different from defaults
+    if (!originalVisualConfig) {
+      const isDifferent = currentXColumn !== columns[0]?.key || currentYColumn !== columns[1]?.key;
+      console.log('🪄 No original config, checking against defaults:', {
+        currentXColumn,
+        currentYColumn,
+        defaultX: columns[0]?.key,
+        defaultY: columns[1]?.key,
+        isDifferent
       });
-    };
+      return isDifferent;
+    }
     
-    return (
-      question !== originalQueryData.question ||
-      sqlQuery !== originalQueryData.sql ||
-      outputMode !== originalQueryData.outputMode ||
-      hasColumnOrderChanged()
+    // Compare with original visual config
+    const isDifferent = (
+      originalVisualConfig.selectedXColumn !== currentXColumn ||
+      originalVisualConfig.selectedYColumn !== currentYColumn
     );
-  }
+    console.log('🪄 Comparing with original config:', {
+      originalX: originalVisualConfig.selectedXColumn,
+      originalY: originalVisualConfig.selectedYColumn,
+      currentX: currentXColumn,
+      currentY: currentYColumn,
+      isDifferent
+    });
+    return isDifferent;
+  };
+  
+  const questionChanged = question !== originalQueryData.question;
+  const sqlChanged = sqlQuery !== originalQueryData.sql;
+  const outputModeChanged = outputMode !== originalQueryData.outputMode;
+  const columnOrderChanged = hasColumnOrderChanged();
+  const chartConfigChanged = hasChartConfigChanged();
+  
+  const hasChanges = (
+    questionChanged ||
+    sqlChanged ||
+    outputModeChanged ||
+    columnOrderChanged ||
+    chartConfigChanged
+  );
+  
+  console.log('🪄 hasChanges function result:', {
+    questionChanged,
+    sqlChanged,
+    outputModeChanged,
+    columnOrderChanged,
+    chartConfigChanged,
+    hasChanges
+  });
+  
+  return hasChanges;
+}
 
   // Clear query function
   const handleClearQuery = () => {
@@ -1080,7 +1161,7 @@ export default function Dashboard() {
       });
       
       // Automatically go into edit mode for saved queries
-      setIsEditingSavedQuery(true);
+setIsEditingSavedQuery(true);
       
     } catch (err: any) {
       console.error('Error loading saved query:', err);
@@ -1133,64 +1214,126 @@ export default function Dashboard() {
   const handleDrop = (quadrantId: 'topLeft' | 'topRight' | 'bottom', item: Visualization) => {
     setLastDroppedItem(item);
     console.log('🪄 Diagnostics: Last Dropped Item', item);
-    console.log('🪄 Adding chart to dashboard - triggering change detection');
+    console.log('🪄 Moving chart to dashboard - triggering change detection');
   
     const itemId = item.id;
-    const itemExists = allVisualizations.some((v) => v.id === itemId);
-  
+    console.log('🪄 Item ID being dropped:', itemId);
+    console.log('🪄 Item being dropped:', item);
+    console.log('🪄 Item columns:', item.columns);
+    console.log('🪄 All existing visualization IDs:', allVisualizations.map(v => v.id));
+    console.log('🪄 All existing visualizations:', allVisualizations);
+    
+    // Check if item exists by ID first
+    let itemExists = allVisualizations.some((v) => v.id === itemId);
+    
+    // If not found by ID, check if an item with the same content exists
     if (!itemExists) {
+      console.log('🪄 Checking for content match...');
+      console.log('🪄 Dropped item type:', item.type);
+      console.log('🪄 Dropped item data:', item.data);
+      
+      itemExists = allVisualizations.some((v) => {
+        const typeMatch = v.type === item.type;
+        const dataMatch = JSON.stringify(v.data) === JSON.stringify(item.data);
+        const columnsMatch = JSON.stringify(v.columns) === JSON.stringify(item.columns);
+        
+        console.log('🪄 Comparing with existing item:', {
+          existingType: v.type,
+          existingData: v.data,
+          existingColumns: v.columns,
+          itemColumns: item.columns,
+          typeMatch,
+          dataMatch,
+          columnsMatch
+        });
+        
+        return typeMatch && dataMatch && columnsMatch;
+      });
+      
+      if (itemExists) {
+        console.log('🪄 Found duplicate by content, will use existing item');
+        // Use the existing item's ID instead
+        const existingItem = allVisualizations.find((v) => 
+          v.type === item.type && 
+          JSON.stringify(v.data) === JSON.stringify(item.data) &&
+          JSON.stringify(v.columns) === JSON.stringify(item.columns)
+        );
+        if (existingItem) {
+          item.id = existingItem.id; // Update the item ID to match existing
+        }
+      } else {
+        console.log('🪄 No content match found');
+      }
+    }
+    
+    console.log('🪄 Item exists in allVisualizations:', itemExists);
+    
+    // Update itemId in case it was changed by content matching
+    const finalItemId = item.id;
+  
+    // If item doesn't exist in allVisualizations, add it
+    if (!itemExists) {
+      console.log('🪄 Adding new visualization with columns:', item.columns);
       setAllVisualizations((prev) => {
         const newVisualizations = [...prev, item];
-        console.log('🪄 Added visualization, new count:', newVisualizations.length);
+        console.log('🪄 Added new visualization, new count:', newVisualizations.length);
+        console.log('🪄 New visualization columns:', item.columns);
         return newVisualizations;
       });
+    } else {
+      console.log('🪄 Item already exists, not adding new visualization');
     }
   
-    // Reset and assign to prevent rendering conflicts
-    setQuadrants((prev) => ({
-      ...prev,
-      [quadrantId]: null, // reset first
-    }));
-  
-    setTimeout(() => {
-      setQuadrants((prev) => ({
-        ...prev,
-        [quadrantId]: itemId,
-      }));
+    // Check if the item is already in another quadrant and remove it
+    setQuadrants((prev) => {
+      const newQuadrants = { ...prev };
       
-      // Change detection is now triggered in the setAllVisualizations callback
-  
-      // Improved diagnostics: only log error if data.length > 0, table is in DOM, and after enough time
-      setTimeout(() => {
-        // Only check if this quadrant is still showing the dropped viz
-        if (quadrants[quadrantId] !== itemId) return;
-  
-        const dropZone = document.querySelector(`[data-quadrant-id="${quadrantId}"]`);
-        const table = dropZone ? dropZone.querySelector('table') : null;
-        let renderedRows = 0;
-        if (table) {
-          renderedRows = table.querySelectorAll('tbody tr').length;
+      // Remove item from any existing quadrant
+      Object.keys(newQuadrants).forEach((key) => {
+        if (newQuadrants[key as keyof typeof newQuadrants] === finalItemId) {
+          newQuadrants[key as keyof typeof newQuadrants] = null;
         }
-        const expectedRows = Array.isArray(item.data) ? item.data.length : 0;
-        if (item.type === 'table' && expectedRows > 0) {
-          if (renderedRows < expectedRows) {
-            // Only log warning, not error, and only if still mismatched after 600ms
-            setTimeout(() => {
-              const tableRetry = dropZone ? dropZone.querySelector('table') : null;
-              let renderedRowsRetry = 0;
-              if (tableRetry) renderedRowsRetry = tableRetry.querySelectorAll('tbody tr').length;
-              if (renderedRowsRetry < expectedRows) {
-                console.warn(`⚠️ Table dropped in '${quadrantId}' expected ${expectedRows} rows, but TableView rendered ${renderedRowsRetry}. This could be a timing issue or React render delay.`);
-              } else {
-                console.log(`✅ Table dropped in '${quadrantId}' rendered ${renderedRowsRetry} rows after retry.`);
-              }
-            }, 600);
-          } else {
-            console.log(`✅ Table dropped in '${quadrantId}' rendered ${renderedRows} rows (expected ${expectedRows}).`);
-          }
+      });
+      
+      // Add item to the new quadrant
+      newQuadrants[quadrantId] = finalItemId;
+      
+      console.log('🪄 Moved visualization from existing quadrant to:', quadrantId);
+      return newQuadrants;
+    });
+      
+    // Change detection is now triggered in the setAllVisualizations callback
+  
+    // Improved diagnostics: only log error if data.length > 0, table is in DOM, and after enough time
+    setTimeout(() => {
+      // Only check if this quadrant is still showing the dropped viz
+      if (quadrants[quadrantId] !== finalItemId) return;
+
+      const dropZone = document.querySelector(`[data-quadrant-id="${quadrantId}"]`);
+      const table = dropZone ? dropZone.querySelector('table') : null;
+      let renderedRows = 0;
+      if (table) {
+        renderedRows = table.querySelectorAll('tbody tr').length;
+      }
+      const expectedRows = Array.isArray(item.data) ? item.data.length : 0;
+      if (item.type === 'table' && expectedRows > 0) {
+        if (renderedRows < expectedRows) {
+          // Only log warning, not error, and only if still mismatched after 600ms
+          setTimeout(() => {
+            const tableRetry = dropZone ? dropZone.querySelector('table') : null;
+            let renderedRowsRetry = 0;
+            if (tableRetry) renderedRowsRetry = tableRetry.querySelectorAll('tbody tr').length;
+            if (renderedRowsRetry < expectedRows) {
+              console.warn(`⚠️ Table dropped in '${quadrantId}' expected ${expectedRows} rows, but TableView rendered ${renderedRowsRetry}. This could be a timing issue or React render delay.`);
+            } else {
+              console.log(`✅ Table dropped in '${quadrantId}' rendered ${renderedRowsRetry} rows after retry.`);
+            }
+          }, 600);
+        } else {
+          console.log(`✅ Table dropped in '${quadrantId}' rendered ${renderedRows} rows (expected ${expectedRows}).`);
         }
-      }, 400); // Wait a bit longer
-    }, 0); // delay for React state reflow
+      }
+    }, 400); // Wait a bit longer
   };
 
 
@@ -1438,49 +1581,52 @@ export default function Dashboard() {
     if (!viz) return null;
   
     if (viz.type === 'chart' || viz.type === 'visualization') {
-      console.log(`🔍 Rendering BarGraph with data:`, viz.data);
-      return <BarGraph data={viz.data || []} />;
+      console.log(`🔍 Rendering DraggableChart with data:`, viz.data);
+      return (
+        <DraggableChart 
+          data={viz.data || []} 
+          type="chart"
+          sql={viz.sql}
+          columns={viz.columns || []}
+          showExpandButton={false}
+        />
+      );
     }
   
     if (viz.type === 'pie') {
-      console.log(`🔍 Rendering PieGraph with data:`, viz.data);
-      let legendScale = 0.75;
-    
-      const isTopQuadrant = vizId === quadrants.topLeft || vizId === quadrants.topRight;
-      const isBottomQuadrant = vizId === quadrants.bottom;
-      const isLeftOpen = !collapsedPanels.left;
-      const isMiddleHidden = collapsedPanels.middle;
-    
-      // Determine height based on quadrant
-      let height = 200; // default
-      if (isTopQuadrant) {
-        height = 200; // h-36 = 144px
-      } else if (isBottomQuadrant) {
-        height = 200; // h-44 = 176px
-      }
-    
-      if (readOnlyMode) {
-        legendScale = isTopQuadrant
-          ? collapsedPanels.left ? 1.25 : 1
-          : 0.75;
-      } else {
-        // This handles edit mode: middle panel hidden, left open
-        if (isTopQuadrant && isLeftOpen && isMiddleHidden) {
-          legendScale = 1.25;
-        }
-      }
-
+      console.log(`🔍 Rendering DraggablePieChart with data:`, viz.data);
       return (
-        <PieGraph
-          data={viz.data || []}
-          compact
-          legendScale={legendScale}
+        <DraggablePieChart 
+          data={viz.data || []} 
+          sql={viz.sql}
+          columns={viz.columns || []}
+          showExpandButton={false}
         />
       );
     }
   
     if (viz.type === 'table') {
-      return <TableView data={viz.data || []} columns={viz.columns || []} compact readOnlyMode={readOnlyMode} inDashboard={true} />;
+      console.log('🪄 renderDroppedViz rendering table with columns:', viz.columns);
+      return (
+        <TableView 
+          data={viz.data || []} 
+          columns={viz.columns || []} 
+          compact 
+          readOnlyMode={readOnlyMode} 
+          inDashboard={true}
+          onColumnOrderChange={(reorderedColumns) => {
+            console.log('🪄 onColumnOrderChange called with:', reorderedColumns);
+            // Update the visualization with the new column order
+            setAllVisualizations(prev => 
+              prev.map(v => 
+                v.id === viz.id 
+                  ? { ...v, columns: reorderedColumns }
+                  : v
+              )
+            );
+          }}
+        />
+      );
     }
   
     return <div className="text-sm text-muted-foreground">Unsupported viz type</div>;
@@ -1575,7 +1721,10 @@ export default function Dashboard() {
   const renderSimplePanel = useCallback(() => {
     return (
       <div className="flex flex-col h-full bg-card rounded-lg border border-border shadow-md overflow-hidden">
-        {viewingSavedQuery ? (
+        {(() => {
+  console.log('🪄 renderSimplePanel check:', { viewingSavedQuery: !!viewingSavedQuery });
+  return viewingSavedQuery;
+})() ? (
           // Show saved query with back button
           <div className="flex flex-col h-full">
             <div className="flex items-center justify-between p-4 border-b border-border bg-muted/20">
@@ -1638,6 +1787,8 @@ export default function Dashboard() {
 
   // Saved Query Tab Component
   const SavedQueryTab = ({ query, onClose }: { query: any; onClose: () => void }) => {
+  console.log('🪄 SavedQueryTab rendered for query:', query.id);
+console.log('🪄 DEBUG TEST - This should appear when SavedQueryTab renders');
     const [tabQueryResults, setTabQueryResults] = useState<any[] | null>(null)
     const [tabColumns, setTabColumns] = useState<{ key: string; name: string }[]>([])
     const [tabIsLoading, setTabIsLoading] = useState(false)
@@ -1655,7 +1806,29 @@ export default function Dashboard() {
     
     // Chart configuration state
     const [tabSelectedXColumn, setTabSelectedXColumn] = useState<string>('')
-    const [tabSelectedYColumn, setTabSelectedYColumn] = useState<string>('')
+const [tabSelectedYColumn, setTabSelectedYColumn] = useState<string>('')
+
+// Debug: Log when X/Y column selections change
+const handleXColumnChange = useCallback((value: string) => {
+  console.log('🪄 X Column changed from', tabSelectedXColumn, 'to', value);
+  console.log('🪄 Current tabIsEditing:', tabIsEditing);
+  console.log('🪄 Current tabOriginalData:', tabOriginalData);
+  setTabSelectedXColumn(value);
+}, [tabSelectedXColumn, tabIsEditing, tabOriginalData]);
+
+const handleYColumnChange = useCallback((value: string) => {
+  console.log('🪄 Y Column changed from', tabSelectedYColumn, 'to', value);
+  console.log('🪄 Current tabIsEditing:', tabIsEditing);
+  console.log('🪄 Current tabOriginalData:', tabOriginalData);
+  setTabSelectedYColumn(value);
+}, [tabSelectedYColumn, tabIsEditing, tabOriginalData]);
+
+// Debug: Test that the handlers are working
+console.log('🪄 Debug: SavedQueryTab handlers initialized');
+console.log('🪄 Debug: This means a saved query tab is being rendered');
+
+// Debug: Monitor X/Y column changes and trigger hasTabChanges check
+// Moved this useEffect after hasTabChanges function definition
 
     // Ref for textarea focus
     const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -1908,8 +2081,19 @@ export default function Dashboard() {
             sql: result.sql,
             outputMode: result.outputMode,
             data: result.data,
-            columns: result.columns
+            columns: result.columns,
+            visualConfig: result.visualConfig
           })
+          
+          // Restore chart configuration if available
+          if (result.visualConfig) {
+            setTabSelectedXColumn(result.visualConfig.selectedXColumn || '')
+            setTabSelectedYColumn(result.visualConfig.selectedYColumn || '')
+          } else if (result.columns && result.columns.length >= 2) {
+            // Fallback to first two columns if no visual config
+            setTabSelectedXColumn(result.columns[0]?.key || '')
+            setTabSelectedYColumn(result.columns[1]?.key || '')
+          }
           
           // Update the current title
           setTabCurrentTitle(result.title || result.question || 'Saved Query')
@@ -1937,6 +2121,16 @@ export default function Dashboard() {
         setTabOutputMode(tabOriginalData.outputMode)
         setTabQueryResults(tabOriginalData.data)
         setTabColumns(tabOriginalData.columns)
+        
+        // Restore chart configuration if available
+        if (tabOriginalData.visualConfig) {
+          setTabSelectedXColumn(tabOriginalData.visualConfig.selectedXColumn || '')
+          setTabSelectedYColumn(tabOriginalData.visualConfig.selectedYColumn || '')
+        } else if (tabOriginalData.columns && tabOriginalData.columns.length >= 2) {
+          // Fallback to first two columns if no visual config
+          setTabSelectedXColumn(tabOriginalData.columns[0]?.key || '')
+          setTabSelectedYColumn(tabOriginalData.columns[1]?.key || '')
+        }
       }
       setTabIsEditing(false)
     }, [tabOriginalData])
@@ -1988,13 +2182,86 @@ export default function Dashboard() {
         });
       };
       
-      return (
-        tabQuestion !== tabOriginalData.question ||
-        tabSqlQuery !== tabOriginalData.sql ||
-        tabOutputMode !== tabOriginalData.outputMode ||
-        hasColumnOrderChanged()
-      )
-    }, [tabIsEditing, tabOriginalData, tabQuestion, tabSqlQuery, tabOutputMode, tabColumns])
+      // Check for chart configuration changes
+      const hasChartConfigChanged = () => {
+        if (tabOutputMode !== 'chart' && tabOutputMode !== 'pie') return false;
+        
+        const originalVisualConfig = tabOriginalData.visualConfig;
+        const currentXColumn = tabSelectedXColumn;
+        const currentYColumn = tabSelectedYColumn;
+        
+        console.log('🪄 hasChartConfigChanged debug:', {
+          tabOutputMode,
+          originalVisualConfig,
+          currentXColumn,
+          currentYColumn,
+          tabColumns: tabColumns?.map(col => col.key)
+        });
+        
+        // If no original visual config, check if current config is different from defaults
+        if (!originalVisualConfig) {
+          const isDifferent = currentXColumn !== tabColumns[0]?.key || currentYColumn !== tabColumns[1]?.key;
+          console.log('🪄 No original config, checking against defaults:', {
+            currentXColumn,
+            currentYColumn,
+            defaultX: tabColumns[0]?.key,
+            defaultY: tabColumns[1]?.key,
+            isDifferent
+          });
+          return isDifferent;
+        }
+        
+        // Compare with original visual config
+        const isDifferent = (
+          originalVisualConfig.selectedXColumn !== currentXColumn ||
+          originalVisualConfig.selectedYColumn !== currentYColumn
+        );
+        console.log('🪄 Comparing with original config:', {
+          originalX: originalVisualConfig.selectedXColumn,
+          originalY: originalVisualConfig.selectedYColumn,
+          currentX: currentXColumn,
+          currentY: currentYColumn,
+          isDifferent
+        });
+        return isDifferent;
+      };
+      
+      const columnOrderChanged = hasColumnOrderChanged();
+      const chartConfigChanged = hasChartConfigChanged();
+      const questionChanged = tabQuestion !== tabOriginalData.question;
+      const sqlChanged = tabSqlQuery !== tabOriginalData.sql;
+      const outputModeChanged = tabOutputMode !== tabOriginalData.outputMode;
+      
+      const hasChanges = (
+        questionChanged ||
+        sqlChanged ||
+        outputModeChanged ||
+        columnOrderChanged ||
+        chartConfigChanged
+      );
+      
+      console.log('🪄 hasTabChanges debug:', {
+        tabIsEditing,
+        hasOriginalData: !!tabOriginalData,
+        questionChanged,
+        sqlChanged,
+        outputModeChanged,
+        columnOrderChanged,
+        chartConfigChanged,
+        hasChanges
+      });
+      
+      return hasChanges;
+    }, [tabIsEditing, tabOriginalData, tabQuestion, tabSqlQuery, tabOutputMode, tabColumns, tabSelectedXColumn, tabSelectedYColumn])
+
+// Debug: Monitor X/Y column changes and trigger hasTabChanges check
+useEffect(() => {
+  if (tabIsEditing && tabOriginalData) {
+    console.log('🪄 X/Y columns changed, checking hasTabChanges...');
+    const hasChanges = hasTabChanges();
+    console.log('🪄 hasTabChanges result:', hasChanges);
+  }
+}, [tabSelectedXColumn, tabSelectedYColumn, tabIsEditing, tabOriginalData, hasTabChanges]);
 
     const handleQuestionChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
       setTabQuestion(e.target.value)
@@ -2064,7 +2331,21 @@ export default function Dashboard() {
                   variant="default"
                   size="sm"
                   onClick={handleTabUpdate}
-                  disabled={!tabQuestion || !tabSqlQuery || !tabOutputMode || !tabColumns.length || !tabQueryResults?.length || tabSaveStatus === "saving" || !hasTabChanges()}
+                  disabled={(() => {
+  const hasChanges = hasTabChanges();
+  const isDisabled = !tabQuestion || !tabSqlQuery || !tabOutputMode || !tabColumns.length || !tabQueryResults?.length || tabSaveStatus === "saving" || !hasChanges;
+  console.log('🪄 Update button disabled check:', {
+    hasChanges,
+    isDisabled,
+    tabQuestion: !!tabQuestion,
+    tabSqlQuery: !!tabSqlQuery,
+    tabOutputMode: !!tabOutputMode,
+    tabColumnsLength: tabColumns.length,
+    tabQueryResultsLength: tabQueryResults?.length,
+    tabSaveStatus
+  });
+  return isDisabled;
+})()}
                 >
                   {tabSaveStatus === "saving" ? "Saving..." : tabSaveStatus === "success" ? "Saved!" : tabSaveStatus === "error" ? "Error" : "Update"}
                 </Button>
@@ -2174,8 +2455,9 @@ export default function Dashboard() {
                 type="single"
                 value={tabOutputMode}
                 onValueChange={(value) => {
-                  if (value) setTabOutputMode(value)
-                }}
+  console.log('🪄 Output mode changed from', tabOutputMode, 'to', value);
+  if (value) setTabOutputMode(value)
+}}
                 className="flex gap-2"
               >
                 <ToggleGroupItem value="table" aria-label="Table View">
@@ -2191,7 +2473,14 @@ export default function Dashboard() {
             </div>
 
             {/* Column Selection for Charts */}
-            {(tabOutputMode === 'chart' || tabOutputMode === 'pie') && tabColumns.length >= 2 && (
+{(() => {
+  console.log('🪄 Chart Configuration visibility check:', {
+    tabOutputMode,
+    tabColumnsLength: tabColumns.length,
+    shouldShow: (tabOutputMode === 'chart' || tabOutputMode === 'pie') && tabColumns.length >= 2
+  });
+  return (tabOutputMode === 'chart' || tabOutputMode === 'pie') && tabColumns.length >= 2;
+})() && (
               <div className="mb-2 p-3 bg-muted/20 rounded border border-border">
                 <div className="text-sm font-medium mb-2">Chart Configuration</div>
                 <div className="grid grid-cols-2 gap-2">
@@ -2199,7 +2488,7 @@ export default function Dashboard() {
                     <label className="text-xs text-muted-foreground block mb-1">
                       X-Axis ({tabOutputMode === 'chart' ? 'Categories' : 'Labels'})
                     </label>
-                    <Select value={tabSelectedXColumn} onValueChange={setTabSelectedXColumn}>
+                    <Select value={tabSelectedXColumn} onValueChange={handleXColumnChange}>
                       <SelectTrigger className="h-8">
                         <SelectValue placeholder="Select column" />
                       </SelectTrigger>
@@ -2218,7 +2507,7 @@ export default function Dashboard() {
                     <label className="text-xs text-muted-foreground block mb-1">
                       Y-Axis ({tabOutputMode === 'chart' ? 'Values' : 'Sizes'})
                     </label>
-                    <Select value={tabSelectedYColumn} onValueChange={setTabSelectedYColumn}>
+                    <Select value={tabSelectedYColumn} onValueChange={handleYColumnChange}>
                       <SelectTrigger className="h-8">
                         <SelectValue placeholder="Select column" />
                       </SelectTrigger>
@@ -2272,10 +2561,19 @@ export default function Dashboard() {
                   
                   {tabOutputMode === 'chart' && (
                     <DraggableChart
-                      data={tabQueryResults.map((row) => ({
-                        name: row[tabSelectedXColumn] || row.donor || row._id?.name || 'Unknown',
-                        value: Number(row[tabSelectedYColumn] || row.totalAmount) || 0,
-                      }))}
+                      data={tabQueryResults.map((row) => {
+                        const chartData = {
+                          name: row[tabSelectedXColumn] || row.donor || row._id?.name || 'Unknown',
+                          value: Number(row[tabSelectedYColumn] || row.totalAmount) || 0,
+                        };
+                        console.log('🪄 Chart data mapping:', {
+                          tabSelectedXColumn,
+                          tabSelectedYColumn,
+                          rowData: row,
+                          chartData
+                        });
+                        return chartData;
+                      })}
                       type={tabOutputMode}
                       sql={tabSqlQuery || undefined}
                       columns={tabColumns}
@@ -2337,10 +2635,19 @@ export default function Dashboard() {
                 
                 {tabOutputMode === 'chart' && (
                   <DraggableChart
-                    data={tabQueryResults.map((row) => ({
-                      name: row[tabSelectedXColumn] || row.donor || row._id?.name || 'Unknown',
-                      value: Number(row[tabSelectedYColumn] || row.totalAmount) || 0,
-                    }))}
+                    data={tabQueryResults.map((row) => {
+                      const chartData = {
+                        name: row[tabSelectedXColumn] || row.donor || row._id?.name || 'Unknown',
+                        value: Number(row[tabSelectedYColumn] || row.totalAmount) || 0,
+                      };
+                      console.log('🪄 View mode chart data mapping:', {
+                        tabSelectedXColumn,
+                        tabSelectedYColumn,
+                        rowData: row,
+                        chartData
+                      });
+                      return chartData;
+                    })}
                     type={tabOutputMode}
                     sql={tabSqlQuery || undefined}
                     columns={tabColumns}
@@ -2576,7 +2883,7 @@ export default function Dashboard() {
                       }`}
                     />
                     {/* NEW unified grid — fills available height */}
-                    <div className="grid grid-rows-2 grid-cols-2 gap-2 flex-1 min-h-0">
+                    <div className="grid grid-cols-2 gap-2 flex-1 min-h-0" style={{ gridTemplateRows: '1fr 1fr' }}>
                       {/* Top Left */}
                       <div className="flex flex-col min-h-0">
                         <input
@@ -2653,9 +2960,9 @@ export default function Dashboard() {
                               setTimeout(() => triggerChangeDetection(), 100);
                             }}
                           readOnly={readOnlyMode}
-                          className={`text-sm font-mono font-medium text-center mb-1 bg-transparent outline-none w-full flex-shrink-0 ${
-                            readOnlyMode ? 'cursor-default' : 'cursor-text'
-                          }`}
+                          className={`text-sm font-mono font-medium text-center mt-1 mb-2 bg-transparent outline-none w-full flex-shrink-0 ${
+  readOnlyMode ? 'cursor-default' : 'cursor-text'
+}`}
                         />
                         <DropZone
                           id="bottom"

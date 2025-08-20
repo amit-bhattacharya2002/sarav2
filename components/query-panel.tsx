@@ -545,7 +545,10 @@ export function QueryPanel({
                     <label className="text-sm font-medium text-muted-foreground block mb-2">
                       X-Axis ({outputMode === 'chart' ? 'Categories' : 'Labels'})
                     </label>
-                    <Select value={selectedXColumn} onValueChange={setSelectedXColumn}>
+                    <Select value={selectedXColumn} onValueChange={(value) => {
+  console.log('🪄 QueryPanel X Column changed from', selectedXColumn, 'to', value);
+  setSelectedXColumn(value);
+}}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select column" />
                       </SelectTrigger>
@@ -564,7 +567,10 @@ export function QueryPanel({
                     <label className="text-sm font-medium text-muted-foreground block mb-2">
                       Y-Axis ({outputMode === 'chart' ? 'Values' : 'Sizes'})
                     </label>
-                    <Select value={selectedYColumn} onValueChange={setSelectedYColumn}>
+                    <Select value={selectedYColumn} onValueChange={(value) => {
+  console.log('🪄 QueryPanel Y Column changed from', selectedYColumn, 'to', value);
+  setSelectedYColumn(value);
+}}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select column" />
                       </SelectTrigger>
@@ -708,10 +714,23 @@ export function QueryPanel({
                 variant="default"
                 className="flex items-center gap-2"
                 onClick={handleUpdateSavedQuery}
-                disabled={
-                  !question || !sqlQuery || !outputMode || !columns.length || !queryResults?.length || saveStatus === "saving" ||
-                  (!hasChanges || !hasChanges())
-                }
+                disabled={(() => {
+  const hasChangesResult = hasChanges ? hasChanges() : false;
+  const isDisabled = !question || !sqlQuery || !outputMode || !columns.length || !queryResults?.length || saveStatus === "saving" || !hasChangesResult;
+  console.log('🪄 QueryPanel Update button disabled check:', {
+  hasChangesResult,
+  isDisabled,
+  question: !!question,
+  sqlQuery: !!sqlQuery,
+  outputMode: !!outputMode,
+  columnsLength: columns.length,
+  queryResultsLength: queryResults?.length,
+  saveStatus
+});
+console.log('🪄 hasChangesResult:', hasChangesResult);
+console.log('🪄 isDisabled:', isDisabled);
+  return isDisabled;
+})()}
               >
                 <Save className="h-5 w-5" />
                 {saveStatus === "saving" ? "Saving..." : saveStatus === "success" ? "Saved!" : saveStatus === "error" ? "Error" : "Update"}

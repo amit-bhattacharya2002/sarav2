@@ -65,9 +65,17 @@ export async function executeSQLQuery(sql: string, originalQuestion?: string): P
       }
       
       // For regular column names, apply the existing formatting
+      // First handle common abbreviations to prevent unwanted spaces
+      let formattedName = key
+        .replace(/ID$/g, ' ID') // Handle ID suffix
+        .replace(/ID([A-Z])/g, ' ID $1') // Handle ID in middle
+        .replace(/([A-Z])/g, ' $1') // Add space before other capitals
+        .replace(/^./, str => str.toUpperCase()) // Capitalize first letter
+        .trim() // Remove leading space
+      
       return {
         key,
-        name: key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())
+        name: formattedName
       }
     })
 

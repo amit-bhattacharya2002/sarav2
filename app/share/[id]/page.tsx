@@ -236,7 +236,7 @@ export default function SharedDashboard() {
 
             {/* Bottom */}
             <div className="flex flex-col flex-1 min-h-0">
-              <h2 className="text-sm font-mono font-medium text-center mb-2 flex-shrink-0">{bottomTitle}</h2>
+              <h2 className="text-sm font-mono font-medium text-center mt-2 mb-2 flex-shrink-0">{bottomTitle}</h2>
               <DropZone
                 id="bottom"
                 onDrop={() => {}} // No-op in read-only mode
