@@ -89,7 +89,25 @@ export default function Dashboard() {
             : quadrant === "bottom"
             ? bottomTitle
             : viz.title;
-        return { ...viz, title, quadrant };
+        
+        // Create a complete snapshot of the visualization with exact column configuration
+        const snapshotViz = {
+          ...viz,
+          title,
+          quadrant,
+          // Store the exact column configuration as it was when saved
+          savedColumns: viz.columns ? [...viz.columns] : [],
+          // Create a unique identifier that includes the exact column configuration
+          columnConfigHash: viz.columns ? 
+            JSON.stringify(viz.columns.map((col: any) => ({ key: col.key, name: col.name })).sort((a: any, b: any) => a.key.localeCompare(b.key))) : 
+            '',
+          // Store the original saved query ID for reference
+          originalSavedQueryId: viz.originalId || viz.id,
+          // Timestamp when this snapshot was created
+          snapshotTimestamp: new Date().toISOString()
+        };
+        
+        return snapshotViz;
       })
       .filter(Boolean);
 
@@ -519,8 +537,11 @@ export default function Dashboard() {
         if (Array.isArray(parsedCachedVisualizations) && parsedCachedVisualizations.length > 0) {
           console.log("✅ Loading dashboard from CACHE (sVisualizations)!");
           
-          // Transform cached visualizations to ensure chart data is properly formatted
+          // Transform cached visualizations to ensure chart data is properly formatted and use saved columns
           const transformedVisualizations = parsedCachedVisualizations.map(viz => {
+            // Use saved columns if available, otherwise fall back to current columns
+            const columnsToUse = viz.savedColumns && viz.savedColumns.length > 0 ? viz.savedColumns : viz.columns;
+            
             if ((viz.type === 'chart' || viz.type === 'pie') && Array.isArray(viz.data)) {
               // Check if data is already in chart format (has name/value structure)
               const isChartFormat = viz.data.length > 0 && 
@@ -528,55 +549,49 @@ export default function Dashboard() {
                 'name' in viz.data[0] && 
                 'value' in viz.data[0];
               
-              console.log(`🔍 Chart ${viz.id} (${viz.type}): isChartFormat=${isChartFormat}, dataLength=${viz.data.length}, columnsLength=${viz.columns?.length || 0}`);
+              console.log(`🔍 Chart ${viz.id} (${viz.type}): isChartFormat=${isChartFormat}, dataLength=${viz.data.length}, savedColumnsLength=${viz.savedColumns?.length || 0}, currentColumnsLength=${viz.columns?.length || 0}`);
               
-              if (!isChartFormat && viz.columns && viz.columns.length >= 2) {
-                // Transform raw data to chart format
-                const chartData = viz.data.map(row => ({
-                  name: row[viz.columns[0]?.key] || 'Unknown',
-                  value: Number(row[viz.columns[1]?.key]) || 0,
+              if (!isChartFormat && columnsToUse && columnsToUse.length >= 2) {
+                // Transform raw data to chart format using saved columns
+                const chartData = viz.data.map((row: any) => ({
+                  name: row[columnsToUse[0]?.key] || 'Unknown',
+                  value: Number(row[columnsToUse[1]?.key]) || 0,
                 }));
                 
-                console.log(`✅ Transformed chart data for ${viz.id}:`, chartData.slice(0, 3));
-                return { ...viz, data: chartData };
+                console.log(`✅ Transformed chart data for ${viz.id} using saved columns:`, chartData.slice(0, 3));
+                return { ...viz, data: chartData, columns: columnsToUse };
               }
             }
             
-            return viz;
+            // Return visualization with saved columns if available
+            return { ...viz, columns: columnsToUse || viz.columns };
           });
           
           setAllVisualizations(transformedVisualizations);
         
-          // Improved quadrant mapping
+          // Use snapshot data directly - no need for complex matching since we store complete snapshots
           const quadrantMap: any = {};
-          console.log("🔍 Quadrant mapping debug:", { parsedQuadrants, parsedVizList, parsedCachedVisualizations });
+          console.log("🔍 Using snapshot data directly for quadrant mapping");
           
           for (const quadrant in parsedQuadrants) {
             const expectedOriginalId = parsedQuadrants[quadrant];
-            const expectedViz = parsedVizList?.find(v => v.id === expectedOriginalId);
-            const expectedType = expectedViz?.type;
             
-            console.log(`🔍 Mapping ${quadrant}:`, { 
-              expectedOriginalId, 
-              expectedType, 
-              expectedViz: expectedViz ? { id: expectedViz.id, type: expectedViz.type } : null
-            });
-        
-            const match = parsedCachedVisualizations.find(
-              v => {
-                // Primary match: by originalId or SQL
-                const primaryMatch = (v.originalId === expectedOriginalId || (v.sql && v.sql === expectedViz?.sql)) &&
-                  v.type === expectedType;
-                
-                // Fallback match: by ID directly (for cases where originalId is missing)
-                const fallbackMatch = v.id === expectedOriginalId && v.type === expectedType;
-                
-                return primaryMatch || fallbackMatch;
-              }
-            );
+            // Find the snapshot that matches this quadrant
+            const snapshot = parsedCachedVisualizations.find(v => v.quadrant === quadrant);
             
-            console.log(`  ✅ Match result for ${quadrant}:`, match ? { id: match.id, type: match.type } : 'NO MATCH');
-            quadrantMap[quadrant] = match ? match.id : null;
+            if (snapshot) {
+              console.log(`✅ Found snapshot for ${quadrant}:`, { 
+                id: snapshot.id, 
+                type: snapshot.type, 
+                title: snapshot.title,
+                hasSavedColumns: !!snapshot.savedColumns,
+                columnCount: snapshot.savedColumns?.length || 0
+              });
+              quadrantMap[quadrant] = snapshot.id;
+            } else {
+              console.log(`❌ No snapshot found for ${quadrant}`);
+              quadrantMap[quadrant] = null;
+            }
           }
           
           console.log("🔍 Final quadrant mapping:", quadrantMap);
@@ -1394,8 +1409,11 @@ setIsEditingSavedQuery(true);
       if (Array.isArray(parsedCachedVisualizations) && parsedCachedVisualizations.length > 0) {
         console.log("✅ handleSelectDashboard - Loading from CACHE!");
         
-        // Transform cached visualizations to ensure chart data is properly formatted
+        // Transform cached visualizations to ensure chart data is properly formatted and use saved columns
         const transformedVisualizations = parsedCachedVisualizations.map(viz => {
+          // Use saved columns if available, otherwise fall back to current columns
+          const columnsToUse = viz.savedColumns && viz.savedColumns.length > 0 ? viz.savedColumns : viz.columns;
+          
           if ((viz.type === 'chart' || viz.type === 'pie') && Array.isArray(viz.data)) {
             // Check if data is already in chart format (has name/value structure)
             const isChartFormat = viz.data.length > 0 && 
@@ -1403,46 +1421,45 @@ setIsEditingSavedQuery(true);
               'name' in viz.data[0] && 
               'value' in viz.data[0];
             
-            console.log(`🔍 handleSelectDashboard Chart ${viz.id} (${viz.type}): isChartFormat=${isChartFormat}, dataLength=${viz.data.length}, columnsLength=${viz.columns?.length || 0}`);
+            console.log(`🔍 handleSelectDashboard Chart ${viz.id} (${viz.type}): isChartFormat=${isChartFormat}, dataLength=${viz.data.length}, savedColumnsLength=${viz.savedColumns?.length || 0}, currentColumnsLength=${viz.columns?.length || 0}`);
             
-            if (!isChartFormat && viz.columns && viz.columns.length >= 2) {
-              // Transform raw data to chart format
-              const chartData = viz.data.map(row => ({
-                name: row[viz.columns[0]?.key] || 'Unknown',
-                value: Number(row[viz.columns[1]?.key]) || 0,
+            if (!isChartFormat && columnsToUse && columnsToUse.length >= 2) {
+              // Transform raw data to chart format using saved columns
+              const chartData = viz.data.map((row: any) => ({
+                name: row[columnsToUse[0]?.key] || 'Unknown',
+                value: Number(row[columnsToUse[1]?.key]) || 0,
               }));
               
-              console.log(`✅ handleSelectDashboard Transformed chart data for ${viz.id}:`, chartData.slice(0, 3));
-              return { ...viz, data: chartData };
+              console.log(`✅ handleSelectDashboard Transformed chart data for ${viz.id} using saved columns:`, chartData.slice(0, 3));
+              return { ...viz, data: chartData, columns: columnsToUse };
             }
           }
           
-          return viz;
+          // Return visualization with saved columns if available
+          return { ...viz, columns: columnsToUse || viz.columns };
         });
         
         setAllVisualizations(transformedVisualizations);
 
-        // Map quadrants: match by originalId or sql, fallback to first
+        // Use snapshot data directly for quadrant mapping
         const quadrantMap: any = {};
         for (const quadrant in parsedQuadrants) {
-          const expectedOriginalId = parsedQuadrants[quadrant];
-          const expectedViz = parsedVizList?.find(v => v.id === expectedOriginalId);
-          const expectedType = expectedViz?.type;
-
-          const match = parsedCachedVisualizations.find(
-            v => {
-              // Primary match: by originalId or SQL
-              const primaryMatch = (v.originalId === expectedOriginalId || (v.sql && v.sql === expectedViz?.sql)) &&
-                v.type === expectedType;
-              
-              // Fallback match: by ID directly (for cases where originalId is missing)
-              const fallbackMatch = v.id === expectedOriginalId && v.type === expectedType;
-              
-              return primaryMatch || fallbackMatch;
-            }
-          );
-
-          quadrantMap[quadrant] = match ? match.id : null;
+          // Find the snapshot that matches this quadrant
+          const snapshot = parsedCachedVisualizations.find(v => v.quadrant === quadrant);
+          
+          if (snapshot) {
+            console.log(`✅ handleSelectDashboard - Found snapshot for ${quadrant}:`, { 
+              id: snapshot.id, 
+              type: snapshot.type, 
+              title: snapshot.title,
+              hasSavedColumns: !!snapshot.savedColumns,
+              columnCount: snapshot.savedColumns?.length || 0
+            });
+            quadrantMap[quadrant] = snapshot.id;
+          } else {
+            console.log(`❌ handleSelectDashboard - No snapshot found for ${quadrant}`);
+            quadrantMap[quadrant] = null;
+          }
         }
         setQuadrants({
           topLeft: quadrantMap.topLeft || null,
