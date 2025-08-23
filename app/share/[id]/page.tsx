@@ -194,12 +194,12 @@ export default function SharedDashboard() {
         {/* Dashboard Content */}
         <div className="flex-1 overflow-hidden px-6 pb-6">
           <div className="bg-card rounded-lg p-6 border border-border h-full flex flex-col">
-            <h1 className="text-xl font-mono font-semibold text-center mb-4 flex-shrink-0">{dashboardTitle}</h1>
+            <h1 className="text-xl font-semibold text-center mb-4 flex-shrink-0">{dashboardTitle}</h1>
             
             <div className="grid grid-cols-2 gap-4 flex-1 min-h-0">
               {/* Top Left */}
               <div className="flex flex-col flex-1 min-h-0">
-                <h2 className="text-sm font-mono font-medium text-center mb-2 flex-shrink-0">{topLeftTitle}</h2>
+                <h2 className="text-sm font-medium text-center mb-2 flex-shrink-0">{topLeftTitle}</h2>
                 <DropZone
                   id="topLeft"
                   onDrop={() => {}} // No-op in read-only mode
@@ -208,7 +208,7 @@ export default function SharedDashboard() {
                   className="flex-1 min-h-0"
                 >
                   {quadrants.topLeft ? renderDroppedViz(quadrants.topLeft) : (
-                    <div className="h-full flex items-center justify-center font-mono font-semibold text-muted-foreground">
+                    <div className="h-full flex items-center justify-center font-semibold text-muted-foreground">
                       No visualization
                     </div>
                   )}
@@ -217,7 +217,7 @@ export default function SharedDashboard() {
 
               {/* Top Right */}
               <div className="flex flex-col flex-1 min-h-0">
-                <h2 className="text-sm font-mono font-medium text-center mb-2 flex-shrink-0">{topRightTitle}</h2>
+                <h2 className="text-sm font-medium text-center mb-2 flex-shrink-0">{topRightTitle}</h2>
                 <DropZone
                   id="topRight"
                   onDrop={() => {}} // No-op in read-only mode
@@ -226,7 +226,7 @@ export default function SharedDashboard() {
                   className="flex-1 min-h-0"
                 >
                   {quadrants.topRight ? renderDroppedViz(quadrants.topRight) : (
-                    <div className="h-full flex items-center justify-center font-mono font-semibold text-muted-foreground">
+                    <div className="h-full flex items-center justify-center font-semibold text-muted-foreground">
                       No visualization
                     </div>
                   )}
@@ -236,7 +236,7 @@ export default function SharedDashboard() {
 
             {/* Bottom */}
             <div className="flex flex-col flex-1 min-h-0">
-              <h2 className="text-sm font-mono font-medium text-center mt-2 mb-2 flex-shrink-0">{bottomTitle}</h2>
+              <h2 className="text-sm font-medium text-center mt-2 mb-2 flex-shrink-0">{bottomTitle}</h2>
               <DropZone
                 id="bottom"
                 onDrop={() => {}} // No-op in read-only mode
@@ -245,7 +245,7 @@ export default function SharedDashboard() {
                 className="flex-1 min-h-0"
               >
                 {quadrants.bottom ? renderDroppedViz(quadrants.bottom) : (
-                  <div className="h-full flex items-center justify-center font-mono font-semibold text-muted-foreground">
+                  <div className="h-full flex items-center justify-center font-semibold text-muted-foreground">
                     No visualization
                   </div>
                 )}
