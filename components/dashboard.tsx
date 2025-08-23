@@ -2299,11 +2299,27 @@ useEffect(() => {
         // Create a new workbook
         const workbook = XLSX.utils.book_new();
         
-        // Convert query results to worksheet format
+        // Convert query results to worksheet format with proper date handling
         const worksheetData = tabQueryResults.map(row => {
           const newRow: any = {};
           tabColumns.forEach(col => {
-            newRow[col.name] = row[col.key];
+            const cellValue = row[col.key];
+            
+            // Handle date values to prevent timezone issues
+            if (typeof cellValue === 'string' && cellValue.match(/^\d{4}-\d{2}-\d{2}T/)) {
+              // Parse the date string and create a date object without timezone conversion
+              const dateMatch = cellValue.match(/^(\d{4})-(\d{2})-(\d{2})/);
+              if (dateMatch) {
+                const [, year, month, day] = dateMatch;
+                // Create date in local timezone to avoid timezone conversion issues
+                const localDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                newRow[col.name] = localDate;
+              } else {
+                newRow[col.name] = cellValue;
+              }
+            } else {
+              newRow[col.name] = cellValue;
+            }
           });
           return newRow;
         });

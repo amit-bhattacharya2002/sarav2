@@ -86,11 +86,124 @@ export function QueryPanel({
   const [showChartGhostText, setShowChartGhostText] = useState(false)
   const [showGhostIndicator, setShowGhostIndicator] = useState(false)
   const [ghostMessage, setGhostMessage] = useState("")
+  // External sorting state
+  const [externalSortColumn, setExternalSortColumn] = useState<string | null>(null)
+  const [externalSortDirection, setExternalSortDirection] = useState<'asc' | 'desc' | null>(null)
   
   // Memoized callback for column order changes to prevent infinite loops
   const handleColumnOrderChange = useCallback((reorderedColumns: { key: string; name: string }[]) => {
     setColumns(reorderedColumns)
   }, [setColumns])
+
+  // Function to handle programmatic sorting
+  const handleSortChange = useCallback((column: string | null, direction: 'asc' | 'desc' | null) => {
+    console.log('🔄 Query panel sort change:', { column, direction })
+    setExternalSortColumn(column)
+    setExternalSortDirection(direction)
+  }, [])
+
+  // Function to programmatically sort by column
+  const sortByColumn = useCallback((columnName: string, direction: 'asc' | 'desc') => {
+    console.log('🔄 Programmatic sort request:', { columnName, direction })
+    setExternalSortColumn(columnName)
+    setExternalSortDirection(direction)
+  }, [])
+
+  // Example: How to use programmatic sorting
+  // This could be triggered by user prompts, commands, or other UI elements
+  // Example usage:
+  // - sortByColumn('Total Amount', 'desc') // Sort by Total Amount in descending order
+  // - sortByColumn('Full Name', 'asc')     // Sort by Full Name in ascending order
+  // - sortByColumn('Year', 'desc')         // Sort by Year in descending order
+
+  // Function to parse sorting requests from user prompts
+  const parseSortRequest = useCallback((prompt: string) => {
+    const promptLower = prompt.toLowerCase()
+    
+    // Look for sorting keywords
+    const sortKeywords = {
+      'ascending': 'asc',
+      'asc': 'asc',
+      'ascend': 'asc',
+      'low to high': 'asc',
+      'smallest to largest': 'asc',
+      'a to z': 'asc',
+      'descending': 'desc',
+      'desc': 'desc',
+      'descend': 'desc',
+      'high to low': 'desc',
+      'largest to smallest': 'desc',
+      'z to a': 'desc'
+    }
+    
+    // Find sort direction
+    let direction: 'asc' | 'desc' | null = null
+    for (const [keyword, dir] of Object.entries(sortKeywords)) {
+      if (promptLower.includes(keyword)) {
+        direction = dir as 'asc' | 'desc'
+        break
+      }
+    }
+    
+    // If no direction specified, default to ascending
+    if (!direction) {
+      direction = 'asc'
+    }
+    
+    // Look for column names in the prompt
+    const availableColumns = columns.map(col => col.name.toLowerCase())
+    let targetColumn: string | null = null
+    
+    for (const columnName of availableColumns) {
+      if (promptLower.includes(columnName.toLowerCase())) {
+        targetColumn = columnName
+        break
+      }
+    }
+    
+    // If no specific column mentioned, try common patterns
+    if (!targetColumn) {
+      if (promptLower.includes('amount') || promptLower.includes('total')) {
+        targetColumn = columns.find(col => 
+          col.name.toLowerCase().includes('amount') || 
+          col.name.toLowerCase().includes('total')
+        )?.name || null
+      } else if (promptLower.includes('name') || promptLower.includes('donor')) {
+        targetColumn = columns.find(col => 
+          col.name.toLowerCase().includes('name') || 
+          col.name.toLowerCase().includes('donor')
+        )?.name || null
+      } else if (promptLower.includes('date') || promptLower.includes('year')) {
+        targetColumn = columns.find(col => 
+          col.name.toLowerCase().includes('date') || 
+          col.name.toLowerCase().includes('year')
+        )?.name || null
+      }
+    }
+    
+    return { targetColumn, direction }
+  }, [columns])
+
+  // Function to apply sorting based on user prompt
+  const applySortFromPrompt = useCallback((prompt: string) => {
+    const { targetColumn, direction } = parseSortRequest(prompt)
+    
+    if (targetColumn) {
+      console.log('🔄 Applying sort from prompt:', { prompt, targetColumn, direction })
+      sortByColumn(targetColumn, direction)
+      return true
+    }
+    
+    console.log('🔄 No valid sort request found in prompt:', prompt)
+    return false
+  }, [parseSortRequest, sortByColumn])
+
+  // Example integration: This could be called from a command system or AI assistant
+  // Example usage:
+  // - applySortFromPrompt("sort by Total Amount in descending order")
+  // - applySortFromPrompt("show results in ascending order by Full Name")
+  // - applySortFromPrompt("order by Year descending")
+  // - applySortFromPrompt("sort high to low by amount")
   
   // Chart column selection state - use props if provided, otherwise use local state
   const [localSelectedXColumn, setLocalSelectedXColumn] = useState<string>('')
@@ -273,11 +386,27 @@ export function QueryPanel({
       // Create a new workbook
       const workbook = XLSX.utils.book_new();
       
-      // Convert query results to worksheet format
+      // Convert query results to worksheet format with proper date handling
       const worksheetData = queryResults.map(row => {
         const newRow: any = {};
         columns.forEach(col => {
-          newRow[col.name] = row[col.key];
+          const cellValue = row[col.key];
+          
+          // Handle date values to prevent timezone issues
+          if (typeof cellValue === 'string' && cellValue.match(/^\d{4}-\d{2}-\d{2}T/)) {
+            // Parse the date string and create a date object without timezone conversion
+            const dateMatch = cellValue.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (dateMatch) {
+              const [, year, month, day] = dateMatch;
+              // Create date in local timezone to avoid timezone conversion issues
+              const localDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+              newRow[col.name] = localDate;
+            } else {
+              newRow[col.name] = cellValue;
+            }
+          } else {
+            newRow[col.name] = cellValue;
+          }
         });
         return newRow;
       });
@@ -609,6 +738,9 @@ export function QueryPanel({
                   sql={sqlQuery || undefined} 
                   readOnlyMode={readOnlyMode}
                   onColumnOrderChange={handleColumnOrderChange}
+                  externalSortColumn={externalSortColumn}
+                  externalSortDirection={externalSortDirection}
+                  onSortChange={handleSortChange}
                 />
               </div>
             )}

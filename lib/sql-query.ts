@@ -8,7 +8,7 @@ export interface QueryResult {
   error?: string
 }
 
-export async function executeSQLQuery(sql: string, originalQuestion?: string): Promise<QueryResult> {
+export async function executeSQLQuery(sql: string, originalQuestion?: string, userSortPreference?: 'asc' | 'desc'): Promise<QueryResult> {
   try {
     // Enhanced validation using our new validator
     const validation = originalQuestion 
@@ -79,9 +79,9 @@ export async function executeSQLQuery(sql: string, originalQuestion?: string): P
       }
     })
 
-    // Post-process results to ensure ascending order by first numeric column
+    // Apply user's sorting preference to the results if specified
     let sortedRows = rows
-    if (rows.length > 0) {
+    if (userSortPreference && rows.length > 0) {
       const firstRow = rows[0]
       
       // Look for common numeric column names first
@@ -110,15 +110,13 @@ export async function executeSQLQuery(sql: string, originalQuestion?: string): P
       
       // Sort if we found a numeric column
       if (primaryNumericColumn) {
-        console.log(`🔢 Sorting by column: "${primaryNumericColumn}"`)
+        console.log(`🔄 Applying user sort preference: ${userSortPreference} to column: "${primaryNumericColumn}"`)
         sortedRows = [...rows].sort((a, b) => {
           const aVal = Number(a[primaryNumericColumn]) || 0
           const bVal = Number(b[primaryNumericColumn]) || 0
-          return aVal - bVal // Ascending order
+          return userSortPreference === 'asc' ? aVal - bVal : bVal - aVal
         })
-        console.log(`📊 Sorted ${sortedRows.length} rows in ascending order`)
-      } else {
-        console.log('⚠️ No numeric column found for sorting')
+        console.log(`📊 Sorted ${sortedRows.length} rows in ${userSortPreference} order`)
       }
     }
 

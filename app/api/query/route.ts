@@ -5,6 +5,26 @@ import { features } from '@/lib/config'
 import { rateLimiters, createRateLimitHeaders, checkRateLimit } from '@/lib/rate-limiter'
 import { DEMO_USERS } from '@/lib/auth'
 
+// Function to extract sorting preference from question
+function extractSortPreference(question: string): 'asc' | 'desc' | undefined {
+  const questionLower = question.toLowerCase()
+  
+  // Look for sorting keywords
+  if (questionLower.includes('ascending') || questionLower.includes('asc') || 
+      questionLower.includes('low to high') || questionLower.includes('smallest to largest') ||
+      questionLower.includes('a to z')) {
+    return 'asc'
+  }
+  
+  if (questionLower.includes('descending') || questionLower.includes('desc') || 
+      questionLower.includes('high to low') || questionLower.includes('largest to smallest') ||
+      questionLower.includes('z to a')) {
+    return 'desc'
+  }
+  
+  return undefined
+}
+
 // Function to transform column names to human-readable aliases
 function transformColumnsToHumanReadable(columns: any[]) {
   const aliasMapping: { [key: string]: string } = {
@@ -152,8 +172,11 @@ export async function POST(req: NextRequest) {
 
       const output_mode = outputModeMap[outputMode] || 1
 
+      // Extract sorting preference from question
+      const sortPreference = extractSortPreference(question)
+      
       // Execute the query to get fresh results
-      const queryResult = await executeSQLQuery(sql, question)
+      const queryResult = await executeSQLQuery(sql, question, sortPreference)
       if (!queryResult.success) {
         return addRateLimitHeaders(
           NextResponse.json({ success: false, error: queryResult.error }, { status: 400 })
@@ -211,8 +234,11 @@ export async function POST(req: NextRequest) {
 
       const output_mode = outputModeMap[outputMode] || 1
 
+      // Extract sorting preference from question
+      const sortPreference = extractSortPreference(question)
+      
       // Execute the query to get fresh results
-      const queryResult = await executeSQLQuery(sql, question)
+      const queryResult = await executeSQLQuery(sql, question, sortPreference)
       if (!queryResult.success) {
         return addRateLimitHeaders(
           NextResponse.json({ success: false, error: queryResult.error }, { status: 400 })
@@ -340,7 +366,9 @@ export async function POST(req: NextRequest) {
     }
 
     console.time("🔁 EXECUTE_SQL")
-    const result = await executeSQLQuery(sql, question)
+    // Extract sorting preference from question
+    const sortPreference = extractSortPreference(question)
+    const result = await executeSQLQuery(sql, question, sortPreference)
     console.timeEnd("🔁 EXECUTE_SQL")
 
     if (!result.success) {

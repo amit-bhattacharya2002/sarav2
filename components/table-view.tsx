@@ -1,8 +1,8 @@
 'use client'
 
 import { useDrag } from 'react-dnd'
-import { useState, useEffect, useRef } from 'react'
-import { Maximize2, Filter } from "lucide-react"
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { Maximize2, Filter, ChevronUp, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { FullscreenResultsModal } from "./fullscreen-results-modal"
@@ -18,7 +18,13 @@ interface TableViewProps {
   readOnlyMode?: boolean // Add this prop to control dragging behavior
   onColumnOrderChange?: (reorderedColumns: { key: string; name: string }[]) => void // Add callback for column order changes
   inDashboard?: boolean // Add this prop to indicate if table is in a dashboard
+  // External sorting control
+  externalSortColumn?: string | null
+  externalSortDirection?: 'asc' | 'desc' | null
+  onSortChange?: (column: string | null, direction: 'asc' | 'desc' | null) => void
 }
+
+type SortDirection = 'asc' | 'desc' | null
 
 export function TableView({
   data,
@@ -31,6 +37,9 @@ export function TableView({
   readOnlyMode = false, // Add this prop
   onColumnOrderChange, // Add this prop
   inDashboard = false, // Add this prop
+  externalSortColumn = null,
+  externalSortDirection = null,
+  onSortChange,
 }: TableViewProps) {
   const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set(columns.map(col => col.key)))
   const [columnOrder, setColumnOrder] = useState<string[]>(columns.map(col => col.key))
@@ -39,6 +48,10 @@ export function TableView({
   const [startInFullscreen, setStartInFullscreen] = useState(false)
   const [isColumnSelectorModalOpen, setIsColumnSelectorModalOpen] = useState(false)
   const lastColumnOrderRef = useRef<string[]>(columns.map(col => col.key))
+  
+  // Sorting state
+  const [sortColumn, setSortColumn] = useState<string | null>(null)
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
   // Initialize selected columns and order when columns change
   useEffect(() => {
@@ -46,10 +59,105 @@ export function TableView({
     setColumnOrder(columns.map(col => col.key))
   }, [columns])
 
+  // Reset sorting when data changes significantly
+  useEffect(() => {
+    setSortColumn(null)
+    setSortDirection('asc')
+  }, [data])
+
+  // Handle external sorting control
+  useEffect(() => {
+    if (externalSortColumn !== undefined && externalSortDirection !== undefined) {
+      setSortColumn(externalSortColumn)
+      setSortDirection(externalSortDirection)
+    }
+  }, [externalSortColumn, externalSortDirection])
+
   // Filter and order columns based on selection and order
   const visibleColumns = columnOrder
     .map(key => columns.find(col => col.key === key))
     .filter((col): col is { key: string; name: string } => col !== undefined && selectedColumns.has(col.key))
+
+  // Sort data based on current sort state
+  const sortedData = useMemo(() => {
+    if (!sortColumn || !sortDirection) {
+      return data
+    }
+
+    return [...data].sort((a, b) => {
+      const aValue = a[sortColumn]
+      const bValue = b[sortColumn]
+
+      // Handle null/undefined values
+      if (aValue === null || aValue === undefined) return sortDirection === 'asc' ? -1 : 1
+      if (bValue === null || bValue === undefined) return sortDirection === 'asc' ? 1 : -1
+
+      // Handle nested objects (like _id containing {constituentId, name})
+      let aDisplayValue = aValue
+      let bDisplayValue = bValue
+      
+      if (typeof aValue === 'object' && aValue !== null) {
+        aDisplayValue = aValue.name || aValue.constituentId || JSON.stringify(aValue)
+      }
+      if (typeof bValue === 'object' && bValue !== null) {
+        bDisplayValue = bValue.name || bValue.constituentId || JSON.stringify(bValue)
+      }
+
+      // Handle numbers and numeric strings
+      const aNum = parseFloat(aDisplayValue)
+      const bNum = parseFloat(bDisplayValue)
+      
+      if (!isNaN(aNum) && !isNaN(bNum)) {
+        return sortDirection === 'asc' ? aNum - bNum : bNum - aNum
+      }
+
+      // Handle strings (including date strings)
+      const aString = String(aDisplayValue).toLowerCase()
+      const bString = String(bDisplayValue).toLowerCase()
+      
+      if (aString < bString) return sortDirection === 'asc' ? -1 : 1
+      if (aString > bString) return sortDirection === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [data, sortColumn, sortDirection])
+
+  // Handle column sorting
+  const handleColumnSort = (columnKey: string) => {
+    let newSortColumn: string | null = null
+    let newSortDirection: 'asc' | 'desc' | null = 'asc'
+    
+    if (sortColumn === columnKey) {
+      // Toggle direction if same column
+      if (sortDirection === 'asc') {
+        newSortDirection = 'desc'
+        newSortColumn = columnKey
+      } else if (sortDirection === 'desc') {
+        newSortColumn = null
+        newSortDirection = 'asc'
+      }
+    } else {
+      // New column, start with ascending
+      newSortColumn = columnKey
+      newSortDirection = 'asc'
+    }
+    
+    // Update internal state
+    setSortColumn(newSortColumn)
+    setSortDirection(newSortDirection)
+    
+    // Notify parent component if callback provided
+    if (onSortChange) {
+      onSortChange(newSortColumn, newSortDirection)
+    }
+  }
+
+  // Get sort icon for a column
+  const getSortIcon = (columnKey: string) => {
+    if (sortColumn !== columnKey) return null
+    return sortDirection === 'asc' ? 
+      <ChevronUp className="h-4 w-4 text-primary" /> : 
+      <ChevronDown className="h-4 w-4 text-primary" />
+  }
 
   // Create a stable ID based on content and column order
           const stableId = `table-${outputMode}-${JSON.stringify(data).slice(0, 100)}-${JSON.stringify(visibleColumns.map(col => col.key)).slice(0, 50)}-${sql ? sql.slice(0, 50) : 'no-sql'}`
@@ -123,6 +231,18 @@ export function TableView({
     e.stopPropagation() // Prevent triggering table drag
     setDraggedColumn(columnKey)
     e.dataTransfer.effectAllowed = 'move'
+  }
+
+  // Handle column click for sorting (prevented during drag)
+  const handleColumnClick = (e: React.MouseEvent, columnKey: string) => {
+    // Don't sort if we're dragging
+    if (draggedColumn) {
+      return
+    }
+    
+    e.preventDefault()
+    e.stopPropagation()
+    handleColumnSort(columnKey)
   }
 
   const handleColumnDragOver = (e: React.DragEvent) => {
@@ -291,7 +411,9 @@ export function TableView({
                       key={col.key} 
                       className={`${compact ? "p-1" : "p-2"} text-left font-medium sticky top-0 bg-muted z-10 border-b border-border tracking-normal select-none h-10 ${
                         draggedColumn === col.key ? 'opacity-50' : ''
-                      } ${(outputMode === 'chart' || outputMode === 'pie' || inDashboard) ? 'cursor-default' : 'cursor-move'}`}
+                      } ${(outputMode === 'chart' || outputMode === 'pie' || inDashboard) ? 'cursor-pointer' : 'cursor-move'} hover:bg-muted/80 transition-colors ${
+                        sortColumn === col.key ? 'bg-primary/10 border-primary/20' : ''
+                      }`}
                       style={{ 
                         whiteSpace: 'nowrap'
                       }}
@@ -300,13 +422,21 @@ export function TableView({
                       onDragOver={handleColumnDragOver}
                       onDrop={(e) => handleColumnDrop(e, col.key)}
                       onDragEnd={handleColumnDragEnd}
-                      title={(outputMode === 'chart' || outputMode === 'pie') ? "Column reordering disabled for charts" : inDashboard ? "Column reordering disabled in dashboard" : "Drag to reorder column"}
+                      onClick={(e) => handleColumnClick(e, col.key)}
+                      title={
+                        (outputMode === 'chart' || outputMode === 'pie') 
+                          ? "Click to sort column" 
+                          : inDashboard 
+                            ? "Click to sort column" 
+                            : "Click to sort, drag to reorder column"
+                      }
                     >
                       <div className="flex items-center gap-1 h-full">
                         {(outputMode !== 'chart' && outputMode !== 'pie' && !inDashboard) && (
                           <span className="text-xs text-muted-foreground">⋮⋮</span>
                         )}
                         <span className="leading-tight">{col.name}</span>
+                        {getSortIcon(col.key)}
                       </div>
                     </th>
                   )
@@ -314,7 +444,7 @@ export function TableView({
               </tr>
             </thead>
             <tbody>
-              {data.map((row, i) => (
+              {sortedData.map((row, i) => (
                 <tr key={i} className="border-b hover:bg-muted/50">
                   {visibleColumns.map((col, j) => {
                     const cellValue = row[col.key]
@@ -339,7 +469,13 @@ export function TableView({
                         return Math.round(numValue).toLocaleString('en-US', { maximumFractionDigits: 0 })
                       }
                       if (typeof cellValue === 'string' && cellValue.match(/^\d{4}-\d{2}-\d{2}T/)) {
-                        return new Date(cellValue).toLocaleDateString('en-CA') // e.g., 2024-05-10
+                        // Parse the date string to avoid timezone conversion issues
+                        const dateMatch = cellValue.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                        if (dateMatch) {
+                          const [, year, month, day] = dateMatch;
+                          return `${year}-${month}-${day}`; // Return date in YYYY-MM-DD format
+                        }
+                        return cellValue;
                       }
                       // Removed truncation logic to show full content
                       return cellValue
