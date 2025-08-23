@@ -152,7 +152,7 @@ export default function LoginPage() {
               SARA
             </h1>
             <p className="text-xl text-white/70 font-light sara-brand">
-              Smart Analytics <br /> Reporting Assistant
+              Simple Automated <br /> Reporting Assistant
             </p>
           </div>
 
