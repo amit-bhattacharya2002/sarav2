@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AlertCircle, ChevronDown, ChevronUp, ArrowLeft, Database, BarChart3, Share2, Zap, Shield, Users } from 'lucide-react'
+import Image from 'next/image'
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')
@@ -255,6 +256,24 @@ export default function LoginPage() {
               <Zap className="h-4 w-4 text-green-400" />
               <span className="text-green-400 font-medium">Ready to get started?</span>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="fixed bottom-0 left-0 right-0 bg-black/40 backdrop-blur-sm border-t border-white/10">
+        <div className="flex items-center justify-center py-6 px-6">
+          <div className="flex items-center  space-x-3  text-white/60 hover:text-white/80 transition-colors">
+            <span className="text-base">Presented by</span>
+            <a 
+              href="https://meaningfulinnovations.org" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center space-x-3 hover:text-green-300 transition-colors"
+            >
+              <Image src="/milogocropped.png" alt="Meaningful Innovations Logo" width={32} height={32} />
+              {/* <span className="text-base text-blue-300 font-medium">Meaningful Innovations</span> */}
+            </a>
           </div>
         </div>
       </div>

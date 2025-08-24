@@ -222,8 +222,8 @@ export function TableView({
 
   // Handle column reordering
   const handleColumnDragStart = (e: React.DragEvent, columnKey: string) => {
-    // Disable column reordering for charts and tables in dashboards
-    if (outputMode === 'chart' || outputMode === 'pie' || inDashboard) {
+    // Disable column reordering for charts and tables in read-only dashboard mode
+    if (outputMode === 'chart' || outputMode === 'pie' || (inDashboard && readOnlyMode)) {
       e.preventDefault()
       return
     }
@@ -246,8 +246,8 @@ export function TableView({
   }
 
   const handleColumnDragOver = (e: React.DragEvent) => {
-    // Disable column reordering for charts and tables in dashboards
-    if (outputMode === 'chart' || outputMode === 'pie' || inDashboard) {
+    // Disable column reordering for charts and tables in read-only dashboard mode
+    if (outputMode === 'chart' || outputMode === 'pie' || (inDashboard && readOnlyMode)) {
       e.preventDefault()
       return
     }
@@ -258,8 +258,8 @@ export function TableView({
   }
 
   const handleColumnDrop = (e: React.DragEvent, targetColumnKey: string) => {
-    // Disable column reordering for charts and tables in dashboards
-    if (outputMode === 'chart' || outputMode === 'pie' || inDashboard) {
+    // Disable column reordering for charts and tables in read-only dashboard mode
+    if (outputMode === 'chart' || outputMode === 'pie' || (inDashboard && readOnlyMode)) {
       e.preventDefault()
       return
     }
@@ -285,8 +285,8 @@ export function TableView({
 
   // Call the callback when column order changes - only when order actually changes
   useEffect(() => {
-    // Disable column reordering for charts and tables in dashboards
-    if (outputMode === 'chart' || outputMode === 'pie' || inDashboard) {
+    // Disable column reordering for charts and tables in read-only dashboard mode
+    if (outputMode === 'chart' || outputMode === 'pie' || (inDashboard && readOnlyMode)) {
       return
     }
     
@@ -304,11 +304,11 @@ export function TableView({
         lastColumnOrderRef.current = [...columnOrder]
       }
     }
-  }, [columnOrder, columns, onColumnOrderChange, outputMode, inDashboard])
+  }, [columnOrder, columns, onColumnOrderChange, outputMode, inDashboard, readOnlyMode])
 
   const handleColumnDragEnd = (e: React.DragEvent) => {
-    // Disable column reordering for charts and tables in dashboards
-    if (outputMode === 'chart' || outputMode === 'pie' || inDashboard) {
+    // Disable column reordering for charts and tables in read-only dashboard mode
+    if (outputMode === 'chart' || outputMode === 'pie' || (inDashboard && readOnlyMode)) {
       e.preventDefault()
       return
     }
@@ -379,7 +379,7 @@ export function TableView({
               </DialogContent>
             </Dialog>
           </div>
-          {!hideExpandButton && (
+          {/* {!hideExpandButton && (
             <Button
               variant="outline"
               size="sm"
@@ -389,7 +389,7 @@ export function TableView({
             >
               <Maximize2 className="h-4 w-4" />
             </Button>
-          )}
+          )} */}
         </div>
         
 
@@ -411,13 +411,13 @@ export function TableView({
                       key={col.key} 
                       className={`${compact ? "p-1" : "p-2"} text-left font-medium sticky top-0 bg-muted z-10 border-b border-border tracking-normal select-none h-10 ${
                         draggedColumn === col.key ? 'opacity-50' : ''
-                      } ${(outputMode === 'chart' || outputMode === 'pie' || inDashboard) ? 'cursor-pointer' : 'cursor-move'} hover:bg-muted/80 transition-colors ${
+                      } ${(outputMode === 'chart' || outputMode === 'pie' || (inDashboard && readOnlyMode)) ? 'cursor-pointer' : 'cursor-move'} hover:bg-muted/80 transition-colors ${
                         sortColumn === col.key ? 'bg-primary/10 border-primary/20' : ''
                       }`}
                       style={{ 
                         whiteSpace: 'nowrap'
                       }}
-                      draggable={outputMode !== 'chart' && outputMode !== 'pie' && !inDashboard}
+                      draggable={outputMode !== 'chart' && outputMode !== 'pie' && (!inDashboard || !readOnlyMode)}
                       onDragStart={(e) => handleColumnDragStart(e, col.key)}
                       onDragOver={handleColumnDragOver}
                       onDrop={(e) => handleColumnDrop(e, col.key)}
@@ -426,13 +426,13 @@ export function TableView({
                       title={
                         (outputMode === 'chart' || outputMode === 'pie') 
                           ? "Click to sort column" 
-                          : inDashboard 
+                          : (inDashboard && readOnlyMode)
                             ? "Click to sort column" 
                             : "Click to sort, drag to reorder column"
                       }
                     >
                       <div className="flex items-center gap-1 h-full">
-                        {(outputMode !== 'chart' && outputMode !== 'pie' && !inDashboard) && (
+                        {(outputMode !== 'chart' && outputMode !== 'pie' && (!inDashboard || !readOnlyMode)) && (
                           <span className="text-xs text-muted-foreground">⋮⋮</span>
                         )}
                         <span className="leading-tight">{col.name}</span>

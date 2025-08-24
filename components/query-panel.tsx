@@ -727,7 +727,15 @@ export function QueryPanel({
       {/* Scrollable Content Area */}
       <div className="flex-1 overflow-auto p-4 pt-0">
         {/* Results Area - Always visible with border */}
-        <div className="bg-card border-2 border-dashed border-muted-foreground/30 rounded p-4 flex flex-col flex-1 h-full">
+        <div className="bg-card border-2 border-dashed border-muted-foreground/30 rounded p-4 flex flex-col flex-1 h-full relative">
+        {isLoading && (
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
+            <div className="flex flex-col items-center gap-3">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent" />
+              <div className="text-sm font-medium text-muted-foreground">Loading query results...</div>
+            </div>
+          </div>
+        )}
         {queryResults && queryResults.length > 0 && columns.length >= 1 ? (
           <div className="flex flex-col flex-1 min-h-0">
             {outputMode === 'table' && (

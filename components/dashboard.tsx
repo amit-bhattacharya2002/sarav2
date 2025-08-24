@@ -23,6 +23,7 @@ import { DraggableChart } from '@/components/draggable-chart'
 import { DraggablePieChart } from '@/components/draggable-pie'
 import { ShareDashboardSection } from './share-dashboard-section'
 import { GhostIndicator } from '@/components/ui/ghost-indicator'
+import { DeleteConfirmationModal } from './delete-confirmation-modal'
 import * as XLSX from 'xlsx'
 import { toast } from 'sonner'
 
@@ -181,48 +182,55 @@ export default function Dashboard() {
       return;
     }
 
-    if (!confirm('Are you sure you want to delete this dashboard? This action cannot be undone.')) {
+    setDeleteDashboardModalOpen(true);
+    return;
+  }
+
+  const handleConfirmDeleteDashboard = async () => {
+    if (!dashboardIdNumber) {
+      alert('No dashboard to delete');
       return;
     }
 
-    fetch(`/api/dashboard?id=${dashboardIdNumber}`, {
-      method: 'DELETE',
-      headers: createHeaders(),
-    })
-      .then(res => res.json().then(data => ({ ok: res.ok, data })))
-      .then(({ ok, data }) => {
-        if (ok) {
-          // Show ghost indicator instead of alert
-          setGhostMessage("Your dashboard has been deleted successfully.");
-          setShowGhostIndicator(true);
-          // Hide ghost indicator after 3 seconds
-          setTimeout(() => setShowGhostIndicator(false), 3000);
-          
-          // Clear all dashboard data
-          setQuadrants({ topLeft: null, topRight: null, bottom: null });
-          setAllVisualizations([]);
-          setDashboardSectionTitle("Untitled Dashboard");
-          setTopLeftTitle("Sample Title");
-          setTopRightTitle("Sample Title");
-          setBottomTitle("Sample Title");
-          setOriginalDashboardData(null);
-          setHasDashboardChanges(false);
-          
-          // Remove dashboardId from URL and set to new mode
-          router.replace('/dashboard?edit=true');
-          
-          // Trigger history panel refresh for dashboard updates
-          const event = new CustomEvent('dashboardUpdated', { 
-            detail: { dashboardId: dashboardIdNumber } 
-          });
-          window.dispatchEvent(event);
-        } else {
-          alert('Error deleting dashboard: ' + (data.error || 'Unknown error'));
-        }
-      })
-      .catch(err => {
-        alert('Error deleting dashboard: ' + err.message);
+    try {
+      const response = await fetch(`/api/dashboard?id=${dashboardIdNumber}`, {
+        method: 'DELETE',
+        headers: createHeaders(),
       });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        // Show ghost indicator instead of alert
+        setGhostMessage("Your dashboard has been deleted successfully.");
+        setShowGhostIndicator(true);
+        // Hide ghost indicator after 3 seconds
+        setTimeout(() => setShowGhostIndicator(false), 3000);
+        
+        // Clear all dashboard data
+        setQuadrants({ topLeft: null, topRight: null, bottom: null });
+        setAllVisualizations([]);
+        setDashboardSectionTitle("Untitled Dashboard");
+        setTopLeftTitle("Sample Title");
+        setTopRightTitle("Sample Title");
+        setBottomTitle("Sample Title");
+        setOriginalDashboardData(null);
+        setHasDashboardChanges(false);
+        
+        // Remove dashboardId from URL and set to new mode
+        router.replace('/dashboard?edit=true');
+        
+        // Trigger history panel refresh for dashboard updates
+        const event = new CustomEvent('dashboardUpdated', { 
+          detail: { dashboardId: dashboardIdNumber } 
+        });
+        window.dispatchEvent(event);
+      } else {
+        alert('Error deleting dashboard: ' + (data.error || 'Unknown error'));
+      }
+    } catch (err: any) {
+      alert('Error deleting dashboard: ' + err.message);
+    }
   }
 
   
@@ -258,6 +266,11 @@ export default function Dashboard() {
   const [columns, setColumns] = useState<{ key: string; name: string }[]>([])
   const [error, setError] = useState<string | null>(null)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  
+  // Delete confirmation modal states
+  const [deleteDashboardModalOpen, setDeleteDashboardModalOpen] = useState(false)
+  const [deleteQueryModalOpen, setDeleteQueryModalOpen] = useState(false)
+  const [deleteSavedQueryModalOpen, setDeleteSavedQueryModalOpen] = useState(false)
 
   // Stabilize setQuestion to prevent unnecessary re-renders
   const stableSetQuestion = useCallback((value: string) => {
@@ -425,9 +438,17 @@ export default function Dashboard() {
       return true;
     }
     
-    // Check if any visualization IDs or types are different
-    const currentVizData = allVisualizations.map(v => ({ id: v.id, type: v.type }));
-    const originalVizData = originalDashboardData.visualizations.map(v => ({ id: v.id, type: v.type }));
+    // Check if any visualization IDs, types, or column orders are different
+    const currentVizData = allVisualizations.map(v => ({ 
+      id: v.id, 
+      type: v.type,
+      columns: v.columns // Include column order in comparison
+    }));
+    const originalVizData = originalDashboardData.visualizations.map(v => ({ 
+      id: v.id, 
+      type: v.type,
+      columns: v.columns // Include column order in comparison
+    }));
     
     const vizChanged = JSON.stringify(currentVizData) !== JSON.stringify(originalVizData);
     
@@ -989,7 +1010,12 @@ console.log('🪄 Updating saved query with visualConfig:', visualConfig);
   const handleDeleteSavedQuery = async () => {
     if (!selectedSavedQueryId) return;
     
-    if (!confirm('Are you sure you want to delete this query?')) return;
+    setDeleteQueryModalOpen(true);
+    return;
+  }
+
+  const handleConfirmDeleteQuery = async () => {
+    if (!selectedSavedQueryId) return;
     
     try {
       const response = await fetch('/api/query', {
@@ -1017,6 +1043,43 @@ console.log('🪄 Updating saved query with visualConfig:', visualConfig);
       
       // Trigger history panel refresh
       const event = new CustomEvent('queryUpdated', { detail: { queryId: selectedSavedQueryId } });
+      window.dispatchEvent(event);
+      
+    } catch (err: any) {
+      console.error('Error deleting query:', err);
+      setError(err.message || 'Failed to delete query');
+    }
+  }
+
+  const handleConfirmDeleteSavedQuery = async () => {
+    // This function will be called from the modal, but we need to get the query ID from the current context
+    // For now, we'll use a simple approach - this can be enhanced later
+    const currentQueryId = selectedSavedQueryId;
+    
+    if (!currentQueryId) return;
+    
+    try {
+      const response = await fetch('/api/query', {
+        method: 'DELETE',
+        headers: createHeaders(),
+        body: JSON.stringify({ id: currentQueryId })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete query');
+      }
+
+      // Show ghost indicator
+      setGhostMessage("Your query has been deleted successfully.");
+      setShowGhostIndicator(true);
+      // Hide ghost indicator after 3 seconds
+      setTimeout(() => setShowGhostIndicator(false), 3000);
+
+      // Clear the current query and reset to new query mode
+      handleClearQuery();
+      
+      // Trigger history panel refresh
+      const event = new CustomEvent('queryUpdated', { detail: { action: 'deleted', queryId: currentQueryId } });
       window.dispatchEvent(event);
       
     } catch (err: any) {
@@ -1641,6 +1704,8 @@ setIsEditingSavedQuery(true);
                   : v
               )
             );
+            // Trigger dashboard change detection to enable the update button
+            triggerChangeDetection();
           }}
         />
       );
@@ -2155,35 +2220,11 @@ console.log('🪄 Debug: This means a saved query tab is being rendered');
     const handleTabDelete = useCallback(async () => {
       if (!query?.id) return
       
-      if (!confirm('Are you sure you want to delete this saved query?')) return
-      
-      try {
-        const response = await fetch('/api/query', {
-          method: 'DELETE',
-          headers: createHeaders(),
-          body: JSON.stringify({ id: query.id })
-        })
+      setDeleteSavedQueryModalOpen(true);
+      return;
+    }, [query?.id])
 
-        if (!response.ok) {
-          throw new Error('Failed to delete query')
-        }
 
-        // Show ghost indicator
-        setGhostMessage("Your query has been deleted successfully.");
-        setShowGhostIndicator(true);
-        // Hide ghost indicator after 3 seconds
-        setTimeout(() => setShowGhostIndicator(false), 3000);
-
-        // Dispatch event to refresh history panel
-        const event = new CustomEvent('queryUpdated', { detail: { action: 'deleted', queryId: query.id } })
-        window.dispatchEvent(event)
-
-        onClose() // Close the tab after successful deletion
-      } catch (err: any) {
-        console.error('Error deleting query:', err)
-        alert('Failed to delete query: ' + err.message)
-      }
-    }, [query?.id, onClose])
 
     const hasTabChanges = useCallback(() => {
       if (!tabIsEditing || !tabOriginalData) return false
@@ -2430,7 +2471,10 @@ useEffect(() => {
 
         {tabIsLoading && (
           <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent" />
+            <div className="flex flex-col items-center gap-3">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent" />
+              <div className="text-sm font-medium text-muted-foreground">Loading query results...</div>
+            </div>
           </div>
         )}
 
@@ -3225,12 +3269,41 @@ useEffect(() => {
 
 
     {isGlobalLoading && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 pointer-events-auto">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent" />
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm pointer-events-auto">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent" />
+          <div className="text-sm font-medium text-muted-foreground">Loading...</div>
+        </div>
       </div>
     )}
-      
 
+    {/* Delete Confirmation Modals */}
+    <DeleteConfirmationModal
+      open={deleteDashboardModalOpen}
+      onOpenChange={setDeleteDashboardModalOpen}
+      onConfirm={handleConfirmDeleteDashboard}
+      title="Delete Dashboard"
+      itemType="dashboard"
+      description="Are you sure you want to delete this dashboard? This action cannot be undone."
+    />
+
+    <DeleteConfirmationModal
+      open={deleteQueryModalOpen}
+      onOpenChange={setDeleteQueryModalOpen}
+      onConfirm={handleConfirmDeleteQuery}
+      title="Delete Query"
+      itemType="query"
+      description="Are you sure you want to delete this query? This action cannot be undone."
+    />
+
+    <DeleteConfirmationModal
+      open={deleteSavedQueryModalOpen}
+      onOpenChange={setDeleteSavedQueryModalOpen}
+      onConfirm={handleConfirmDeleteSavedQuery}
+      title="Delete Saved Query"
+      itemType="saved query"
+      description="Are you sure you want to delete this saved query? This action cannot be undone."
+    />
       
     </DndProvider>
     </>

@@ -50,7 +50,7 @@ export function DraggableChart({
     <>
       <div ref={drag as any} style={{ opacity: isDragging ? 0.5 : 1 }} className="relative h-full w-full">
         {/* Expand Button - only show if showExpandButton is true */}
-        {showExpandButton && (
+        {/* {showExpandButton && (
           <div className="absolute top-2 right-2 z-10">
             <Button
               variant="outline"
@@ -65,7 +65,7 @@ export function DraggableChart({
               <Maximize2 className="h-4 w-4" />
             </Button>
           </div>
-        )}
+        )} */}
         
         {type === 'pie' ? (
           <PieGraph data={data} />
