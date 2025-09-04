@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 
-import { Loader2, Save, Trash2, LayoutList, BarChart2, PieChart, X, AlertTriangle, AlertCircle, XCircle, Download, Settings } from "lucide-react"
+import { Loader2, Save, Trash2, LayoutList, BarChart2, PieChart, X, AlertTriangle, AlertCircle, XCircle, Download, Settings, ChevronDown, ChevronRight, Info, Sparkles } from "lucide-react"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { TableView } from "@/components/table-view"
 import { DraggableChart } from './draggable-chart'
@@ -16,6 +16,71 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { GhostIndicator } from '@/components/ui/ghost-indicator'
 import * as XLSX from 'xlsx'
 import { toast } from 'sonner'
+
+// Database schema columns - all available columns from the database
+const DATABASE_COLUMNS = [
+  // Gifts table columns
+  { key: 'g.ACCOUNTID', name: 'Account ID', table: 'gifts' },
+  { key: 'g.GIFTID', name: 'Gift ID', table: 'gifts' },
+  { key: 'g.GIFTDATE', name: 'Gift Date', table: 'gifts' },
+  { key: 'g.GIFTAMOUNT', name: 'Gift Amount', table: 'gifts' },
+  { key: 'g.TRANSACTIONTYPE', name: 'Transaction Type', table: 'gifts' },
+  { key: 'g.GIFTTYPE', name: 'Gift Type', table: 'gifts' },
+  { key: 'g.PAYMENTMETHOD', name: 'Payment Method', table: 'gifts' },
+  { key: 'g.PLEDGEID', name: 'Pledge ID', table: 'gifts' },
+  { key: 'g.SOFTCREDITINDICATOR', name: 'Soft Credit Indicator', table: 'gifts' },
+  { key: 'g.SOFTCREDITAMOUNT', name: 'Soft Credit Amount', table: 'gifts' },
+  { key: 'g.SOFTCREDITID', name: 'Soft Credit ID', table: 'gifts' },
+  { key: 'g.SOURCECODE', name: 'Source Code', table: 'gifts' },
+  { key: 'g.DESIGNATION', name: 'Designation', table: 'gifts' },
+  { key: 'g.UNIT', name: 'Unit', table: 'gifts' },
+  { key: 'g.PURPOSECATEGORY', name: 'Purpose Category', table: 'gifts' },
+  { key: 'g.APPEAL', name: 'Appeal', table: 'gifts' },
+  { key: 'g.GIVINGLEVEL', name: 'Giving Level', table: 'gifts' },
+  { key: 'g.UUID', name: 'UUID', table: 'gifts' },
+  
+  // Constituents table columns
+  { key: 'c.LOOKUPID', name: 'Lookup ID', table: 'constituents' },
+  { key: 'c.TYPE', name: 'Type', table: 'constituents' },
+  { key: 'c.DONORTYPE1', name: 'Donor Type', table: 'constituents' },
+  { key: 'c.PERSONORGANIZATIONINDICATOR', name: 'Person/Organization', table: 'constituents' },
+  { key: 'c.ALUMNITYPE', name: 'Alumni Type', table: 'constituents' },
+  { key: 'c.UNDERGRADUATEDEGREE1', name: 'Undergraduate Degree', table: 'constituents' },
+  { key: 'c.UNDERGRADUATIONYEAR1', name: 'Undergraduate Year', table: 'constituents' },
+  { key: 'c.UNDERGRADUATEPREFERREDCLASSYEAR1', name: 'Preferred Class Year', table: 'constituents' },
+  { key: 'c.UNDERGRADUATESCHOOL1', name: 'Undergraduate School', table: 'constituents' },
+  { key: 'c.GRADUATEDEGREE1', name: 'Graduate Degree', table: 'constituents' },
+  { key: 'c.GRADUATEGRADUATIONYEAR1', name: 'Graduate Year', table: 'constituents' },
+  { key: 'c.GRADUATEPREFERREDCLASSYEAR1', name: 'Graduate Preferred Class Year', table: 'constituents' },
+  { key: 'c.GRADUATESCHOOL1', name: 'Graduate School', table: 'constituents' },
+  { key: 'c.GENDER', name: 'Gender', table: 'constituents' },
+  { key: 'c.DECEASED', name: 'Deceased', table: 'constituents' },
+  { key: 'c.SOLICITATIONRESTRICTIONS', name: 'Solicitation Restrictions', table: 'constituents' },
+  { key: 'c.DONOTMAIL', name: 'Do Not Mail', table: 'constituents' },
+  { key: 'c.DONOTPHONE', name: 'Do Not Phone', table: 'constituents' },
+  { key: 'c.DONOTEMAIL', name: 'Do Not Email', table: 'constituents' },
+  { key: 'c.MARRIEDTOALUM', name: 'Married To Alum', table: 'constituents' },
+  { key: 'c.SPOUSELOOKUPID', name: 'Spouse Lookup ID', table: 'constituents' },
+  { key: 'c.SPOUSEID', name: 'Spouse ID', table: 'constituents' },
+  { key: 'c.ASSIGNEDACCOUNT', name: 'Assigned Account', table: 'constituents' },
+  { key: 'c.VOLUNTEER', name: 'Volunteer', table: 'constituents' },
+  { key: 'c.WEALTHSCORE', name: 'Wealth Score', table: 'constituents' },
+  { key: 'c.GEPSTATUS', name: 'GEP Status', table: 'constituents' },
+  { key: 'c.EVENTSATTENDED', name: 'Events Attended', table: 'constituents' },
+  { key: 'c.EVENTS', name: 'Events', table: 'constituents' },
+  { key: 'c.AGE', name: 'Age', table: 'constituents' },
+  { key: 'c.FULLNAME', name: 'Full Name', table: 'constituents' },
+  { key: 'c.PMFULLNAME', name: 'PM Full Name', table: 'constituents' },
+  { key: 'c.FULLADDRESS', name: 'Full Address', table: 'constituents' },
+  { key: 'c.HOMETELEPHONE', name: 'Home Telephone', table: 'constituents' },
+  { key: 'c.EMAIL', name: 'Email', table: 'constituents' },
+  
+  // Common calculated/aggregated columns
+  { key: 'YEAR(g.GIFTDATE)', name: 'Year', table: 'calculated' },
+  { key: 'SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2)))', name: 'Total Amount', table: 'calculated' },
+  { key: 'COUNT(*)', name: 'Count', table: 'calculated' },
+  { key: 'AVG(CAST(g.GIFTAMOUNT AS DECIMAL(15,2)))', name: 'Average Amount', table: 'calculated' }
+]
 
 
 
@@ -89,6 +154,7 @@ export function QueryPanel({
   // External sorting state
   const [externalSortColumn, setExternalSortColumn] = useState<string | null>(null)
   const [externalSortDirection, setExternalSortDirection] = useState<'asc' | 'desc' | null>(null)
+  const [isColumnSelectorExpanded, setIsColumnSelectorExpanded] = useState(true)
   
   // Memoized callback for column order changes to prevent infinite loops
   const handleColumnOrderChange = useCallback((reorderedColumns: { key: string; name: string }[]) => {
@@ -589,6 +655,132 @@ export function QueryPanel({
           onKeyDown={handleKeyDown}
           className="mb-2"
         />
+
+                {/* Column Selector - Show all available database columns when user is typing */}
+        {!selectedSavedQueryId && question.trim().length > 0 && (
+          <div className="mb-4 bg-card border border-border rounded-lg shadow-sm overflow-hidden">
+            {/* Header with toggle button */}
+            <button
+              onClick={() => setIsColumnSelectorExpanded(!isColumnSelectorExpanded)}
+              className="w-full p-4 text-left flex items-center justify-between hover:bg-accent/50 transition-colors"
+            >
+                              <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-foreground">
+                    Select columns to include in your query:
+                  </span>
+                  <TooltipProvider>
+                    <Tooltip delayDuration={0}>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-sm p-4">
+                        <div className="text-sm space-y-3">
+                          <div className="font-semibold text-foreground">Column Selection Guide:</div>
+                          <ul className="space-y-2 text-muted-foreground">
+                            <li>• <strong>Your selections:</strong> AI will prioritize your selections</li>
+                            <li>• <strong>Additional columns:</strong> AI may add supporting columns for better context</li>
+                            <li>• <strong>✨ Auto:</strong> Let AI choose the most relevant columns</li>
+                          </ul>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              {isColumnSelectorExpanded ? (
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              )}
+            </button>
+            
+            {/* Collapsible content */}
+            {isColumnSelectorExpanded && (
+              <div className="px-4 pb-4 border-t border-border">
+                <div className="flex gap-2 overflow-x-auto pb-3 pt-3 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
+                  {/* Auto option */}
+                  <button
+                    onClick={() => {
+                      // Clear any specific column selections and let AI decide
+                      const newQuestion = question.replace(/\s*(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\s*[:=]\s*[^.]*\.?/gi, '');
+                      setQuestion(newQuestion);
+                    }}
+                    className={`flex-shrink-0 px-3 py-2 text-xs font-medium rounded-md border transition-all duration-200 hover:shadow-sm flex items-center gap-1.5 ${
+                      !question.match(/\b(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\b/i)
+                        ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                        : 'bg-secondary text-secondary-foreground border-border hover:bg-accent hover:text-accent-foreground'
+                    }`}
+                  >
+                    <Sparkles className="h-3 w-3" />
+                    Auto
+                  </button>
+                  
+                  {/* Database column bubbles - grouped by table */}
+                  {DATABASE_COLUMNS.map((col) => (
+                    <button
+                      key={col.key}
+                      onClick={() => {
+                        const columnName = col.name;
+                        
+                        let newQuestion: string;
+                        
+                        // Check if we already have column-specific instructions
+                        if (question.match(/\b(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\b/i)) {
+                          // Add to existing column list
+                          newQuestion = question.replace(
+                            /(\b(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\s*[:=]\s*)([^.]*)/i,
+                            (match: string, prefix: string, existingColumns: string) => {
+                              const columnsList = existingColumns.trim();
+                              if (columnsList.includes(columnName)) {
+                                // Column already included, remove it
+                                const newList = columnsList
+                                  .split(/,\s*/)
+                                  .filter((colName: string) => colName !== columnName)
+                                  .join(', ');
+                                return newList ? `${prefix}${newList}` : prefix.slice(0, -1); // Remove colon if no columns
+                              } else {
+                                // Add column to list
+                                return `${prefix}${columnsList ? `${columnsList}, ${columnName}` : columnName}`;
+                              }
+                            }
+                          );
+                        } else {
+                          // Add new column instruction
+                          newQuestion = question + (question.endsWith('.') ? ' ' : '. ') + `Include only columns: ${columnName}`;
+                        }
+                        
+                        setQuestion(newQuestion);
+                      }}
+                      className={`flex-shrink-0 px-3 py-2 text-xs font-medium rounded-md border transition-all duration-200 hover:shadow-sm ${
+                        question.toLowerCase().includes(col.name.toLowerCase())
+                          ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                          : col.table === 'gifts' 
+                            ? 'bg-secondary text-secondary-foreground border-border hover:bg-accent hover:text-accent-foreground'
+                            : col.table === 'constituents'
+                            ? 'bg-secondary text-secondary-foreground border-border hover:bg-accent hover:text-accent-foreground'
+                            : col.table === 'calculated'
+                            ? 'bg-secondary text-secondary-foreground border-border hover:bg-accent hover:text-accent-foreground'
+                            : 'bg-secondary text-secondary-foreground border-border hover:bg-accent hover:text-accent-foreground'
+                      }`}
+                      title={`${col.name} (${col.table})`}
+                    >
+                      {col.name}
+                    </button>
+                  ))}
+                </div>
+                <div className="text-xs text-muted-foreground flex gap-6 pt-2 border-t border-border">
+                  <span className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-primary"></div>
+                    Active
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-secondary border border-border"></div>
+                    Available
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex items-center justify-between gap-4 mb-2">
           <TooltipProvider>

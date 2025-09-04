@@ -13,6 +13,12 @@ const COLORS = [
   "#ffbb28", "#8dd1e1", "#d0ed57", "#a4de6c"
 ]
 
+// Helper function to format numbers with commas and no decimals
+const formatNumber = (value: number): string => {
+  const rounded = Math.round(value)
+  return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+}
+
 export function PieGraph({ data, compact = false, legendScale = 1 }: PieGraphProps) {
   // Debug: Log the data being passed to PieGraph
   console.log("🔍 PieGraph received data:", data);
@@ -57,6 +63,10 @@ export function PieGraph({ data, compact = false, legendScale = 1 }: PieGraphPro
               const radius = outerRadius + 10
               const x = cx + radius * Math.cos(-midAngle * RADIAN)
               const y = cy + radius * Math.sin(-midAngle * RADIAN)
+              
+              // Format the value: round to nearest integer and add commas
+              const formattedValue = formatNumber(value)
+              
               return (
                 <text
                   x={x}
@@ -66,7 +76,7 @@ export function PieGraph({ data, compact = false, legendScale = 1 }: PieGraphPro
                   dominantBaseline="central"
                   fontSize={compact ? 10 : 12}
                 >
-                  {value}
+                  {formattedValue}
                 </text>
               )
             }}
@@ -76,7 +86,12 @@ export function PieGraph({ data, compact = false, legendScale = 1 }: PieGraphPro
             ))}
           </Pie>
 
-          <Tooltip />
+          <Tooltip 
+            formatter={(value: any) => {
+              // Format the value: round to nearest integer and add commas
+              return [formatNumber(value), 'Value']
+            }}
+          />
 
           {safeData.length <= 6 && (
             <Legend
