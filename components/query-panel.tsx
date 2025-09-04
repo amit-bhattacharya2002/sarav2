@@ -664,11 +664,11 @@ export function QueryPanel({
               onClick={() => setIsColumnSelectorExpanded(!isColumnSelectorExpanded)}
               className="w-full p-4 text-left flex items-center justify-between hover:bg-accent/50 transition-colors"
             >
-                              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-foreground">
                     Select columns to include in your query:
                   </span>
-                  <TooltipProvider>
+                  {/* <TooltipProvider>
                     <Tooltip delayDuration={0}>
                       <TooltipTrigger asChild>
                         <Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
@@ -684,7 +684,8 @@ export function QueryPanel({
                         </div>
                       </TooltipContent>
                     </Tooltip>
-                  </TooltipProvider>
+                  </TooltipProvider> */}
+                  
                 </div>
               {isColumnSelectorExpanded ? (
                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -775,6 +776,9 @@ export function QueryPanel({
                   <span className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-secondary border border-border"></div>
                     Available
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    AI may add additional relevant columns to your query to provide better context
                   </span>
                 </div>
               </div>
