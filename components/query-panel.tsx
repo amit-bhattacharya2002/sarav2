@@ -17,69 +17,260 @@ import { GhostIndicator } from '@/components/ui/ghost-indicator'
 import * as XLSX from 'xlsx'
 import { toast } from 'sonner'
 
-// Database schema columns - all available columns from the database
+// Query validation function
+const validateQuery = (query: string): { isValid: boolean; errors: string[]; warnings: string[] } => {
+  const errors: string[] = []
+  const warnings: string[] = []
+  
+  // Trim the query
+  const trimmedQuery = query.trim()
+  
+  // Check if query is empty
+  if (!trimmedQuery) {
+    errors.push("Please enter a question or query")
+    return { isValid: false, errors, warnings }
+  }
+  
+  // Check minimum length
+  if (trimmedQuery.length < 3) {
+    errors.push("Query is too short. Please provide more details")
+    return { isValid: false, errors, warnings }
+  }
+  
+  // Check for potentially problematic patterns
+  const problematicPatterns = [
+    { pattern: /drop\s+table/i, message: "DROP TABLE commands are not allowed" },
+    { pattern: /delete\s+from/i, message: "DELETE commands are not allowed" },
+    { pattern: /truncate/i, message: "TRUNCATE commands are not allowed" },
+    { pattern: /alter\s+table/i, message: "ALTER TABLE commands are not allowed" },
+    { pattern: /create\s+table/i, message: "CREATE TABLE commands are not allowed" },
+    { pattern: /insert\s+into/i, message: "INSERT commands are not allowed" },
+    { pattern: /update\s+set/i, message: "UPDATE commands are not allowed" },
+    { pattern: /grant\s+/i, message: "GRANT commands are not allowed" },
+    { pattern: /revoke\s+/i, message: "REVOKE commands are not allowed" },
+    { pattern: /exec\s*\(/i, message: "EXEC commands are not allowed" },
+    { pattern: /sp_/i, message: "Stored procedure calls are not allowed" },
+    { pattern: /xp_/i, message: "Extended procedure calls are not allowed" },
+    { pattern: /--.*drop|--.*delete|--.*truncate|--.*alter|--.*create|--.*insert|--.*update|--.*grant|--.*revoke/i, message: "Potentially dangerous SQL commands detected in comments" }
+  ]
+  
+  for (const { pattern, message } of problematicPatterns) {
+    if (pattern.test(trimmedQuery)) {
+      errors.push(message)
+    }
+  }
+  
+  // Check for suspicious characters that might indicate SQL injection attempts
+  const suspiciousPatterns = [
+    { pattern: /union\s+select/i, message: "UNION SELECT patterns detected" },
+    { pattern: /or\s+1\s*=\s*1/i, message: "SQL injection pattern detected" },
+    { pattern: /';.*--/i, message: "SQL injection pattern detected" },
+    { pattern: /\/\*.*\*\//i, message: "SQL comment blocks detected" },
+    { pattern: /waitfor\s+delay/i, message: "Time-based SQL injection pattern detected" }
+  ]
+  
+  for (const { pattern, message } of suspiciousPatterns) {
+    if (pattern.test(trimmedQuery)) {
+      errors.push(message)
+    }
+  }
+  
+  // Check for very long queries (potential DoS)
+  if (trimmedQuery.length > 5000) {
+    warnings.push("Query is very long. Consider breaking it into smaller parts")
+  }
+  
+  // Check for repeated characters (potential DoS)
+  const repeatedChars = /(.)\1{20,}/i
+  if (repeatedChars.test(trimmedQuery)) {
+    warnings.push("Query contains many repeated characters")
+  }
+  
+  // Check for basic SQL keywords that might indicate direct SQL instead of natural language
+  const sqlKeywords = /\b(select|from|where|join|group\s+by|order\s+by|having|limit|offset)\b/i
+  if (sqlKeywords.test(trimmedQuery) && !trimmedQuery.toLowerCase().includes('show me') && !trimmedQuery.toLowerCase().includes('find') && !trimmedQuery.toLowerCase().includes('get')) {
+    warnings.push("This looks like SQL code. Please use natural language instead (e.g., 'Show me all gifts from 2023')")
+  }
+  
+  // Check for gibberish patterns - using priority order to avoid duplicates
+  let gibberishDetected = false
+  
+  // Check for very short meaningless strings first
+  if (/^.{1,2}$/.test(trimmedQuery)) {
+    errors.push("Please provide a more detailed question")
+    gibberishDetected = true
+  }
+  // Check for repeated single characters
+  else if (/^(.)\1{4,}$/.test(trimmedQuery)) {
+    errors.push("Please provide a meaningful question, not repeated characters")
+    gibberishDetected = true
+  }
+  // Check for repeated words
+  else if (/^(\w+)\s+\1\s+\1/.test(trimmedQuery)) {
+    errors.push("Please provide a meaningful question, not repeated words")
+    gibberishDetected = true
+  }
+  // Check for only numbers
+  else if (/^\d+$/.test(trimmedQuery)) {
+    errors.push("Please ask a question with words, not just numbers")
+    gibberishDetected = true
+  }
+  // Check for only special characters
+  else if (/^[!@#$%^&*()_+\-=\[\]{}|;':",./<>?`~]+$/.test(trimmedQuery)) {
+    errors.push("Please use actual words in your question")
+    gibberishDetected = true
+  }
+  // Check for only vowels
+  else if (/^[aeiou]+$/i.test(trimmedQuery)) {
+    errors.push("Please use actual words in your question")
+    gibberishDetected = true
+  }
+  // Check for only consonants
+  else if (/^[bcdfghjklmnpqrstvwxyz]+$/i.test(trimmedQuery)) {
+    errors.push("Please use actual words in your question")
+    gibberishDetected = true
+  }
+  // Check for random character sequences (no letters/spaces)
+  else if (/^[^a-zA-Z\s]*$/.test(trimmedQuery)) {
+    errors.push("Please use actual words, not just symbols or numbers")
+    gibberishDetected = true
+  }
+  // Check for random keyboard mashing patterns
+  else if (/^[qwertyuiopasdfghjklzxcvbnm]{8,}$/i.test(trimmedQuery) || 
+           /^[asdfghjkl]{6,}$/i.test(trimmedQuery) || 
+           /^[a-z]{10,}$/i.test(trimmedQuery)) {
+    errors.push("This looks like random typing. Please ask a real question")
+    gibberishDetected = true
+  }
+  
+  // Check for meaningful content (not just random characters) - only if no gibberish detected
+  if (!gibberishDetected) {
+    const meaningfulContent = /[a-zA-Z]{3,}/
+    if (!meaningfulContent.test(trimmedQuery)) {
+      errors.push("Please provide a meaningful question with actual words")
+    }
+  }
+  
+  // Check for meaningful words related to data analysis
+  const dataAnalysisWords = [
+    'show', 'find', 'get', 'list', 'display', 'see', 'view', 'search', 'filter',
+    'gift', 'donor', 'donation', 'amount', 'date', 'year', 'month', 'total', 'sum',
+    'average', 'count', 'top', 'bottom', 'highest', 'lowest', 'largest', 'smallest',
+    'by', 'from', 'to', 'between', 'where', 'who', 'what', 'when', 'how', 'many',
+    'all', 'some', 'each', 'every', 'most', 'least', 'recent', 'oldest', 'newest',
+    'name', 'email', 'phone', 'address', 'type', 'category', 'status', 'active',
+    'inactive', 'deceased', 'alumni', 'graduate', 'undergraduate', 'school',
+    'degree', 'class', 'year', 'appeal', 'designation', 'payment', 'method',
+    'pledge', 'soft', 'credit', 'source', 'code', 'unit', 'purpose', 'giving',
+    'level', 'account', 'id', 'uuid', 'lookup', 'spouse', 'married', 'volunteer',
+    'wealth', 'score', 'events', 'attended', 'solicitation', 'restrictions',
+    'gender', 'age', 'full', 'home', 'telephone', 'organization', 'person'
+  ]
+  
+  const queryWords = trimmedQuery.toLowerCase().split(/\s+/)
+  const hasDataWords = queryWords.some(word => 
+    dataAnalysisWords.some(dataWord => 
+      word.includes(dataWord) || dataWord.includes(word)
+    )
+  )
+  
+  // Check for common nonsense words
+  const nonsenseWords = ['asdf', 'qwerty', 'test', 'testing', 'hello', 'hi', 'hey', 'lol', 'haha', 'blah', 'blah blah', 'random', 'stuff', 'things', 'whatever', 'idk', 'idontknow', 'nothing', 'something', 'anything']
+  const hasNonsenseWords = queryWords.some(word => 
+    nonsenseWords.some(nonsense => 
+      word.toLowerCase().includes(nonsense.toLowerCase())
+    )
+  )
+  
+  if (hasNonsenseWords && trimmedQuery.length > 5) {
+    errors.push("Please ask a real question about your data, not just test words")
+  }
+  
+  // If query is longer than 10 characters but has no meaningful data-related words, warn
+  if (trimmedQuery.length > 10 && !hasDataWords && !hasNonsenseWords) {
+    warnings.push("This doesn't seem to be a data analysis question. Try asking about gifts, donors, amounts, dates, etc.")
+  }
+  
+  // Check for minimum word count
+  const wordCount = trimmedQuery.split(/\s+/).filter(word => word.length > 0).length
+  if (wordCount < 2) {
+    errors.push("Please provide a more detailed question with at least 2 words")
+  }
+  
+  // Remove duplicate errors
+  const uniqueErrors = [...new Set(errors)]
+  const uniqueWarnings = [...new Set(warnings)]
+  
+  return {
+    isValid: uniqueErrors.length === 0,
+    errors: uniqueErrors,
+    warnings: uniqueWarnings
+  }
+}
+
+// Database schema columns - all available columns from the database (sorted alphabetically)
 const DATABASE_COLUMNS = [
   // Gifts table columns
   { key: 'g.ACCOUNTID', name: 'Account ID', table: 'gifts' },
-  { key: 'g.GIFTID', name: 'Gift ID', table: 'gifts' },
+  { key: 'g.APPEAL', name: 'Appeal', table: 'gifts' },
+  { key: 'g.DESIGNATION', name: 'Designation', table: 'gifts' },
   { key: 'g.GIFTDATE', name: 'Gift Date', table: 'gifts' },
   { key: 'g.GIFTAMOUNT', name: 'Gift Amount', table: 'gifts' },
-  { key: 'g.TRANSACTIONTYPE', name: 'Transaction Type', table: 'gifts' },
+  { key: 'g.GIFTID', name: 'Gift ID', table: 'gifts' },
   { key: 'g.GIFTTYPE', name: 'Gift Type', table: 'gifts' },
+  { key: 'g.GIVINGLEVEL', name: 'Giving Level', table: 'gifts' },
   { key: 'g.PAYMENTMETHOD', name: 'Payment Method', table: 'gifts' },
   { key: 'g.PLEDGEID', name: 'Pledge ID', table: 'gifts' },
-  { key: 'g.SOFTCREDITINDICATOR', name: 'Soft Credit Indicator', table: 'gifts' },
+  { key: 'g.PURPOSECATEGORY', name: 'Purpose Category', table: 'gifts' },
   { key: 'g.SOFTCREDITAMOUNT', name: 'Soft Credit Amount', table: 'gifts' },
   { key: 'g.SOFTCREDITID', name: 'Soft Credit ID', table: 'gifts' },
+  { key: 'g.SOFTCREDITINDICATOR', name: 'Soft Credit Indicator', table: 'gifts' },
   { key: 'g.SOURCECODE', name: 'Source Code', table: 'gifts' },
-  { key: 'g.DESIGNATION', name: 'Designation', table: 'gifts' },
+  { key: 'g.TRANSACTIONTYPE', name: 'Transaction Type', table: 'gifts' },
   { key: 'g.UNIT', name: 'Unit', table: 'gifts' },
-  { key: 'g.PURPOSECATEGORY', name: 'Purpose Category', table: 'gifts' },
-  { key: 'g.APPEAL', name: 'Appeal', table: 'gifts' },
-  { key: 'g.GIVINGLEVEL', name: 'Giving Level', table: 'gifts' },
   { key: 'g.UUID', name: 'UUID', table: 'gifts' },
   
   // Constituents table columns
-  { key: 'c.LOOKUPID', name: 'Lookup ID', table: 'constituents' },
-  { key: 'c.TYPE', name: 'Type', table: 'constituents' },
-  { key: 'c.DONORTYPE1', name: 'Donor Type', table: 'constituents' },
-  { key: 'c.PERSONORGANIZATIONINDICATOR', name: 'Person/Organization', table: 'constituents' },
+  { key: 'c.AGE', name: 'Age', table: 'constituents' },
   { key: 'c.ALUMNITYPE', name: 'Alumni Type', table: 'constituents' },
-  { key: 'c.UNDERGRADUATEDEGREE1', name: 'Undergraduate Degree', table: 'constituents' },
-  { key: 'c.UNDERGRADUATIONYEAR1', name: 'Undergraduate Year', table: 'constituents' },
-  { key: 'c.UNDERGRADUATEPREFERREDCLASSYEAR1', name: 'Preferred Class Year', table: 'constituents' },
-  { key: 'c.UNDERGRADUATESCHOOL1', name: 'Undergraduate School', table: 'constituents' },
+  { key: 'c.ASSIGNEDACCOUNT', name: 'Assigned Account', table: 'constituents' },
+  { key: 'c.DECEASED', name: 'Deceased', table: 'constituents' },
+  { key: 'c.DONOTEMAIL', name: 'Do Not Email', table: 'constituents' },
+  { key: 'c.DONOTMAIL', name: 'Do Not Mail', table: 'constituents' },
+  { key: 'c.DONOTPHONE', name: 'Do Not Phone', table: 'constituents' },
+  { key: 'c.DONORTYPE1', name: 'Donor Type', table: 'constituents' },
+  { key: 'c.EMAIL', name: 'Email', table: 'constituents' },
+  { key: 'c.EVENTS', name: 'Events', table: 'constituents' },
+  { key: 'c.EVENTSATTENDED', name: 'Events Attended', table: 'constituents' },
+  { key: 'c.FULLADDRESS', name: 'Full Address', table: 'constituents' },
+  { key: 'c.FULLNAME', name: 'Full Name', table: 'constituents' },
+  { key: 'c.GENDER', name: 'Gender', table: 'constituents' },
+  { key: 'c.GEPSTATUS', name: 'GEP Status', table: 'constituents' },
   { key: 'c.GRADUATEDEGREE1', name: 'Graduate Degree', table: 'constituents' },
   { key: 'c.GRADUATEGRADUATIONYEAR1', name: 'Graduate Year', table: 'constituents' },
   { key: 'c.GRADUATEPREFERREDCLASSYEAR1', name: 'Graduate Preferred Class Year', table: 'constituents' },
   { key: 'c.GRADUATESCHOOL1', name: 'Graduate School', table: 'constituents' },
-  { key: 'c.GENDER', name: 'Gender', table: 'constituents' },
-  { key: 'c.DECEASED', name: 'Deceased', table: 'constituents' },
-  { key: 'c.SOLICITATIONRESTRICTIONS', name: 'Solicitation Restrictions', table: 'constituents' },
-  { key: 'c.DONOTMAIL', name: 'Do Not Mail', table: 'constituents' },
-  { key: 'c.DONOTPHONE', name: 'Do Not Phone', table: 'constituents' },
-  { key: 'c.DONOTEMAIL', name: 'Do Not Email', table: 'constituents' },
+  { key: 'c.HOMETELEPHONE', name: 'Home Telephone', table: 'constituents' },
+  { key: 'c.LOOKUPID', name: 'Lookup ID', table: 'constituents' },
   { key: 'c.MARRIEDTOALUM', name: 'Married To Alum', table: 'constituents' },
-  { key: 'c.SPOUSELOOKUPID', name: 'Spouse Lookup ID', table: 'constituents' },
+  { key: 'c.PERSONORGANIZATIONINDICATOR', name: 'Person/Organization', table: 'constituents' },
+  { key: 'c.PMFULLNAME', name: 'PM Full Name', table: 'constituents' },
+  { key: 'c.SOLICITATIONRESTRICTIONS', name: 'Solicitation Restrictions', table: 'constituents' },
   { key: 'c.SPOUSEID', name: 'Spouse ID', table: 'constituents' },
-  { key: 'c.ASSIGNEDACCOUNT', name: 'Assigned Account', table: 'constituents' },
+  { key: 'c.SPOUSELOOKUPID', name: 'Spouse Lookup ID', table: 'constituents' },
+  { key: 'c.TYPE', name: 'Type', table: 'constituents' },
+  { key: 'c.UNDERGRADUATEDEGREE1', name: 'Undergraduate Degree', table: 'constituents' },
+  { key: 'c.UNDERGRADUATIONYEAR1', name: 'Undergraduate Year', table: 'constituents' },
+  { key: 'c.UNDERGRADUATEPREFERREDCLASSYEAR1', name: 'Preferred Class Year', table: 'constituents' },
+  { key: 'c.UNDERGRADUATESCHOOL1', name: 'Undergraduate School', table: 'constituents' },
   { key: 'c.VOLUNTEER', name: 'Volunteer', table: 'constituents' },
   { key: 'c.WEALTHSCORE', name: 'Wealth Score', table: 'constituents' },
-  { key: 'c.GEPSTATUS', name: 'GEP Status', table: 'constituents' },
-  { key: 'c.EVENTSATTENDED', name: 'Events Attended', table: 'constituents' },
-  { key: 'c.EVENTS', name: 'Events', table: 'constituents' },
-  { key: 'c.AGE', name: 'Age', table: 'constituents' },
-  { key: 'c.FULLNAME', name: 'Full Name', table: 'constituents' },
-  { key: 'c.PMFULLNAME', name: 'PM Full Name', table: 'constituents' },
-  { key: 'c.FULLADDRESS', name: 'Full Address', table: 'constituents' },
-  { key: 'c.HOMETELEPHONE', name: 'Home Telephone', table: 'constituents' },
-  { key: 'c.EMAIL', name: 'Email', table: 'constituents' },
   
   // Common calculated/aggregated columns
-  { key: 'YEAR(g.GIFTDATE)', name: 'Year', table: 'calculated' },
-  { key: 'SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2)))', name: 'Total Amount', table: 'calculated' },
+  { key: 'AVG(CAST(g.GIFTAMOUNT AS DECIMAL(15,2)))', name: 'Average Amount', table: 'calculated' },
   { key: 'COUNT(*)', name: 'Count', table: 'calculated' },
-  { key: 'AVG(CAST(g.GIFTAMOUNT AS DECIMAL(15,2)))', name: 'Average Amount', table: 'calculated' }
+  { key: 'SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2)))', name: 'Total Amount', table: 'calculated' },
+  { key: 'YEAR(g.GIFTDATE)', name: 'Year', table: 'calculated' }
 ]
 
 
@@ -155,6 +346,9 @@ export function QueryPanel({
   const [externalSortColumn, setExternalSortColumn] = useState<string | null>(null)
   const [externalSortDirection, setExternalSortDirection] = useState<'asc' | 'desc' | null>(null)
   const [isColumnSelectorExpanded, setIsColumnSelectorExpanded] = useState(true)
+  const [validationErrors, setValidationErrors] = useState<string[]>([])
+  const [validationWarnings, setValidationWarnings] = useState<string[]>([])
+  const [showValidation, setShowValidation] = useState(false)
   
   // Memoized callback for column order changes to prevent infinite loops
   const handleColumnOrderChange = useCallback((reorderedColumns: { key: string; name: string }[]) => {
@@ -432,17 +626,48 @@ export function QueryPanel({
     }
   }, [queryResults, outputMode])
 
+  // Validation function that runs on query change
+  const validateQueryInput = useCallback((queryText: string) => {
+    const validation = validateQuery(queryText)
+    setValidationErrors(validation.errors)
+    setValidationWarnings(validation.warnings)
+    setShowValidation(validation.errors.length > 0 || validation.warnings.length > 0)
+    return validation.isValid
+  }, [])
+
   // Stable event handlers
   const handleQuestionChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setQuestion(e.target.value)
-  }, [setQuestion])
+    const newValue = e.target.value
+    setQuestion(newValue)
+    
+    // Run validation in real-time (debounced)
+    if (newValue.trim().length > 0) {
+      validateQueryInput(newValue)
+    } else {
+      setValidationErrors([])
+      setValidationWarnings([])
+      setShowValidation(false)
+    }
+  }, [setQuestion, validateQueryInput])
+
+  // Enhanced submit handler with validation
+  const handleSubmitWithValidation = useCallback(() => {
+    const isValid = validateQueryInput(question)
+    if (isValid) {
+      setShowValidation(false)
+      onSubmit()
+    } else {
+      setShowValidation(true)
+      toast.error("Please fix the validation errors before submitting")
+    }
+  }, [question, validateQueryInput, onSubmit])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      onSubmit()
+      handleSubmitWithValidation()
     }
-  }, [onSubmit])
+  }, [handleSubmitWithValidation])
 
   // Excel export function
   const handleExportToExcel = useCallback(() => {
@@ -653,8 +878,53 @@ export function QueryPanel({
           value={question}
           onChange={handleQuestionChange}
           onKeyDown={handleKeyDown}
-          className="mb-2"
+          className={`mb-2 ${
+            validationErrors.length > 0 
+              ? 'border-destructive focus:border-destructive focus:ring-destructive/20' 
+              : ''
+          }`}
         />
+
+        {/* Validation Messages - Right under textarea */}
+        {showValidation && (validationErrors.length > 0 || validationWarnings.length > 0) && (
+          <div className="mb-4 space-y-2">
+            {/* Error Messages */}
+            {validationErrors.length > 0 && (
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle className="h-4 w-4 text-destructive" />
+                  <span className="text-sm font-medium text-destructive">Validation Errors</span>
+                </div>
+                <ul className="text-sm text-destructive space-y-1">
+                  {validationErrors.map((error, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <span className="text-destructive/70">•</span>
+                      <span>{error}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {/* Warning Messages */}
+            {validationWarnings.length > 0 && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                  <span className="text-sm font-medium text-yellow-800">Warnings</span>
+                </div>
+                <ul className="text-sm text-yellow-700 space-y-1">
+                  {validationWarnings.map((warning, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <span className="text-yellow-600">•</span>
+                      <span>{warning}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
 
                 {/* Column Selector - Show all available database columns when user is typing */}
         {!selectedSavedQueryId && question.trim().length > 0 && (
@@ -702,17 +972,51 @@ export function QueryPanel({
                   <button
                     onClick={() => {
                       // Clear any specific column selections and let AI decide
-                      const newQuestion = question.replace(/\s*(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\s*[:=]\s*[^.]*\.?/gi, '');
+                      let newQuestion = question.replace(/\s*(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\s*[:=]\s*[^.]*\.?/gi, '');
+                      
+                      // Also remove "include all columns" text
+                      newQuestion = newQuestion.replace(/\s*include\s+all\s+columns\.?/gi, '');
+                      
+                      // Clean up any trailing periods and spaces
+                      newQuestion = newQuestion.trim().replace(/\.+$/, '');
+                      
                       setQuestion(newQuestion);
                     }}
                     className={`flex-shrink-0 px-3 py-2 text-xs font-medium rounded-md border transition-all duration-200 hover:shadow-sm flex items-center gap-1.5 ${
-                      !question.match(/\b(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\b/i)
+                      !question.match(/\b(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\b/i) && 
+                      !question.toLowerCase().includes('include all columns')
                         ? 'bg-primary text-primary-foreground border-primary shadow-sm'
                         : 'bg-secondary text-secondary-foreground border-border hover:bg-accent hover:text-accent-foreground'
                     }`}
                   >
                     <Sparkles className="h-3 w-3" />
                     Auto
+                  </button>
+                  
+                  {/* All columns button */}
+                  <button
+                    onClick={() => {
+                      // Use simple "include all columns" instead of listing every column name
+                      let newQuestion = question.replace(/\s*(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\s*[:=]\s*[^.]*\.?/gi, '');
+                      
+                      // Clean up any trailing periods and spaces
+                      newQuestion = newQuestion.trim().replace(/\.+$/, '');
+                      
+                      // Add "Include all columns" if not already present
+                      if (!newQuestion.toLowerCase().includes('include all columns')) {
+                        newQuestion += (newQuestion ? '. ' : '') + 'Include all columns';
+                      }
+                      
+                      setQuestion(newQuestion);
+                    }}
+                    className={`flex-shrink-0 px-3 py-2 text-xs font-medium rounded-md border transition-all duration-200 hover:shadow-sm ${
+                      question.toLowerCase().includes('include all columns') && 
+                      !question.match(/\b(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\s*[:=]\s*[^.]*\.?/i)
+                        ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                        : 'bg-secondary text-secondary-foreground border-border hover:bg-accent hover:text-accent-foreground'
+                    }`}
+                  >
+                    All
                   </button>
                   
                   {/* Database column bubbles - grouped by table */}
@@ -722,12 +1026,13 @@ export function QueryPanel({
                       onClick={() => {
                         const columnName = col.name;
                         
-                        let newQuestion: string;
+                        // First, remove "include all columns" text
+                        let newQuestion = question.replace(/\s*include\s+all\s+columns\.?/gi, '');
                         
                         // Check if we already have column-specific instructions
-                        if (question.match(/\b(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\b/i)) {
+                        if (newQuestion.match(/\b(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\b/i)) {
                           // Add to existing column list
-                          newQuestion = question.replace(
+                          newQuestion = newQuestion.replace(
                             /(\b(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\s*[:=]\s*)([^.]*)/i,
                             (match: string, prefix: string, existingColumns: string) => {
                               const columnsList = existingColumns.trim();
@@ -746,8 +1051,11 @@ export function QueryPanel({
                           );
                         } else {
                           // Add new column instruction
-                          newQuestion = question + (question.endsWith('.') ? ' ' : '. ') + `Include only columns: ${columnName}`;
+                          newQuestion = newQuestion + (newQuestion.trim().endsWith('.') ? ' ' : '. ') + `Include only columns: ${columnName}`;
                         }
+                        
+                        // Clean up any extra periods and spaces
+                        newQuestion = newQuestion.trim().replace(/\.+$/, '');
                         
                         setQuestion(newQuestion);
                       }}
@@ -778,7 +1086,7 @@ export function QueryPanel({
                     Available
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    AI may add additional relevant columns to your query to provide better context
+                    AI may add additional relevant columns to your results to provide better context
                   </span>
                 </div>
               </div>
@@ -836,8 +1144,8 @@ export function QueryPanel({
           </TooltipProvider>
 
           <Button 
-            onClick={onSubmit} 
-            disabled={isLoading || (!!selectedSavedQueryId && !isEditingSavedQuery)}
+            onClick={handleSubmitWithValidation} 
+            disabled={isLoading || (!!selectedSavedQueryId && !isEditingSavedQuery) || validationErrors.length > 0}
           >
             {isLoading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "Search"}
           </Button>
