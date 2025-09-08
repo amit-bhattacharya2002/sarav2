@@ -178,7 +178,7 @@ export function FullscreenResultsModal({
                 )}
               </>
             ) : (
-              <div className="h-full flex items-center justify-center text-muted-foreground font-mono p-8">
+              <div className="h-full flex items-center justify-center text-muted-foreground  p-8">
                 <div className="text-center">
                   <div className="text-lg mb-2">No results to display</div>
                   <div className="text-sm">No data available for full-screen view</div>
@@ -258,7 +258,7 @@ export function FullscreenResultsModal({
               )}
             </>
           ) : (
-            <div className="h-full flex items-center justify-center text-muted-foreground font-mono p-8">
+            <div className="h-full flex items-center justify-center text-muted-foreground  p-8">
               <div className="text-center">
                 <div className="text-lg mb-2">No results to display</div>
                 <div className="text-sm">No data available for full-screen view</div>

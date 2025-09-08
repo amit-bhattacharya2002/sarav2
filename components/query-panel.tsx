@@ -1285,7 +1285,7 @@ export function QueryPanel({
             )}
           </div>
         ) : (
-          <div className="h-full flex items-center justify-center text-muted-foreground font-mono p-8">
+          <div className="h-full flex items-center justify-center text-muted-foreground  p-8">
             <div className="text-center">
               <div className="text-lg mb-2">No results yet</div>
               <div className="text-sm">Run a query to see results here</div>

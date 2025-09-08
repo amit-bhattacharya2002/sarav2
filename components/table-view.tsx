@@ -355,7 +355,7 @@ export function TableView({
                     <span className="text-sm font-medium">Select columns to display:</span>
                     <button
                       onClick={toggleAllColumns}
-                      className="text-xs font-mono text-muted-foreground hover:text-foreground underline"
+                      className="text-xs text-muted-foreground hover:text-foreground underline"
                     >
                       {selectedColumns.size === columns.length ? "Deselect All" : "Select All"}
                     </button>
@@ -363,7 +363,7 @@ export function TableView({
                   <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
                     {columns.map((col) => {
                       return (
-                        <label key={col.key} className="flex items-center gap-3 text-sm font-mono cursor-pointer hover:bg-muted/50 p-2 rounded">
+                        <label key={col.key} className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 p-2 rounded">
                           <input
                             type="checkbox"
                             checked={selectedColumns.has(col.key)}
