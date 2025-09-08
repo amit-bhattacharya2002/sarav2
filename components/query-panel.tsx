@@ -887,17 +887,17 @@ export function QueryPanel({
 
         {/* Validation Messages - Right under textarea */}
         {showValidation && (validationErrors.length > 0 || validationWarnings.length > 0) && (
-          <div className="mb-4 space-y-2">
+          <div className="mb-3 space-y-1.5">
             {/* Error Messages */}
             {validationErrors.length > 0 && (
-              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertCircle className="h-4 w-4 text-destructive" />
-                  <span className="text-sm font-medium text-destructive">Validation Errors</span>
+              <div className="bg-destructive/10 border border-destructive/20 rounded-md p-2">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <AlertCircle className="h-3 w-3 text-destructive" />
+                  <span className="text-xs font-medium text-destructive">Validation Errors</span>
                 </div>
-                <ul className="text-sm text-destructive space-y-1">
+                <ul className="text-xs text-destructive space-y-0.5">
                   {validationErrors.map((error, index) => (
-                    <li key={index} className="flex items-start gap-2">
+                    <li key={index} className="flex items-start gap-1.5">
                       <span className="text-destructive/70">•</span>
                       <span>{error}</span>
                     </li>
@@ -908,14 +908,14 @@ export function QueryPanel({
             
             {/* Warning Messages */}
             {validationWarnings.length > 0 && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                  <span className="text-sm font-medium text-yellow-800">Warnings</span>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-2">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <AlertTriangle className="h-3 w-3 text-yellow-600" />
+                  <span className="text-xs font-medium text-yellow-800">Warnings</span>
                 </div>
-                <ul className="text-sm text-yellow-700 space-y-1">
+                <ul className="text-xs text-yellow-700 space-y-0.5">
                   {validationWarnings.map((warning, index) => (
-                    <li key={index} className="flex items-start gap-2">
+                    <li key={index} className="flex items-start gap-1.5">
                       <span className="text-yellow-600">•</span>
                       <span>{warning}</span>
                     </li>
@@ -966,8 +966,10 @@ export function QueryPanel({
             
             {/* Collapsible content */}
             {isColumnSelectorExpanded && (
-              <div className="px-4 pb-4 border-t border-border">
-                <div className="flex gap-2 overflow-x-auto pb-3 pt-3 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
+              <div className="border-t border-border">
+                {/* Quick Actions - Fixed */}
+                <div className="px-4 pt-3 pb-2">
+                  <div className="flex gap-2">
                   {/* Auto option */}
                   <button
                     onClick={() => {
@@ -982,12 +984,12 @@ export function QueryPanel({
                       
                       setQuestion(newQuestion);
                     }}
-                    className={`flex-shrink-0 px-3 py-2 text-xs font-medium rounded-md border transition-all duration-200 hover:shadow-sm flex items-center gap-1.5 ${
-                      !question.match(/\b(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\b/i) && 
-                      !question.toLowerCase().includes('include all columns')
-                        ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                        : 'bg-secondary text-secondary-foreground border-border hover:bg-accent hover:text-accent-foreground'
-                    }`}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-all duration-200 hover:shadow-sm flex items-center gap-1.5 ${
+                        !question.match(/\b(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\b/i) && 
+                        !question.toLowerCase().includes('include all columns')
+                          ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                          : 'bg-secondary text-secondary-foreground border-border hover:bg-accent hover:text-accent-foreground'
+                      }`}
                   >
                     <Sparkles className="h-3 w-3" />
                     Auto
@@ -1009,85 +1011,215 @@ export function QueryPanel({
                       
                       setQuestion(newQuestion);
                     }}
-                    className={`flex-shrink-0 px-3 py-2 text-xs font-medium rounded-md border transition-all duration-200 hover:shadow-sm ${
-                      question.toLowerCase().includes('include all columns') && 
-                      !question.match(/\b(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\s*[:=]\s*[^.]*\.?/i)
-                        ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                        : 'bg-secondary text-secondary-foreground border-border hover:bg-accent hover:text-accent-foreground'
-                    }`}
-                  >
-                    All
-                  </button>
-                  
-                  {/* Database column bubbles - grouped by table */}
-                  {DATABASE_COLUMNS.map((col) => (
-                    <button
-                      key={col.key}
-                      onClick={() => {
-                        const columnName = col.name;
-                        
-                        // First, remove "include all columns" text
-                        let newQuestion = question.replace(/\s*include\s+all\s+columns\.?/gi, '');
-                        
-                        // Check if we already have column-specific instructions
-                        if (newQuestion.match(/\b(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\b/i)) {
-                          // Add to existing column list
-                          newQuestion = newQuestion.replace(
-                            /(\b(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\s*[:=]\s*)([^.]*)/i,
-                            (match: string, prefix: string, existingColumns: string) => {
-                              const columnsList = existingColumns.trim();
-                              if (columnsList.includes(columnName)) {
-                                // Column already included, remove it
-                                const newList = columnsList
-                                  .split(/,\s*/)
-                                  .filter((colName: string) => colName !== columnName)
-                                  .join(', ');
-                                return newList ? `${prefix}${newList}` : prefix.slice(0, -1); // Remove colon if no columns
-                              } else {
-                                // Add column to list
-                                return `${prefix}${columnsList ? `${columnsList}, ${columnName}` : columnName}`;
-                              }
-                            }
-                          );
-                        } else {
-                          // Add new column instruction
-                          newQuestion = newQuestion + (newQuestion.trim().endsWith('.') ? ' ' : '. ') + `Include only columns: ${columnName}`;
-                        }
-                        
-                        // Clean up any extra periods and spaces
-                        newQuestion = newQuestion.trim().replace(/\.+$/, '');
-                        
-                        setQuestion(newQuestion);
-                      }}
-                      className={`flex-shrink-0 px-3 py-2 text-xs font-medium rounded-md border transition-all duration-200 hover:shadow-sm ${
-                        question.toLowerCase().includes(col.name.toLowerCase())
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-all duration-200 hover:shadow-sm ${
+                        question.toLowerCase().includes('include all columns') && 
+                        !question.match(/\b(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\s*[:=]\s*[^.]*\.?/i)
                           ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                          : col.table === 'gifts' 
-                            ? 'bg-secondary text-secondary-foreground border-border hover:bg-accent hover:text-accent-foreground'
-                            : col.table === 'constituents'
-                            ? 'bg-secondary text-secondary-foreground border-border hover:bg-accent hover:text-accent-foreground'
-                            : col.table === 'calculated'
-                            ? 'bg-secondary text-secondary-foreground border-border hover:bg-accent hover:text-accent-foreground'
-                            : 'bg-secondary text-secondary-foreground border-border hover:bg-accent hover:text-accent-foreground'
+                          : 'bg-secondary text-secondary-foreground border-border hover:bg-accent hover:text-accent-foreground'
                       }`}
-                      title={`${col.name} (${col.table})`}
-                    >
-                      {col.name}
-                    </button>
-                  ))}
+                  >
+                    All Columns
+                  </button>
+                  </div>
                 </div>
-                <div className="text-xs text-muted-foreground flex gap-6 pt-2 border-t border-border">
-                  <span className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-primary"></div>
-                    Active
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-secondary border border-border"></div>
-                    Available
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    AI may add additional relevant columns to your results to provide better context
-                  </span>
+
+                {/* Categorized Column Grid - Scrollable */}
+                <div className="px-4 h-[15vh] py-2 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
+                  <div className="space-y-3">
+                  {/* Gifts Table */}
+                  <div>
+                    <h4 className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                      Gifts & Donations
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {DATABASE_COLUMNS.filter(col => col.table === 'gifts').map((col) => (
+                        <button
+                          key={col.key}
+                          onClick={() => {
+                            const columnName = col.name;
+                            
+                            // First, remove "include all columns" text
+                            let newQuestion = question.replace(/\s*include\s+all\s+columns\.?/gi, '');
+                            
+                            // Check if we already have column-specific instructions
+                            if (newQuestion.match(/\b(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\b/i)) {
+                              // Add to existing column list
+                              newQuestion = newQuestion.replace(
+                                /(\b(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\s*[:=]\s*)([^.]*)/i,
+                                (match: string, prefix: string, existingColumns: string) => {
+                                  const columnsList = existingColumns.trim();
+                                  if (columnsList.includes(columnName)) {
+                                    // Column already included, remove it
+                                    const newList = columnsList
+                                      .split(/,\s*/)
+                                      .filter((colName: string) => colName !== columnName)
+                                      .join(', ');
+                                    return newList ? `${prefix}${newList}` : prefix.slice(0, -1); // Remove colon if no columns
+                                  } else {
+                                    // Add column to list
+                                    return `${prefix}${columnsList ? `${columnsList}, ${columnName}` : columnName}`;
+                                  }
+                                }
+                              );
+                            } else {
+                              // Add new column instruction
+                              newQuestion = newQuestion + (newQuestion.trim().endsWith('.') ? ' ' : '. ') + `Include only columns: ${columnName}`;
+                            }
+                            
+                            // Clean up any extra periods and spaces
+                            newQuestion = newQuestion.trim().replace(/\.+$/, '');
+                            
+                            setQuestion(newQuestion);
+                          }}
+                          className={`px-2 py-1 text-[10px] font-medium rounded-md border transition-all duration-200 hover:shadow-sm text-left ${
+                            question.toLowerCase().includes(col.name.toLowerCase())
+                              ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                              : 'bg-secondary text-secondary-foreground border-border hover:bg-accent hover:text-accent-foreground'
+                          }`}
+                          title={`${col.name} (${col.table})`}
+                        >
+                          {col.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Constituents Table */}
+                  <div>
+                    <h4 className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                      Constituents & Donors
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {DATABASE_COLUMNS.filter(col => col.table === 'constituents').map((col) => (
+                        <button
+                          key={col.key}
+                          onClick={() => {
+                            const columnName = col.name;
+                            
+                            // First, remove "include all columns" text
+                            let newQuestion = question.replace(/\s*include\s+all\s+columns\.?/gi, '');
+                            
+                            // Check if we already have column-specific instructions
+                            if (newQuestion.match(/\b(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\b/i)) {
+                              // Add to existing column list
+                              newQuestion = newQuestion.replace(
+                                /(\b(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\s*[:=]\s*)([^.]*)/i,
+                                (match: string, prefix: string, existingColumns: string) => {
+                                  const columnsList = existingColumns.trim();
+                                  if (columnsList.includes(columnName)) {
+                                    // Column already included, remove it
+                                    const newList = columnsList
+                                      .split(/,\s*/)
+                                      .filter((colName: string) => colName !== columnName)
+                                      .join(', ');
+                                    return newList ? `${prefix}${newList}` : prefix.slice(0, -1); // Remove colon if no columns
+                                  } else {
+                                    // Add column to list
+                                    return `${prefix}${columnsList ? `${columnsList}, ${columnName}` : columnName}`;
+                                  }
+                                }
+                              );
+                            } else {
+                              // Add new column instruction
+                              newQuestion = newQuestion + (newQuestion.trim().endsWith('.') ? ' ' : '. ') + `Include only columns: ${columnName}`;
+                            }
+                            
+                            // Clean up any extra periods and spaces
+                            newQuestion = newQuestion.trim().replace(/\.+$/, '');
+                            
+                            setQuestion(newQuestion);
+                          }}
+                          className={`px-2 py-1 text-[10px] font-medium rounded-md border transition-all duration-200 hover:shadow-sm text-left ${
+                            question.toLowerCase().includes(col.name.toLowerCase())
+                              ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                              : 'bg-secondary text-secondary-foreground border-border hover:bg-accent hover:text-accent-foreground'
+                          }`}
+                          title={`${col.name} (${col.table})`}
+                        >
+                          {col.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Calculated Columns */}
+                  <div>
+                    <h4 className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
+                      Calculated Fields
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {DATABASE_COLUMNS.filter(col => col.table === 'calculated').map((col) => (
+                        <button
+                          key={col.key}
+                          onClick={() => {
+                            const columnName = col.name;
+                            
+                            // First, remove "include all columns" text
+                            let newQuestion = question.replace(/\s*include\s+all\s+columns\.?/gi, '');
+                            
+                            // Check if we already have column-specific instructions
+                            if (newQuestion.match(/\b(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\b/i)) {
+                              // Add to existing column list
+                              newQuestion = newQuestion.replace(
+                                /(\b(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\s*[:=]\s*)([^.]*)/i,
+                                (match: string, prefix: string, existingColumns: string) => {
+                                  const columnsList = existingColumns.trim();
+                                  if (columnsList.includes(columnName)) {
+                                    // Column already included, remove it
+                                    const newList = columnsList
+                                      .split(/,\s*/)
+                                      .filter((colName: string) => colName !== columnName)
+                                      .join(', ');
+                                    return newList ? `${prefix}${newList}` : prefix.slice(0, -1); // Remove colon if no columns
+                                  } else {
+                                    // Add column to list
+                                    return `${prefix}${columnsList ? `${columnsList}, ${columnName}` : columnName}`;
+                                  }
+                                }
+                              );
+                            } else {
+                              // Add new column instruction
+                              newQuestion = newQuestion + (newQuestion.trim().endsWith('.') ? ' ' : '. ') + `Include only columns: ${columnName}`;
+                            }
+                            
+                            // Clean up any extra periods and spaces
+                            newQuestion = newQuestion.trim().replace(/\.+$/, '');
+                            
+                            setQuestion(newQuestion);
+                          }}
+                          className={`px-2 py-1 text-[10px] font-medium rounded-md border transition-all duration-200 hover:shadow-sm text-left ${
+                            question.toLowerCase().includes(col.name.toLowerCase())
+                              ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                              : 'bg-secondary text-secondary-foreground border-border hover:bg-accent hover:text-accent-foreground'
+                          }`}
+                          title={`${col.name} (${col.table})`}
+                        >
+                          {col.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  </div>
+                </div>
+
+                {/* Footer - Fixed */}
+                <div className="px-4 pb-4 pt-2 border-t border-border">
+                  <div className="text-xs text-muted-foreground flex gap-6">
+                    <span className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-primary"></div>
+                      Active
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-secondary border border-border"></div>
+                      Available
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      AI may add additional relevant columns to your results to provide better context
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
