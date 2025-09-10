@@ -345,10 +345,19 @@ export function QueryPanel({
   // External sorting state
   const [externalSortColumn, setExternalSortColumn] = useState<string | null>(null)
   const [externalSortDirection, setExternalSortDirection] = useState<'asc' | 'desc' | null>(null)
-  const [isColumnSelectorExpanded, setIsColumnSelectorExpanded] = useState(true)
+  const [isColumnSelectorExpanded, setIsColumnSelectorExpanded] = useState(false)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
   const [validationWarnings, setValidationWarnings] = useState<string[]>([])
   const [showValidation, setShowValidation] = useState(false)
+
+  // Auto-expand column selector only when user is actively typing, keep collapsed after search
+  useEffect(() => {
+    if (question.trim().length > 0 && !selectedSavedQueryId && validationErrors.length === 0 && !isLoading && !queryResults?.length) {
+      setIsColumnSelectorExpanded(true)
+    } else if (question.trim().length === 0 || validationErrors.length > 0 || isLoading || queryResults?.length) {
+      setIsColumnSelectorExpanded(false)
+    }
+  }, [question, selectedSavedQueryId, validationErrors, isLoading, queryResults])
   
   // Memoized callback for column order changes to prevent infinite loops
   const handleColumnOrderChange = useCallback((reorderedColumns: { key: string; name: string }[]) => {
@@ -655,6 +664,7 @@ export function QueryPanel({
     const isValid = validateQueryInput(question)
     if (isValid) {
       setShowValidation(false)
+      setIsColumnSelectorExpanded(false) // Collapse column selector immediately when search is pressed
       onSubmit()
     } else {
       setShowValidation(true)
@@ -932,7 +942,12 @@ export function QueryPanel({
             {/* Header with toggle button */}
             <button
               onClick={() => setIsColumnSelectorExpanded(!isColumnSelectorExpanded)}
-              className="w-full p-4 text-left flex items-center justify-between hover:bg-accent/50 transition-colors"
+              disabled={validationErrors.length > 0}
+              className={`w-full p-4 text-left flex items-center justify-between transition-colors ${
+                validationErrors.length > 0 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : 'hover:bg-accent/50'
+              }`}
             >
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-foreground">
@@ -966,7 +981,7 @@ export function QueryPanel({
             
             {/* Collapsible content */}
             {isColumnSelectorExpanded && (
-              <div className="border-t border-border">
+              <div className={`border-t border-border ${validationErrors.length > 0 ? 'opacity-50 pointer-events-none' : ''}`}>
                 {/* Quick Actions - Fixed */}
                 <div className="px-4 pt-3 pb-2">
                   <div className="flex gap-2">
@@ -1024,7 +1039,7 @@ export function QueryPanel({
                 </div>
 
                 {/* Categorized Column Grid - Scrollable */}
-                <div className="px-4 h-[15vh] py-2 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
+                <div className="px-4 h-[70%] py-2 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
                   <div className="space-y-3">
                   {/* Gifts Table */}
                   <div>
@@ -1363,7 +1378,7 @@ export function QueryPanel({
       {/* Scrollable Content Area */}
       <div className="flex-1 overflow-auto p-4 pt-0">
         {/* Results Area - Always visible with border */}
-        <div className="bg-card border-2 border-dashed border-muted-foreground/30 rounded p-4 flex flex-col flex-1 h-full relative">
+        <div className={`bg-card border-2 border-dashed border-muted-foreground/30 rounded p-4 flex flex-col flex-1 h-full relative ${isColumnSelectorExpanded ? 'hidden' : ''}`}>
         {isLoading && (
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
             <div className="flex flex-col items-center gap-3">
@@ -1480,7 +1495,7 @@ export function QueryPanel({
       </div>
 
       {/* Fixed Save/Clear Button Bar */}
-      <div className="flex-shrink-0 p-4 border-t bg-card flex flex-row items-center justify-between gap-2">
+      <div className={`flex-shrink-0 p-4 border-t bg-card flex flex-row items-center justify-between gap-2 ${isColumnSelectorExpanded ? 'hidden' : ''}`}>
         
         <div className="flex items-center gap-2">
           {selectedSavedQueryId ? (
