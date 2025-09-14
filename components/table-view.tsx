@@ -41,6 +41,9 @@ export function TableView({
   externalSortDirection = null,
   onSortChange,
 }: TableViewProps) {
+  
+  // Debug: Log which TableView instance this is
+  console.log('🔄 TableView component rendered with onSortChange:', !!onSortChange, 'inDashboard:', inDashboard, 'readOnlyMode:', readOnlyMode)
   const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set(columns.map(col => col.key)))
   const [columnOrder, setColumnOrder] = useState<string[]>(columns.map(col => col.key))
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null)
@@ -59,18 +62,21 @@ export function TableView({
     setColumnOrder(columns.map(col => col.key))
   }, [columns])
 
-  // Reset sorting when data changes significantly
+  // Reset sorting when data changes significantly, but not when external sorting is being applied
   useEffect(() => {
-    setSortColumn(null)
-    setSortDirection('asc')
-  }, [data])
+    // Only reset sorting if no external sorting is being applied
+    if (externalSortColumn === null && externalSortDirection === null) {
+      setSortColumn(null)
+      setSortDirection('asc')
+    }
+  }, [data, externalSortColumn, externalSortDirection])
 
   // Handle external sorting control
   useEffect(() => {
-    if (externalSortColumn !== undefined && externalSortDirection !== undefined) {
-      setSortColumn(externalSortColumn)
-      setSortDirection(externalSortDirection)
-    }
+    // Always update when external sorting values change, even if they're null
+    console.log('🔄 TableView: Applying external sorting:', { externalSortColumn, externalSortDirection })
+    setSortColumn(externalSortColumn)
+    setSortDirection(externalSortDirection)
   }, [externalSortColumn, externalSortDirection])
 
   // Filter and order columns based on selection and order
@@ -123,6 +129,9 @@ export function TableView({
 
   // Handle column sorting
   const handleColumnSort = (columnKey: string) => {
+    console.log('🔄 TableView handleColumnSort called with:', columnKey)
+    console.log('🔄 TableView onSortChange callback exists:', !!onSortChange)
+    
     let newSortColumn: string | null = null
     let newSortDirection: 'asc' | 'desc' | null = 'asc'
     
@@ -141,13 +150,18 @@ export function TableView({
       newSortDirection = 'asc'
     }
     
+    console.log('🔄 TableView setting sort state:', { newSortColumn, newSortDirection })
+    
     // Update internal state
     setSortColumn(newSortColumn)
     setSortDirection(newSortDirection)
     
     // Notify parent component if callback provided
     if (onSortChange) {
+      console.log('🔄 TableView calling onSortChange with:', { newSortColumn, newSortDirection })
       onSortChange(newSortColumn, newSortDirection)
+    } else {
+      console.log('🔄 TableView onSortChange is null/undefined')
     }
   }
 
@@ -160,7 +174,7 @@ export function TableView({
   }
 
   // Create a stable ID based on content and column order
-          const stableId = `table-${outputMode}-${JSON.stringify(data).slice(0, 100)}-${JSON.stringify(visibleColumns.map(col => col.key)).slice(0, 50)}-${sql ? sql.slice(0, 50) : 'no-sql'}`
+          const stableId = `table-${outputMode}-${JSON.stringify(sortedData).slice(0, 100)}-${JSON.stringify(visibleColumns.map(col => col.key)).slice(0, 50)}-${sql ? sql.slice(0, 50) : 'no-sql'}`
         console.log('🪄 TableView generating stableId:', stableId)
         console.log('🪄 TableView columns prop:', columns)
         console.log('🪄 TableView visibleColumns:', visibleColumns)
@@ -172,7 +186,7 @@ export function TableView({
       id: stableId,
       type: outputMode,
       title: 'Query Result',
-      data,
+      data: sortedData, // Use sorted data instead of original data
       columns: visibleColumns, // Use reordered visible columns for dragging
       color: 'hsl(var(--chart-4))',
       sql,              // <-- ADD THIS LINE
@@ -181,7 +195,7 @@ export function TableView({
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
-  }), [stableId, data, visibleColumns, outputMode, sql, readOnlyMode]) // Use visibleColumns instead of columns
+  }), [stableId, sortedData, visibleColumns, outputMode, sql, readOnlyMode]) // Use sortedData instead of data
 
   // Early return if no data or columns
   if (!data || !Array.isArray(data) || data.length === 0) {
@@ -191,6 +205,13 @@ export function TableView({
       </div>
     );
   }
+
+  // Debug: Log the first few rows to check for data issues
+  console.log('🔄 TableView data check:', {
+    totalRows: data.length,
+    firstRow: data[0],
+    columns: visibleColumns.map(col => col.key)
+  });
 
   if (!columns || !Array.isArray(columns) || columns.length === 0) {
     return (
@@ -343,12 +364,12 @@ export function TableView({
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm" className="flex items-center gap-2">
                   <Filter className="h-4 w-4" />
-                  <span>Columns</span>
+                  <span>Filter</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Table Column Selection</DialogTitle>
+                  <DialogTitle>Filter Columns</DialogTitle>
                 </DialogHeader>
                 <div className="py-4">
                   <div className="flex items-center justify-between mb-3">
@@ -395,7 +416,7 @@ export function TableView({
 
 
         {/* Table - Scrollable area with dynamic height */}
-        <div className="flex-1 overflow-auto min-h-0">
+        <div className="flex-1 overflow-auto min-h-0 relative">
           <table 
             className={`border-collapse w-full ${compact ? "text-xs" : "text-sm"}`} 
             style={{ 
@@ -403,15 +424,15 @@ export function TableView({
               width: '100%'
             }}
           >
-            <thead>
+            <thead className="relative z-20 bg-muted">
               <tr className="bg-muted">
                 {visibleColumns.map((col, i) => {
                   return (
                     <th 
                       key={col.key} 
-                      className={`${compact ? "p-1" : "p-2"} text-left font-medium sticky top-0 bg-muted z-10 border-b border-border tracking-normal select-none h-10 ${
+                      className={`${compact ? "p-1" : "p-2"} text-left font-medium sticky top-0 bg-muted z-20 border-b border-border tracking-normal select-none h-10 ${
                         draggedColumn === col.key ? 'opacity-50' : ''
-                      } ${(outputMode === 'chart' || outputMode === 'pie' || (inDashboard && readOnlyMode)) ? 'cursor-pointer' : 'cursor-move'} hover:bg-muted/80 transition-colors ${
+                      } ${(outputMode === 'chart' || outputMode === 'pie' || (inDashboard && readOnlyMode)) ? 'cursor-pointer' : 'cursor-move'} hover:bg-muted transition-colors ${
                         sortColumn === col.key ? 'bg-primary/10 border-primary/20' : ''
                       }`}
                       style={{ 

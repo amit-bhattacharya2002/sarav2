@@ -186,8 +186,11 @@ export async function POST(req: NextRequest) {
       // Use frontend columns if provided (preserves reordering), otherwise use database columns
       const columnsToSave = columns && columns.length > 0 ? columns : queryResult.columns || []
       
-      // Transform column names to human-readable aliases before saving
-      const transformedColumns = transformColumnsToHumanReadable(columnsToSave)
+      // Only transform if columns don't already have human-readable names
+      const needsTransformation = columnsToSave.some(col => 
+        col.name && (col.name === col.key || col.name.includes('_') || col.name === col.name.toUpperCase())
+      )
+      const transformedColumns = needsTransformation ? transformColumnsToHumanReadable(columnsToSave) : columnsToSave
       
       const savedQuery = await businessPrisma.savedQuery.create({
         data: {
@@ -248,8 +251,11 @@ export async function POST(req: NextRequest) {
       // Use frontend columns if provided (preserves reordering), otherwise use database columns
       const columnsToSave = columns && columns.length > 0 ? columns : queryResult.columns || []
       
-      // Transform column names to human-readable aliases before updating
-      const transformedColumns = transformColumnsToHumanReadable(columnsToSave)
+      // Only transform if columns don't already have human-readable names
+      const needsTransformation = columnsToSave.some(col => 
+        col.name && (col.name === col.key || col.name.includes('_') || col.name === col.name.toUpperCase())
+      )
+      const transformedColumns = needsTransformation ? transformColumnsToHumanReadable(columnsToSave) : columnsToSave
       
       const updatedQuery = await businessPrisma.savedQuery.update({
         where: { id: parseInt(id) },
@@ -335,8 +341,11 @@ export async function POST(req: NextRequest) {
       const data = savedQuery.resultData ? JSON.parse(savedQuery.resultData) : []
       const columns = savedQuery.resultColumns ? JSON.parse(savedQuery.resultColumns) : []
       
-      // Transform column names to human-readable aliases
-      const transformedColumns = transformColumnsToHumanReadable(columns)
+      // Only transform if columns don't already have human-readable names
+      const needsTransformation = columns.some(col => 
+        col.name && (col.name === col.key || col.name.includes('_') || col.name === col.name.toUpperCase())
+      )
+      const transformedColumns = needsTransformation ? transformColumnsToHumanReadable(columns) : columns
       
       const outputMode = savedQuery.outputMode === 2 ? 'chart' : savedQuery.outputMode === 3 ? 'pie' : 'table'
       

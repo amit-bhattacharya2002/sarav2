@@ -340,6 +340,18 @@ export default function Dashboard() {
 
   // State for viewing saved queries directly in center pane
   const [viewingSavedQuery, setViewingSavedQuery] = useState<any>(null)
+  
+  // Main query panel sorting state
+  const [mainSortColumn, setMainSortColumn] = useState<string | null>(null)
+  const [mainSortDirection, setMainSortDirection] = useState<'asc' | 'desc' | null>(null)
+  
+  // Handle sorting changes from QueryPanel
+  const handleMainSortChange = useCallback((column: string | null, direction: 'asc' | 'desc' | null) => {
+    console.log('🔄 Dashboard: Main query panel sort change received:', { column, direction })
+    console.log('🔄 Dashboard: Current mainSortColumn:', mainSortColumn, 'Current mainSortDirection:', mainSortDirection)
+    setMainSortColumn(column)
+    setMainSortDirection(direction)
+  }, [mainSortColumn, mainSortDirection])
 
   // Add state for collapsible panels
   // const [showSavedQueries, setShowSavedQueries] = useState(true);
@@ -826,7 +838,10 @@ export default function Dashboard() {
       })
 
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Server error')
+      if (!res.ok) {
+        console.error('🔴 SQL Generation Error:', data)
+        throw new Error(data.error || data.message || 'SQL generation failed')
+      }
 
       setSqlQuery(data.sql)
 
@@ -842,7 +857,10 @@ export default function Dashboard() {
       })
 
       const result = await resultRes.json()
-      if (!resultRes.ok) throw new Error(result.error || 'Query execution error')
+      if (!resultRes.ok) {
+        console.error('🔴 Query Execution Error:', result)
+        throw new Error(result.error || result.message || 'Query execution failed')
+      }
 
       setQueryResults(result.data || [])
       setColumns(result.columns || [])
@@ -932,12 +950,28 @@ export default function Dashboard() {
     try {
   setSaveStatus("saving");
   
-  // Prepare visual config for charts
-const visualConfig = (outputMode === 'chart' || outputMode === 'pie') && selectedXColumn && selectedYColumn ? {
-  selectedXColumn,
-  selectedYColumn,
-  outputMode
-} : null;
+  // Prepare visual config for charts and sorting
+const visualConfig = (() => {
+  const config: any = {}
+  
+  // Add chart configuration
+  if ((outputMode === 'chart' || outputMode === 'pie') && selectedXColumn && selectedYColumn) {
+    config.selectedXColumn = selectedXColumn
+    config.selectedYColumn = selectedYColumn
+    config.outputMode = outputMode
+  }
+  
+  // Add sorting configuration
+  if (mainSortColumn && mainSortDirection) {
+    console.log('🔄 Dashboard: Adding sorting config to visualConfig:', { mainSortColumn, mainSortDirection })
+    config.sortColumn = mainSortColumn
+    config.sortDirection = mainSortDirection
+  } else {
+    console.log('🔄 Dashboard: No sorting config to add - mainSortColumn:', mainSortColumn, 'mainSortDirection:', mainSortDirection)
+  }
+  
+  return Object.keys(config).length > 0 ? config : null
+})();
 
 console.log('🪄 Updating saved query with visualConfig:', visualConfig);
   
@@ -979,8 +1013,12 @@ console.log('🪄 Updating saved query with visualConfig:', visualConfig);
         columns,
         visualConfig: {
           selectedXColumn,
-          selectedYColumn
-        }
+          selectedYColumn,
+          sortColumn: mainSortColumn,
+          sortDirection: mainSortDirection
+        },
+        sortColumn: mainSortColumn,
+        sortDirection: mainSortDirection
       });
       
       // Trigger history panel refresh
@@ -1146,17 +1184,39 @@ const hasChanges = () => {
     return isDifferent;
   };
   
+  // Check for sorting changes
+  const hasSortingChanged = () => {
+    const originalSortColumn = originalQueryData.sortColumn || null;
+    const originalSortDirection = originalQueryData.sortDirection || null;
+    
+    // Compare with current sorting state
+    const sortingChanged = originalSortColumn !== mainSortColumn ||
+                          originalSortDirection !== mainSortDirection;
+    
+    console.log('🪄 Sorting change check:', {
+      originalSortColumn,
+      currentSortColumn: mainSortColumn,
+      originalSortDirection,
+      currentSortDirection: mainSortDirection,
+      sortingChanged
+    });
+    
+    return sortingChanged;
+  };
+  
   const questionChanged = question !== originalQueryData.question;
   const sqlChanged = sqlQuery !== originalQueryData.sql;
   const outputModeChanged = outputMode !== originalQueryData.outputMode;
   const columnOrderChanged = hasColumnOrderChanged();
   const chartConfigChanged = hasChartConfigChanged();
+  const sortingChanged = hasSortingChanged();
   
   const hasChanges = (
     questionChanged ||
     sqlChanged ||
     outputModeChanged ||
     columnOrderChanged ||
+    sortingChanged ||
     chartConfigChanged
   );
   
@@ -1165,6 +1225,7 @@ const hasChanges = () => {
     sqlChanged,
     outputModeChanged,
     columnOrderChanged,
+    sortingChanged,
     chartConfigChanged,
     hasChanges
   });
@@ -1189,7 +1250,34 @@ const hasChanges = () => {
 
 
 
-  // Load saved query into main active query panel
+  // Open saved query in a new tab
+  const openSavedQueryTab = (query: any) => {
+    console.log('🔄 openSavedQueryTab called with query:', query.id, query.title)
+    const tabId = `saved-query-${query.id}`
+    
+    // Check if tab already exists
+    const existingTab = tabs.find(tab => tab.id === tabId)
+    if (existingTab) {
+      console.log('🔄 Tab already exists, switching to it:', tabId)
+      setActiveTabId(tabId)
+      return
+    }
+
+    // Add new tab
+    const newTab = {
+      id: tabId,
+      title: query.title || query.queryText || 'Saved Query',
+      type: 'saved' as const,
+      queryId: query.id,
+      data: query
+    }
+
+    console.log('🔄 Creating new tab:', newTab)
+    setTabs(prev => [...prev, newTab])
+    setActiveTabId(tabId)
+  }
+
+  // Load saved query into main active query panel (legacy function)
   const loadSavedQueryIntoActivePanel = async (query: any) => {
     try {
       setIsLoading(true);
@@ -1219,6 +1307,16 @@ const hasChanges = () => {
       if (result.visualConfig) {
         setSelectedXColumn(result.visualConfig.selectedXColumn || '');
         setSelectedYColumn(result.visualConfig.selectedYColumn || '');
+        
+        // Load sorting configuration if available
+        if (result.visualConfig.sortColumn !== undefined || result.visualConfig.sortDirection !== undefined) {
+          console.log('🔄 Dashboard: Loading sorting state from saved query:', { 
+            sortColumn: result.visualConfig.sortColumn, 
+            sortDirection: result.visualConfig.sortDirection 
+          });
+          setMainSortColumn(result.visualConfig.sortColumn || null);
+          setMainSortDirection(result.visualConfig.sortDirection || null);
+        }
       } else if (result.columns && result.columns.length >= 2) {
         // Fallback to first two columns if no visual config
         setSelectedXColumn(result.columns[0]?.key || '');
@@ -1235,7 +1333,9 @@ const hasChanges = () => {
         outputMode: result.outputMode,
         data: result.data,
         columns: result.columns,
-        visualConfig: result.visualConfig
+        visualConfig: result.visualConfig,
+        sortColumn: result.visualConfig?.sortColumn || null,
+        sortDirection: result.visualConfig?.sortDirection || null
       });
       
       // Automatically go into edit mode for saved queries
@@ -1661,7 +1761,7 @@ setIsEditingSavedQuery(true);
     if (!viz) return null;
   
     if (viz.type === 'chart' || viz.type === 'visualization') {
-      console.log(`🔍 Rendering DraggableChart with data:`, viz.data);
+      console.log(`🔍 Rendering DraggableChart with SQL:`, viz.sql);
       return (
         <DraggableChart 
           data={viz.data || []} 
@@ -1674,7 +1774,7 @@ setIsEditingSavedQuery(true);
     }
   
     if (viz.type === 'pie') {
-      console.log(`🔍 Rendering DraggablePieChart with data:`, viz.data);
+      console.log(`🔍 Rendering DraggablePieChart with SQL:`, viz.sql);
       return (
         <DraggablePieChart 
           data={viz.data || []} 
@@ -1686,7 +1786,7 @@ setIsEditingSavedQuery(true);
     }
   
     if (viz.type === 'table') {
-      console.log('🪄 renderDroppedViz rendering table with columns:', viz.columns);
+      console.log('🪄 renderDroppedViz rendering table with SQL:', viz.sql);
       return (
         <TableView 
           data={viz.data || []} 
@@ -1694,6 +1794,7 @@ setIsEditingSavedQuery(true);
           compact 
           readOnlyMode={readOnlyMode} 
           inDashboard={true}
+          sql={viz.sql} // Pass SQL for potential future dynamic updates
           onColumnOrderChange={(reorderedColumns) => {
             console.log('🪄 onColumnOrderChange called with:', reorderedColumns);
             // Update the visualization with the new column order
@@ -1861,16 +1962,18 @@ setIsEditingSavedQuery(true);
             setSelectedYColumn={setSelectedYColumn}
             currentUser={currentUser}
             setOriginalQueryData={setOriginalQueryData}
+            onSortChange={handleMainSortChange}
+            initialSortColumn={mainSortColumn}
+            initialSortDirection={mainSortDirection}
           />
         )}
       </div>
     )
-  }, [viewingSavedQuery, question, stableSetQuestion, outputMode, stableSetOutputMode, isLoading, sqlQuery, stableSetSqlQuery, queryResults, stableSetQueryResults, columns, stableSetColumns, error, stableSetError, handleQuerySubmit, goBackToActiveQuery])
+  }, [viewingSavedQuery, question, stableSetQuestion, outputMode, stableSetOutputMode, isLoading, sqlQuery, stableSetSqlQuery, queryResults, stableSetQueryResults, columns, stableSetColumns, error, stableSetError, handleQuerySubmit, goBackToActiveQuery, handleMainSortChange, mainSortColumn, mainSortDirection])
 
   // Saved Query Tab Component
   const SavedQueryTab = ({ query, onClose }: { query: any; onClose: () => void }) => {
   console.log('🪄 SavedQueryTab rendered for query:', query.id);
-console.log('🪄 DEBUG TEST - This should appear when SavedQueryTab renders');
     const [tabQueryResults, setTabQueryResults] = useState<any[] | null>(null)
     const [tabColumns, setTabColumns] = useState<{ key: string; name: string }[]>([])
     const [tabIsLoading, setTabIsLoading] = useState(false)
@@ -1886,9 +1989,21 @@ console.log('🪄 DEBUG TEST - This should appear when SavedQueryTab renders');
     const [tabCurrentTitle, setTabCurrentTitle] = useState(query?.title || query?.queryText || 'Saved Query')
     const [tabShowSql, setTabShowSql] = useState(false)
     
+    // Tab-specific sorting state
+    const [tabSortColumn, setTabSortColumn] = useState<string | null>(null)
+    const [tabSortDirection, setTabSortDirection] = useState<'asc' | 'desc' | null>(null)
+    
     // Chart configuration state
     const [tabSelectedXColumn, setTabSelectedXColumn] = useState<string>('')
 const [tabSelectedYColumn, setTabSelectedYColumn] = useState<string>('')
+
+    // Debug: Log tab state
+    console.log('🪄 SavedQueryTab state:', { 
+      tabIsEditing, 
+      tabOutputMode, 
+      tabQueryResults: tabQueryResults?.length, 
+      tabColumns: tabColumns?.length 
+    });
 
 // Debug: Log when X/Y column selections change
 const handleXColumnChange = useCallback((value: string) => {
@@ -1927,6 +2042,37 @@ console.log('🪄 Debug: This means a saved query tab is being rendered');
         })
       }
     }, [tabOriginalData])
+    
+    // Handle sort changes in the tab
+    const handleTabSortChange = useCallback((column: string | null, direction: 'asc' | 'desc' | null) => {
+      console.log('🔄 SAVED QUERY TAB sort change called:', { column, direction, queryId: query.id })
+      console.log('🔄 Current tabIsEditing:', tabIsEditing)
+      console.log('🔄 Current tabOriginalData:', tabOriginalData)
+      
+      setTabSortColumn(column)
+      setTabSortDirection(direction)
+      
+      // Automatically enter edit mode when user sorts data
+      if (!tabIsEditing) {
+        console.log('🔄 Auto-entering edit mode due to sort change')
+        setTabIsEditing(true)
+        
+        // Set up original data for change detection if not already set
+        if (!tabOriginalData) {
+          console.log('🔄 Setting up original data for change detection')
+          setTabOriginalData({
+            question: tabQuestion,
+            sql: tabSqlQuery,
+            outputMode: tabOutputMode,
+            data: tabQueryResults,
+            columns: tabColumns,
+            visualConfig: null,
+            sortColumn: null,
+            sortDirection: null
+          })
+        }
+      }
+    }, [tabIsEditing, tabOriginalData, tabQuestion, tabSqlQuery, tabOutputMode, tabQueryResults, tabColumns])
 
     // Function to determine error type and icon for tabs
     const getTabErrorInfo = (errorMessage: string) => {
@@ -2026,6 +2172,12 @@ console.log('🪄 Debug: This means a saved query tab is being rendered');
             setTabSelectedYColumn(result.columns[1]?.key || '')
           }
           
+          // Initialize sorting state from visualConfig
+          const savedSortColumn = result.visualConfig?.sortColumn || null
+          const savedSortDirection = result.visualConfig?.sortDirection || null
+          setTabSortColumn(savedSortColumn)
+          setTabSortDirection(savedSortDirection)
+          
           // Store original data for edit mode
           setTabOriginalData({
             question: result.question,
@@ -2033,7 +2185,9 @@ console.log('🪄 Debug: This means a saved query tab is being rendered');
             outputMode: result.outputMode,
             data: result.data,
             columns: result.columns,
-            visualConfig: result.visualConfig
+            visualConfig: result.visualConfig,
+            sortColumn: savedSortColumn,
+            sortDirection: savedSortDirection
           })
         } catch (err: any) {
           console.error('Error loading saved query:', err)
@@ -2114,12 +2268,25 @@ console.log('🪄 Debug: This means a saved query tab is being rendered');
       
       setTabSaveStatus("saving")
       try {
-        // Prepare visual config for charts
-        const visualConfig = (tabOutputMode === 'chart' || tabOutputMode === 'pie') && tabSelectedXColumn && tabSelectedYColumn ? {
-          selectedXColumn: tabSelectedXColumn,
-          selectedYColumn: tabSelectedYColumn,
-          outputMode: tabOutputMode
-        } : null;
+        // Prepare visual config for charts and sorting
+        const visualConfig = (() => {
+          const config: any = {}
+          
+          // Add chart configuration
+          if ((tabOutputMode === 'chart' || tabOutputMode === 'pie') && tabSelectedXColumn && tabSelectedYColumn) {
+            config.selectedXColumn = tabSelectedXColumn
+            config.selectedYColumn = tabSelectedYColumn
+            config.outputMode = tabOutputMode
+          }
+          
+          // Add sorting configuration
+          if (tabSortColumn && tabSortDirection) {
+            config.sortColumn = tabSortColumn
+            config.sortDirection = tabSortDirection
+          }
+          
+          return Object.keys(config).length > 0 ? config : null
+        })();
 
         const response = await fetch('/api/query', {
           method: 'POST',
@@ -2164,7 +2331,9 @@ console.log('🪄 Debug: This means a saved query tab is being rendered');
             outputMode: result.outputMode,
             data: result.data,
             columns: result.columns,
-            visualConfig: result.visualConfig
+            visualConfig: result.visualConfig,
+            sortColumn: tabSortColumn,
+            sortDirection: tabSortDirection
           })
           
           // Restore chart configuration if available
@@ -2290,11 +2459,21 @@ console.log('🪄 Debug: This means a saved query tab is being rendered');
       const sqlChanged = tabSqlQuery !== tabOriginalData.sql;
       const outputModeChanged = tabOutputMode !== tabOriginalData.outputMode;
       
+      // Check for sorting changes
+      const sortingChanged = (() => {
+        const originalSortColumn = tabOriginalData.sortColumn || null;
+        const originalSortDirection = tabOriginalData.sortDirection || null;
+        
+        return originalSortColumn !== tabSortColumn ||
+               originalSortDirection !== tabSortDirection;
+      })();
+      
       const hasChanges = (
         questionChanged ||
         sqlChanged ||
         outputModeChanged ||
         columnOrderChanged ||
+        sortingChanged ||
         chartConfigChanged
       );
       
@@ -2305,12 +2484,25 @@ console.log('🪄 Debug: This means a saved query tab is being rendered');
         sqlChanged,
         outputModeChanged,
         columnOrderChanged,
+        sortingChanged,
         chartConfigChanged,
-        hasChanges
+        hasChanges,
+        originalSortColumn: tabOriginalData?.sortColumn,
+        currentSortColumn: tabSortColumn,
+        originalSortDirection: tabOriginalData?.sortDirection,
+        currentSortDirection: tabSortDirection
+      });
+      
+      console.log('🪄 hasTabChanges sorting comparison:', {
+        originalSortColumn: tabOriginalData?.sortColumn,
+        currentSortColumn: tabSortColumn,
+        originalSortDirection: tabOriginalData?.sortDirection,
+        currentSortDirection: tabSortDirection,
+        sortingChanged
       });
       
       return hasChanges;
-    }, [tabIsEditing, tabOriginalData, tabQuestion, tabSqlQuery, tabOutputMode, tabColumns, tabSelectedXColumn, tabSelectedYColumn])
+    }, [tabIsEditing, tabOriginalData, tabQuestion, tabSqlQuery, tabOutputMode, tabColumns, tabSortColumn, tabSortDirection, tabSelectedXColumn, tabSelectedYColumn])
 
 // Debug: Monitor X/Y column changes and trigger hasTabChanges check
 useEffect(() => {
@@ -2572,9 +2764,7 @@ useEffect(() => {
                       <SelectContent>
                         {tabColumns.map((col) => (
                           <SelectItem key={col.key} value={col.key}>
-                            {col.name.replace(/_/g, ' ').replace(/\w\S*/g, txt => 
-                              txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase()
-                            )}
+                            {col.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -2591,9 +2781,7 @@ useEffect(() => {
                       <SelectContent>
                         {tabColumns.map((col) => (
                           <SelectItem key={col.key} value={col.key}>
-                            {col.name.replace(/_/g, ' ').replace(/\w\S*/g, txt => 
-                              txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase()
-                            )}
+                            {col.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -2626,14 +2814,22 @@ useEffect(() => {
               <div className="flex-1 overflow-auto bg-card border rounded p-4">
                 <div className="overflow-x-auto">
                   {tabOutputMode === 'table' && (
-                    <TableView 
-                      data={tabQueryResults} 
-                      columns={tabColumns} 
-                      sql={tabSqlQuery || undefined} 
-                      readOnlyMode={readOnlyMode}
-                      onColumnOrderChange={handleTabColumnOrderChange}
-                      inDashboard={true}
-                    />
+                    <div data-testid="saved-query-tab-tableview-edit-mode">
+                      <TableView 
+                        data={tabQueryResults} 
+                        columns={tabColumns} 
+                        sql={tabSqlQuery || undefined} 
+                        readOnlyMode={readOnlyMode}
+                        onColumnOrderChange={handleTabColumnOrderChange}
+                        onSortChange={(column, direction) => {
+                          console.log('🔄 SAVED QUERY TAB TableView onSortChange called (EDIT MODE):', { column, direction, queryId: query.id })
+                          handleTabSortChange(column, direction)
+                        }}
+                        externalSortColumn={tabSortColumn}
+                        externalSortDirection={tabSortDirection}
+                        inDashboard={true}
+                      />
+                    </div>
                   )}
                   
                   {tabOutputMode === 'chart' && (
@@ -2700,14 +2896,22 @@ useEffect(() => {
             {tabQueryResults && tabQueryResults.length > 0 && tabColumns.length >= 1 && (
               <div className="flex-1 overflow-auto">
                 {tabOutputMode === 'table' && (
-                  <TableView 
-                    data={tabQueryResults} 
-                    columns={tabColumns} 
-                    compact 
-                    readOnlyMode={readOnlyMode}
-                    onColumnOrderChange={handleTabColumnOrderChange}
-                    inDashboard={true}
-                  />
+                  <div data-testid="saved-query-tab-tableview-view-mode">
+                    <TableView 
+                      data={tabQueryResults} 
+                      columns={tabColumns} 
+                      compact 
+                      readOnlyMode={readOnlyMode}
+                      onColumnOrderChange={handleTabColumnOrderChange}
+                      onSortChange={(column, direction) => {
+                        console.log('🔄 SAVED QUERY TAB TableView onSortChange called (VIEW MODE):', { column, direction, queryId: query.id })
+                        handleTabSortChange(column, direction)
+                      }}
+                      externalSortColumn={tabSortColumn}
+                      externalSortDirection={tabSortDirection}
+                      inDashboard={true}
+                    />
+                  </div>
                 )}
                 
                 {tabOutputMode === 'chart' && (

@@ -304,6 +304,9 @@ interface QueryPanelProps {
   setSelectedYColumn?: (value: string) => void
   currentUser?: any // Add currentUser prop
   setOriginalQueryData?: (data: any) => void // Add setOriginalQueryData prop
+  onSortChange?: (column: string | null, direction: 'asc' | 'desc' | null) => void
+  initialSortColumn?: string | null
+  initialSortDirection?: 'asc' | 'desc' | null
 }
 
 export function QueryPanel({
@@ -335,6 +338,9 @@ export function QueryPanel({
   setSelectedYColumn: propSetSelectedYColumn,
   currentUser,
   setOriginalQueryData,
+  onSortChange: propOnSortChange,
+  initialSortColumn,
+  initialSortDirection,
 }: QueryPanelProps) {
   const [showSql, setShowSql] = useState(false)
   const [saveStatus, setSaveStatus] = useState<null | "success" | "error" | "saving">(null);
@@ -343,8 +349,8 @@ export function QueryPanel({
   const [showGhostIndicator, setShowGhostIndicator] = useState(false)
   const [ghostMessage, setGhostMessage] = useState("")
   // External sorting state
-  const [externalSortColumn, setExternalSortColumn] = useState<string | null>(null)
-  const [externalSortDirection, setExternalSortDirection] = useState<'asc' | 'desc' | null>(null)
+  const [externalSortColumn, setExternalSortColumn] = useState<string | null>(initialSortColumn || null)
+  const [externalSortDirection, setExternalSortDirection] = useState<'asc' | 'desc' | null>(initialSortDirection || null)
   const [isColumnSelectorExpanded, setIsColumnSelectorExpanded] = useState(false)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
   const [validationWarnings, setValidationWarnings] = useState<string[]>([])
@@ -354,10 +360,19 @@ export function QueryPanel({
   useEffect(() => {
     if (question.trim().length > 0 && !selectedSavedQueryId && validationErrors.length === 0 && !isLoading && !queryResults?.length) {
       setIsColumnSelectorExpanded(true)
-    } else if (question.trim().length === 0 || validationErrors.length > 0 || isLoading || queryResults?.length) {
+    } else if (question.trim().length === 0 || validationErrors.length > 0 || isLoading) {
       setIsColumnSelectorExpanded(false)
     }
-  }, [question, selectedSavedQueryId, validationErrors, isLoading, queryResults])
+    // Don't auto-collapse when queryResults exist - let user manually control column selector
+  }, [question, selectedSavedQueryId, validationErrors, isLoading])
+  
+  // Update external sorting state when initial values change (for saved queries)
+  useEffect(() => {
+    // Always update when initial values change, even if they're null
+    console.log('🔄 QueryPanel: Updating external sorting state:', { initialSortColumn, initialSortDirection })
+    setExternalSortColumn(initialSortColumn || null)
+    setExternalSortDirection(initialSortDirection || null)
+  }, [initialSortColumn, initialSortDirection])
   
   // Memoized callback for column order changes to prevent infinite loops
   const handleColumnOrderChange = useCallback((reorderedColumns: { key: string; name: string }[]) => {
@@ -369,7 +384,13 @@ export function QueryPanel({
     console.log('🔄 Query panel sort change:', { column, direction })
     setExternalSortColumn(column)
     setExternalSortDirection(direction)
-  }, [])
+    
+    // Notify parent component about sorting changes
+    if (propOnSortChange) {
+      console.log('🔄 Notifying parent about sorting change')
+      propOnSortChange(column, direction)
+    }
+  }, [propOnSortChange])
 
   // Function to programmatically sort by column
   const sortByColumn = useCallback((columnName: string, direction: 'asc' | 'desc') => {
@@ -762,12 +783,28 @@ export function QueryPanel({
   async function handleSaveQuery() {
     setSaveStatus("saving");
     try {
-      // Prepare visual config for charts
-      const visualConfig = (outputMode === 'chart' || outputMode === 'pie') && selectedXColumn && selectedYColumn ? {
+      // Prepare visual config for charts and sorting
+      const visualConfig = {
+        ...((outputMode === 'chart' || outputMode === 'pie') && selectedXColumn && selectedYColumn ? {
         selectedXColumn,
         selectedYColumn,
         outputMode
-      } : null;
+        } : {}),
+        // Always include sorting state if it exists
+        ...(externalSortColumn && externalSortDirection ? {
+          sortColumn: externalSortColumn,
+          sortDirection: externalSortDirection
+        } : {})
+      };
+      
+      // Only include visualConfig if it has content
+      const finalVisualConfig = Object.keys(visualConfig).length > 0 ? visualConfig : null;
+      
+      console.log('🔄 QueryPanel: Saving query with sorting state:', {
+        externalSortColumn,
+        externalSortDirection,
+        finalVisualConfig
+      });
 
       const payload = {
         action: "save", // <-- This tells the backend to save, not run
@@ -776,7 +813,7 @@ export function QueryPanel({
         outputMode,
         columns,
         dataSample: queryResults?.slice(0, 3) || [],
-        visualConfig,
+        visualConfig: finalVisualConfig,
         // userId, companyId, panelPosition: add if needed
       };
       // Create headers with user ID
@@ -806,7 +843,9 @@ export function QueryPanel({
             columns,
             visualConfig: {
               selectedXColumn,
-              selectedYColumn
+              selectedYColumn,
+              sortColumn: externalSortColumn,
+              sortDirection: externalSortDirection
             }
           });
         }
@@ -1335,9 +1374,7 @@ export function QueryPanel({
                       <SelectContent>
                         {columns.map((col) => (
                           <SelectItem key={col.key} value={col.key}>
-                            {col.name.replace(/_/g, ' ').replace(/\w\S*/g, txt => 
-                              txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase()
-                            )}
+                            {col.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1357,9 +1394,7 @@ export function QueryPanel({
                       <SelectContent>
                         {columns.map((col) => (
                           <SelectItem key={col.key} value={col.key}>
-                            {col.name.replace(/_/g, ' ').replace(/\w\S*/g, txt => 
-                              txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase()
-                            )}
+                            {col.name}
                           </SelectItem>
                         ))}
                       </SelectContent>

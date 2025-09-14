@@ -120,9 +120,14 @@ export async function executeSQLQuery(sql: string, originalQuestion?: string, us
       }
     }
 
+    // Convert BigInt values to strings to prevent serialization errors
+    const serializedRows = JSON.parse(JSON.stringify(sortedRows, (key, value) =>
+      typeof value === 'bigint' ? value.toString() : value
+    ))
+
     return {
       success: true,
-      rows: sortedRows,
+      rows: serializedRows,
       columns
     }
 
