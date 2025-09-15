@@ -143,6 +143,20 @@ export default function Dashboard() {
           // If this was a new dashboard (no id before), update the URL and let the app reload with the new ID!
           if (!dashboardId && data.dashboard?.id) {
             console.log('🔍 New dashboard saved, redirecting to:', `/dashboard?d=${data.dashboard.id}&edit=true`);
+            
+            // Set the original data for the newly created dashboard before redirecting
+            const newOriginalData = {
+              title: dashboardSectionTitle,
+              topLeftTitle,
+              topRightTitle,
+              bottomTitle,
+              quadrants,
+              visualizations: allVisualizations
+            };
+            setOriginalDashboardData(newOriginalData);
+            setHasDashboardChanges(false);
+            setIsNewlyCreatedDashboard(true);
+            
             router.replace(`/dashboard?d=${data.dashboard.id}&edit=true`);
             return;
           }
@@ -161,6 +175,7 @@ export default function Dashboard() {
             // Update originalDashboardData to reflect the newly saved state
             setOriginalDashboardData(updatedOriginalData);
             setHasDashboardChanges(false);
+            setIsNewlyCreatedDashboard(false); // Reset flag after first update
             
             // Trigger history panel refresh for dashboard updates
             const event = new CustomEvent('dashboardUpdated', { 
@@ -217,6 +232,7 @@ export default function Dashboard() {
         setBottomTitle("Sample Title");
         setOriginalDashboardData(null);
         setHasDashboardChanges(false);
+        setIsNewlyCreatedDashboard(false);
         
         // Remove dashboardId from URL and set to new mode
         router.replace('/dashboard?edit=true');
@@ -321,6 +337,7 @@ export default function Dashboard() {
   // Add dashboard change tracking state
   const [originalDashboardData, setOriginalDashboardData] = useState<any>(null)
   const [hasDashboardChanges, setHasDashboardChanges] = useState(false)
+  const [isNewlyCreatedDashboard, setIsNewlyCreatedDashboard] = useState(false)
   const isUserActionRef = useRef(false)
 
   // Add tabbed panel state
@@ -363,14 +380,16 @@ export default function Dashboard() {
     console.log('🔍 checkDashboardChanges called:', {
       hasOriginalData: !!originalDashboardData,
       isGlobalLoading,
-      isUserAction: isUserActionRef.current
+      isUserAction: isUserActionRef.current,
+      originalData: originalDashboardData
     });
 
     if (!originalDashboardData) {
       // If no original data, we're creating a new dashboard
-      // For new dashboards, we don't need to track changes - just enable save when visualizations are added
-      setHasDashboardChanges(false);
-      console.log('🔍 No original data - new dashboard mode');
+      // For new dashboards, we should enable the Update button when there are visualizations
+      const hasVisualizations = Object.values(quadrants).some(Boolean);
+      setHasDashboardChanges(hasVisualizations);
+      console.log('🔍 No original data - new dashboard mode, hasVisualizations:', hasVisualizations);
       return;
     }
 
@@ -416,8 +435,15 @@ export default function Dashboard() {
       currentQuadrants: currentData.quadrants,
       originalQuadrants: originalDashboardData.quadrants,
       currentTitle: currentData.title,
-      originalTitle: originalDashboardData.title
+      originalTitle: originalDashboardData.title,
+      isUserAction: isUserActionRef.current
     });
+
+    // If this is a user action (like dropping a visualization), don't override the forced value
+    if (isUserActionRef.current) {
+      console.log('🔍 User action in progress, keeping hasDashboardChanges as is');
+      return;
+    }
 
     setHasDashboardChanges(hasChanges);
   };
@@ -434,8 +460,8 @@ export default function Dashboard() {
     setHasDashboardChanges(true);
     console.log('🔍 Forced hasDashboardChanges to true');
     
-    // Then run the proper check
-    checkDashboardChanges();
+    // Don't call checkDashboardChanges() for user actions - just keep the forced value
+    // The useEffect will handle proper change detection later
     
     // Reset the flag after a longer delay
     setTimeout(() => {
@@ -512,9 +538,10 @@ export default function Dashboard() {
       willCheckChanges: originalDashboardData && !isGlobalLoading
     });
     
-    // Check for changes if we have original data and we're not loading
-    // Remove the isUserActionRef check to make it more responsive
-    if (originalDashboardData && !isGlobalLoading) {
+    // Check for changes if we're not loading
+    // For saved dashboards: check against original data
+    // For new dashboards: enable button when visualizations are added
+    if (!isGlobalLoading) {
       checkDashboardChanges();
     }
   }, [originalDashboardData, dashboardSectionTitle, topLeftTitle, topRightTitle, bottomTitle, quadrants, allVisualizations.length, isGlobalLoading]);
@@ -695,6 +722,7 @@ export default function Dashboard() {
             visualizations: transformedVisualizations
           };
           setOriginalDashboardData(originalData);
+          setIsNewlyCreatedDashboard(false); // This is an existing dashboard being loaded
           console.log('🔍 Original dashboard data set (URL load cache path):', originalData);
 
           // Initialize change detection after loading
@@ -949,6 +977,11 @@ export default function Dashboard() {
       }
 
       setAllVisualizations((prev) => [...prev, newViz])
+      
+      // Trigger change detection for new visualization after state update
+      setTimeout(() => {
+        triggerChangeDetection();
+      }, 50);
 
     } catch (err: any) {
       console.error(err)
@@ -998,6 +1031,11 @@ export default function Dashboard() {
       }
   
       setAllVisualizations((prev) => [...prev, newViz])
+      
+      // Trigger change detection for new visualization after state update
+      setTimeout(() => {
+        triggerChangeDetection();
+      }, 50);
     } catch (err: any) {
       console.error(err)
       setError(err.message || 'Unknown error')
@@ -1545,7 +1583,10 @@ setIsEditingSavedQuery(true);
       return newQuadrants;
     });
       
-    // Change detection is now triggered in the setAllVisualizations callback
+    // Trigger change detection after state updates are complete
+    setTimeout(() => {
+      triggerChangeDetection();
+    }, 50);
   
     // Improved diagnostics: only log error if data.length > 0, table is in DOM, and after enough time
     setTimeout(() => {
@@ -1710,6 +1751,7 @@ setIsEditingSavedQuery(true);
           visualizations: transformedVisualizations
         };
         setOriginalDashboardData(originalData);
+        setIsNewlyCreatedDashboard(false); // This is an existing dashboard being loaded
         console.log('🔍 Original dashboard data set (cache path):', originalData);
 
         setIsGlobalLoading(false);
@@ -1803,6 +1845,7 @@ setIsEditingSavedQuery(true);
         visualizations: newVisualizations
       };
       setOriginalDashboardData(originalData);
+      setIsNewlyCreatedDashboard(false); // This is an existing dashboard being loaded
       console.log('🔍 Original dashboard data set (SQL fallback path):', originalData);
 
       // Initialize change detection after loading
@@ -3588,11 +3631,14 @@ useEffect(() => {
                             className="flex items-center gap-2"
                             disabled={(() => {
                               const hasVisualizations = Object.values(quadrants).some(Boolean);
-                              const shouldDisable = !hasVisualizations || (!!dashboardIdNumber && !hasDashboardChanges);
+                              // For newly created dashboards, enable when visualizations are present
+                              // For existing dashboards, enable when there are changes
+                              const shouldDisable = !hasVisualizations || (!!dashboardIdNumber && !isNewlyCreatedDashboard && !hasDashboardChanges);
                               console.log('🔍 Save button disabled check:', {
                                 hasVisualizations,
                                 dashboardIdNumber,
                                 hasDashboardChanges,
+                                isNewlyCreatedDashboard,
                                 shouldDisable
                               });
                               return shouldDisable;
@@ -3636,6 +3682,7 @@ useEffect(() => {
                             setBottomTitle("Sample Title");
                             setOriginalDashboardData(null);
                             setHasDashboardChanges(false);
+                            setIsNewlyCreatedDashboard(false);
                             // Remove dashboardId from URL and set to new mode
                             router.replace('/dashboard?edit=true');
                           }}
