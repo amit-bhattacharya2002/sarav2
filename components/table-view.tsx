@@ -424,8 +424,8 @@ export function TableView({
               width: '100%'
             }}
           >
-            <thead className="relative z-20 bg-muted">
-              <tr className="bg-muted">
+            <thead className="relative z-20 bg-muted" style={{ backgroundColor: 'hsl(var(--muted))', zIndex: 20 }}>
+              <tr className="bg-muted" style={{ backgroundColor: 'hsl(var(--muted))' }}>
                 {visibleColumns.map((col, i) => {
                   return (
                     <th 
@@ -436,7 +436,9 @@ export function TableView({
                         sortColumn === col.key ? 'bg-primary/10 border-primary/20' : ''
                       }`}
                       style={{ 
-                        whiteSpace: 'nowrap'
+                        whiteSpace: 'nowrap',
+                        backgroundColor: 'hsl(var(--muted))',
+                        zIndex: 20
                       }}
                       draggable={outputMode !== 'chart' && outputMode !== 'pie' && (!inDashboard || !readOnlyMode)}
                       onDragStart={(e) => handleColumnDragStart(e, col.key)}

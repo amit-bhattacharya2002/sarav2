@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronLeft, ChevronRight, Save, Filter, Trash2, AlertTriangle, AlertCircle, XCircle, X, LogOut, Download, Share } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Save, Filter, Trash2, AlertTriangle, AlertCircle, XCircle, X, LogOut, Download, Share, Sparkles, ChevronDown } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { DndProvider } from 'react-dnd'
@@ -142,6 +142,7 @@ export default function Dashboard() {
           
           // If this was a new dashboard (no id before), update the URL and let the app reload with the new ID!
           if (!dashboardId && data.dashboard?.id) {
+            console.log('🔍 New dashboard saved, redirecting to:', `/dashboard?d=${data.dashboard.id}&edit=true`);
             router.replace(`/dashboard?d=${data.dashboard.id}&edit=true`);
             return;
           }
@@ -359,6 +360,12 @@ export default function Dashboard() {
 
   // Function to check if dashboard has changes
   const checkDashboardChanges = () => {
+    console.log('🔍 checkDashboardChanges called:', {
+      hasOriginalData: !!originalDashboardData,
+      isGlobalLoading,
+      isUserAction: isUserActionRef.current
+    });
+
     if (!originalDashboardData) {
       // If no original data, we're creating a new dashboard
       // For new dashboards, we don't need to track changes - just enable save when visualizations are added
@@ -497,10 +504,45 @@ export default function Dashboard() {
   };
 
   // Effect to check for changes when dashboard data changes
-  // Temporarily disabled to prevent overriding manual change detection
-  // useEffect(() => {
-  //   checkDashboardChanges();
-  // }, [originalDashboardData, dashboardSectionTitle, topLeftTitle, topRightTitle, bottomTitle, quadrants, allVisualizations.length, isGlobalLoading]);
+  useEffect(() => {
+    console.log('🔍 Change detection useEffect triggered:', {
+      hasOriginalData: !!originalDashboardData,
+      isUserAction: isUserActionRef.current,
+      isGlobalLoading,
+      willCheckChanges: originalDashboardData && !isGlobalLoading
+    });
+    
+    // Check for changes if we have original data and we're not loading
+    // Remove the isUserActionRef check to make it more responsive
+    if (originalDashboardData && !isGlobalLoading) {
+      checkDashboardChanges();
+    }
+  }, [originalDashboardData, dashboardSectionTitle, topLeftTitle, topRightTitle, bottomTitle, quadrants, allVisualizations.length, isGlobalLoading]);
+
+  // Separate effect to watch for visualization content changes
+  useEffect(() => {
+    if (originalDashboardData && !isGlobalLoading) {
+      // Check if visualization content has changed (not just count)
+      const vizContentChanged = JSON.stringify(allVisualizations.map(v => ({ id: v.id, type: v.type, title: v.title }))) !== 
+        JSON.stringify(originalDashboardData.visualizations.map(v => ({ id: v.id, type: v.type, title: v.title })));
+      
+      if (vizContentChanged) {
+        console.log('🔍 Visualization content changed, triggering change detection');
+        checkDashboardChanges();
+      }
+    }
+  }, [allVisualizations, originalDashboardData, isGlobalLoading]);
+
+  // Effect to ensure change detection is properly initialized when dashboard loads
+  useEffect(() => {
+    if (originalDashboardData && !isGlobalLoading && dashboardIdNumber) {
+      console.log('🔍 Dashboard loaded, ensuring change detection is initialized');
+      // Force a change detection check after a short delay to ensure all state is settled
+      setTimeout(() => {
+        checkDashboardChanges();
+      }, 200);
+    }
+  }, [originalDashboardData, isGlobalLoading, dashboardIdNumber]);
 
   // Effect to reset change tracking when loading finishes
   // Temporarily disabled to prevent overriding manual change detection
@@ -516,9 +558,10 @@ export default function Dashboard() {
   
   
   useEffect(() => {
-    console.log("🏁 Dashboard loader useEffect running!", { readOnlyMode, dashboardId });
+    console.log("🏁 Dashboard loader useEffect running!", { readOnlyMode, dashboardId, editMode });
     const loadDashboard = async () => {
-      if (!readOnlyMode || !dashboardId) return;
+      // Load dashboard if we have a dashboardId and we're either in read-only mode OR edit mode
+      if (!dashboardId || (!readOnlyMode && !editMode)) return;
   
       setIsGlobalLoading(true);
   
@@ -638,6 +681,28 @@ export default function Dashboard() {
           // Expand the right panel to show the loaded dashboard
           setCollapsedPanels(prev => ({ ...prev, right: false }));
 
+          // Set original dashboard data for change tracking (cache path)
+          const originalData = {
+            title: title || "Untitled Dashboard",
+            topLeftTitle: data.topLeftTitle || "Sample Title",
+            topRightTitle: data.topRightTitle || "Sample Title",
+            bottomTitle: data.bottomTitle || "Sample Title",
+            quadrants: {
+              topLeft: quadrantMap.topLeft || null,
+              topRight: quadrantMap.topRight || null,
+              bottom: quadrantMap.bottom || null,
+            },
+            visualizations: transformedVisualizations
+          };
+          setOriginalDashboardData(originalData);
+          console.log('🔍 Original dashboard data set (URL load cache path):', originalData);
+
+          // Initialize change detection after loading
+          setTimeout(() => {
+            console.log('🔍 Initializing change detection after dashboard load (cache path)');
+            checkDashboardChanges();
+          }, 100);
+
           setIsGlobalLoading(false);
           return;
         }
@@ -723,7 +788,7 @@ export default function Dashboard() {
     };
   
     loadDashboard();
-  }, [readOnlyMode, dashboardId]);
+  }, [readOnlyMode, dashboardId, editMode]);
     
 
   
@@ -1518,6 +1583,7 @@ setIsEditingSavedQuery(true);
   
   
   const handleSelectDashboard = async (dashboard: { id: number; title: string }) => {
+    console.log('🔍 handleSelectDashboard called:', dashboard);
     // Always update the URL to reflect the selected dashboard and edit mode!
     router.replace(`/dashboard?d=${dashboard.id}&edit=true`);
   
@@ -1738,6 +1804,12 @@ setIsEditingSavedQuery(true);
       };
       setOriginalDashboardData(originalData);
       console.log('🔍 Original dashboard data set (SQL fallback path):', originalData);
+
+      // Initialize change detection after loading
+      setTimeout(() => {
+        console.log('🔍 Initializing change detection after dashboard load (SQL fallback path)');
+        checkDashboardChanges();
+      }, 100);
     } catch (err) {
       console.error('Failed to load dashboard:', err);
     } finally {
@@ -1995,7 +2067,15 @@ setIsEditingSavedQuery(true);
     
     // Chart configuration state
     const [tabSelectedXColumn, setTabSelectedXColumn] = useState<string>('')
-const [tabSelectedYColumn, setTabSelectedYColumn] = useState<string>('')
+    const [tabSelectedYColumn, setTabSelectedYColumn] = useState<string>('')
+    
+    // Column selector state for saved queries
+    const [tabIsColumnSelectorExpanded, setTabIsColumnSelectorExpanded] = useState(false)
+    const [tabValidationErrors, setTabValidationErrors] = useState<string[]>([])
+    const [tabValidationWarnings, setTabValidationWarnings] = useState<string[]>([])
+    const [tabShowValidation, setTabShowValidation] = useState(false)
+    const [tabSelectedColumns, setTabSelectedColumns] = useState<string[]>([])
+    const [tabColumnSelectionMode, setTabColumnSelectionMode] = useState<'auto' | 'all' | 'custom'>('auto')
 
     // Debug: Log tab state
     console.log('🪄 SavedQueryTab state:', { 
@@ -2029,6 +2109,55 @@ console.log('🪄 Debug: This means a saved query tab is being rendered');
 
     // Ref for textarea focus
     const textareaRef = useRef<HTMLTextAreaElement>(null)
+    
+    // Validation function for saved query tabs
+    const validateTabQueryInput = useCallback((query: string) => {
+      const errors: string[] = []
+      const warnings: string[] = []
+      
+      if (!query.trim()) {
+        errors.push("Please enter a question or query")
+        return { isValid: false, errors, warnings }
+      }
+      
+      if (query.trim().length < 3) {
+        errors.push("Query is too short. Please provide more details")
+        return { isValid: false, errors, warnings }
+      }
+      
+      const problematicPatterns = [
+        { pattern: /drop\s+table/i, message: "DROP TABLE commands are not allowed" },
+        { pattern: /delete\s+from/i, message: "DELETE commands are not allowed" },
+        { pattern: /truncate/i, message: "TRUNCATE commands are not allowed" },
+        { pattern: /alter\s+table/i, message: "ALTER TABLE commands are not allowed" },
+        { pattern: /create\s+table/i, message: "CREATE TABLE commands are not allowed" },
+        { pattern: /insert\s+into/i, message: "INSERT commands are not allowed" },
+        { pattern: /update\s+set/i, message: "UPDATE commands are not allowed" },
+        { pattern: /grant\s+/i, message: "GRANT commands are not allowed" },
+        { pattern: /revoke\s+/i, message: "REVOKE commands are not allowed" },
+      ]
+      
+      for (const { pattern, message } of problematicPatterns) {
+        if (pattern.test(query)) {
+          errors.push(message)
+        }
+      }
+      
+      if (query.length > 1000) {
+        warnings.push("Very long queries may take longer to process")
+      }
+      
+      return { isValid: errors.length === 0, errors, warnings }
+    }, [])
+    
+    // Auto-expand column selector when user is actively typing in saved query
+    useEffect(() => {
+      if (tabQuestion.trim().length > 0 && tabIsEditing && tabValidationErrors.length === 0 && !tabIsLoading && !tabQueryResults?.length) {
+        setTabIsColumnSelectorExpanded(true)
+      } else if (tabQuestion.trim().length === 0 || tabValidationErrors.length > 0 || tabIsLoading) {
+        setTabIsColumnSelectorExpanded(false)
+      }
+    }, [tabQuestion, tabIsEditing, tabValidationErrors, tabIsLoading, tabQueryResults])
     
     // Memoized callback for column order changes to prevent infinite loops
     const handleTabColumnOrderChange = useCallback((reorderedColumns: { key: string; name: string }[]) => {
@@ -2226,12 +2355,24 @@ console.log('🪄 Debug: This means a saved query tab is being rendered');
       
       setTabIsLoading(true)
       setTabError(null)
+      setTabIsColumnSelectorExpanded(false) // Collapse column selector when search is pressed
 
       try {
+        // Prepare the question with column selection information
+        let modifiedQuestion = tabQuestion
+        
+        if (tabColumnSelectionMode === 'all') {
+          modifiedQuestion = `${tabQuestion} Include all columns.`
+        } else if (tabColumnSelectionMode === 'custom' && tabSelectedColumns.length > 0) {
+          const columnList = tabSelectedColumns.join(', ')
+          modifiedQuestion = `${tabQuestion} Include only columns: ${columnList}.`
+        }
+        // For 'auto' mode, use the original question without modification
+
         const res = await fetch('/api/generate-sql', {
           method: 'POST',
           headers: createHeaders(),
-          body: JSON.stringify({ question: tabQuestion }),
+          body: JSON.stringify({ question: modifiedQuestion }),
         })
 
         const data = await res.json()
@@ -2261,7 +2402,7 @@ console.log('🪄 Debug: This means a saved query tab is being rendered');
       } finally {
         setTabIsLoading(false)
       }
-    }, [tabQuestion, tabOutputMode])
+    }, [tabQuestion, tabOutputMode, tabColumnSelectionMode, tabSelectedColumns])
 
     const handleTabUpdate = useCallback(async () => {
       if (!query?.id) return
@@ -2514,8 +2655,15 @@ useEffect(() => {
 }, [tabSelectedXColumn, tabSelectedYColumn, tabIsEditing, tabOriginalData, hasTabChanges]);
 
     const handleQuestionChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setTabQuestion(e.target.value)
-    }, [])
+      const newValue = e.target.value
+      setTabQuestion(newValue)
+      
+      // Validate input and update validation state
+      const validation = validateTabQueryInput(newValue)
+      setTabValidationErrors(validation.errors)
+      setTabValidationWarnings(validation.warnings)
+      setTabShowValidation(validation.errors.length > 0)
+    }, [validateTabQueryInput])
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -2590,7 +2738,7 @@ useEffect(() => {
       <div className="flex flex-col h-full p-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold">{tabCurrentTitle}</h2>
-          <div className="flex items-center gap-2">
+          <div className={`flex items-center gap-2 ${tabIsColumnSelectorExpanded ? 'hidden' : ''}`}>
             {tabIsEditing ? (
               <>
                 <Button
@@ -2719,6 +2867,158 @@ useEffect(() => {
               className="mb-2"
             />
 
+            {/* Validation Errors */}
+            {tabShowValidation && tabValidationErrors.length > 0 && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm">
+                    <div className="font-medium text-red-800 mb-1">Please fix these issues:</div>
+                    <ul className="text-red-700 space-y-1">
+                      {tabValidationErrors.map((error, index) => (
+                        <li key={index}>• {error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Column Selector - Show when user is typing in saved query */}
+            {tabQuestion.trim().length > 0 && (
+              <div className="mb-4 bg-card border border-border rounded-lg shadow-sm overflow-hidden">
+                {/* Header with toggle button */}
+                <button
+                  onClick={() => setTabIsColumnSelectorExpanded(!tabIsColumnSelectorExpanded)}
+                  disabled={tabValidationErrors.length > 0}
+                  className={`w-full p-4 text-left flex items-center justify-between transition-colors ${
+                    tabValidationErrors.length > 0 
+                      ? 'opacity-50 cursor-not-allowed' 
+                      : 'hover:bg-accent/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    <span className="font-medium">Column Selector</span>
+                    <span className="text-sm text-muted-foreground">Choose which columns to include</span>
+                  </div>
+                  {tabIsColumnSelectorExpanded ? (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </button>
+                
+                {/* Collapsible content */}
+                {tabIsColumnSelectorExpanded && (
+                  <div className={`border-t border-border ${tabValidationErrors.length > 0 ? 'opacity-50 pointer-events-none' : ''}`}>
+                    {/* Quick Actions - Fixed */}
+                    <div className="px-4 pt-3 pb-2">
+                      <div className="flex gap-2">
+                        {/* Auto option */}
+                        <button
+                          onClick={() => {
+                            setTabColumnSelectionMode('auto')
+                            setTabSelectedColumns([])
+                            console.log('Auto column selection for saved query')
+                          }}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                            tabColumnSelectionMode === 'auto' 
+                              ? 'bg-primary text-primary-foreground' 
+                              : 'bg-secondary text-secondary-foreground hover:bg-secondary/90'
+                          }`}
+                        >
+                          <Sparkles className="h-3 w-3 mr-1" />
+                          Auto
+                        </button>
+                        
+                        {/* All Columns option */}
+                        <button
+                          onClick={() => {
+                            setTabColumnSelectionMode('all')
+                            setTabSelectedColumns([])
+                            console.log('Include all columns for saved query')
+                          }}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                            tabColumnSelectionMode === 'all' 
+                              ? 'bg-primary text-primary-foreground' 
+                              : 'bg-secondary text-secondary-foreground hover:bg-secondary/90'
+                          }`}
+                        >
+                          All Columns
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Column Bubbles - Scrollable */}
+                    <div className="px-4 pb-4 max-h-[30vh] overflow-y-auto">
+                      <div className="space-y-3">
+                        {/* Gifts Table Columns */}
+                        <div>
+                          <h4 className="text-sm font-medium text-muted-foreground mb-2">Gifts Table</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {['ACCOUNTID', 'GIFTID', 'GIFTDATE', 'GIFTAMOUNT', 'TRANSACTIONTYPE', 'GIFTTYPE', 'PAYMENTMETHOD', 'PLEDGEID', 'SOFTCREDITINDICATOR', 'SOFTCREDITAMOUNT', 'SOFTCREDITID', 'SOURCECODE', 'DESIGNATION', 'UNIT', 'PURPOSECATEGORY', 'APPEAL', 'GIVINGLEVEL', 'UUID'].map((column) => (
+                              <button
+                                key={column}
+                                onClick={() => {
+                                  setTabColumnSelectionMode('custom')
+                                  setTabSelectedColumns(prev => {
+                                    if (prev.includes(column)) {
+                                      return prev.filter(col => col !== column)
+                                    } else {
+                                      return [...prev, column]
+                                    }
+                                  })
+                                  console.log('Toggle column:', column)
+                                }}
+                                className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                                  tabSelectedColumns.includes(column) && tabColumnSelectionMode === 'custom'
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-muted hover:bg-muted/80'
+                                }`}
+                              >
+                                {column}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        {/* Constituents Table Columns */}
+                        <div>
+                          <h4 className="text-sm font-medium text-muted-foreground mb-2">Constituents Table</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {['ACCOUNTID', 'LOOKUPID', 'TYPE', 'DONORTYPE1', 'ALUMNITYPE', 'UNDERGRADUATEDEGREE1', 'UNDERGRADUATIONYEAR1', 'UNDERGRADUATEPREFERREDCLASSYEAR1', 'UNDERGRADUATESCHOOL1', 'GRADUATEDEGREE1', 'GRADUATEGRADUATIONYEAR1', 'GRADUATEPREFERREDCLASSYEAR1', 'GRADUATESCHOOL1', 'GENDER', 'DECEASED', 'SOLICITATIONRESTRICTIONS', 'DONOTMAIL', 'DONOTPHONE', 'DONOTEMAIL', 'MARRIEDTOALUM', 'SPOUSELOOKUPID', 'SPOUSEID', 'ASSIGNEDACCOUNT', 'VOLUNTEER', 'WEALTHSCORE', 'GEPSTATUS', 'EVENTSATTENDED', 'EVENTS', 'AGE', 'FULLNAME', 'PMFULLNAME', 'FULLADDRESS', 'HOMETELEPHONE', 'EMAIL'].map((column) => (
+                              <button
+                                key={column}
+                                onClick={() => {
+                                  setTabColumnSelectionMode('custom')
+                                  setTabSelectedColumns(prev => {
+                                    if (prev.includes(column)) {
+                                      return prev.filter(col => col !== column)
+                                    } else {
+                                      return [...prev, column]
+                                    }
+                                  })
+                                  console.log('Toggle column:', column)
+                                }}
+                                className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                                  tabSelectedColumns.includes(column) && tabColumnSelectionMode === 'custom'
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-muted hover:bg-muted/80'
+                                }`}
+                              >
+                                {column}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex gap-2 mb-2">
               <ToggleGroup
                 type="single"
@@ -2811,7 +3111,7 @@ useEffect(() => {
 
             {/* Results Panel - Scrollable */}
             {tabQueryResults && tabQueryResults.length > 0 && tabColumns.length >= 1 && (
-              <div className="flex-1 overflow-auto bg-card border rounded p-4">
+              <div className={`flex-1 overflow-auto bg-card border rounded p-4 ${tabIsColumnSelectorExpanded ? 'hidden' : ''}`}>
                 <div className="overflow-x-auto">
                   {tabOutputMode === 'table' && (
                     <div data-testid="saved-query-tab-tableview-edit-mode">
@@ -3286,10 +3586,17 @@ useEffect(() => {
                             onClick={handleSaveDashboard}
                             variant="default"
                             className="flex items-center gap-2"
-                            disabled={
-                              !Object.values(quadrants).some(Boolean) || 
-                              (!!dashboardIdNumber && !hasDashboardChangesSimplified())
-                            }
+                            disabled={(() => {
+                              const hasVisualizations = Object.values(quadrants).some(Boolean);
+                              const shouldDisable = !hasVisualizations || (!!dashboardIdNumber && !hasDashboardChanges);
+                              console.log('🔍 Save button disabled check:', {
+                                hasVisualizations,
+                                dashboardIdNumber,
+                                hasDashboardChanges,
+                                shouldDisable
+                              });
+                              return shouldDisable;
+                            })()}
                           >
                             <Save className="h-5 w-5" />
                             <span>{dashboardIdNumber ? 'Update' : 'Save'}</span>

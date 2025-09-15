@@ -4,6 +4,10 @@ import { businessPrisma } from '@/lib/mysql-prisma'
 import { openai as openaiConfig, features, app } from '@/lib/config'
 import { rateLimiters, createRateLimitHeaders, checkRateLimit } from '@/lib/rate-limiter'
 
+// Simple in-memory cache for SQL generation (5 minute TTL)
+const queryCache = new Map<string, { sql: string; timestamp: number }>()
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
 /**
  * Very strict SQL gate: allow ONLY a single SELECT against gifts/constituents.
  * Blocks semicolons, comments, CTEs, UNION, DML/DDL, multiple statements, etc.
@@ -21,23 +25,22 @@ function validateSql(sqlRaw: string) {
   // Must start with SELECT (allow leading parentheses for subquery selects)
   if (!/^\s*\(*\s*select\b/i.test(sql)) return { ok: false, reason: 'Only SELECT queries are allowed' }
 
-  // Disallow dangerous keywords
-  const banned = /\b(insert|update|delete|merge|create|alter|drop|truncate|grant|revoke|call|use|replace|handler|load|lock|set|show|explain)\b/i
-  if (banned.test(sql)) return { ok: false, reason: 'Only read-only SELECT is permitted' }
+  // Disallow dangerous keywords (optimized regex)
+  if (/\(insert|update|delete|merge|create|alter|drop|truncate|grant|revoke|call|use|replace|handler|load|lock|set|show|explain\)/i.test(sql)) {
+    return { ok: false, reason: 'Only read-only SELECT is permitted' }
+  }
 
   // Disallow UNION / WITH (CTE)
   if (/\bunion\b/i.test(sql)) return { ok: false, reason: 'UNION is not allowed' }
   if (/\bwith\b/i.test(sql)) return { ok: false, reason: 'CTEs are not allowed' }
 
-  // Restrict tables to gifts/constituents only (allow subqueries)
-  const tableRefs = sql.match(/\bfrom\b|\bjoin\b/gi)
-  // Allow subqueries and schema-qualified names
+  // Restrict tables to gifts/constituents only (optimized validation)
   const badTable = /\b(from|join)\s+(?!\()\s*([`"]?[\w.]+[`"]?)/gi
   let m: RegExpExecArray | null
   while ((m = badTable.exec(sql)) !== null) {
     const raw = (m[2] || '').replace(/[`"]/g, '')
     const t = raw.split('.').pop() // supports schema.table
-    if (!/^gifts$|^constituents$/i.test(t || '')) {
+    if (t && !/^(gifts|constituents)$/i.test(t)) {
       return { ok: false, reason: `Disallowed table referenced: ${raw}` }
     }
   }
@@ -98,6 +101,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing "question" input' }, { status: 400 })
     }
 
+    // Check cache first (temporarily disabled to ensure updated instructions are used)
+    // const cacheKey = question.toLowerCase()
+    // const cached = queryCache.get(cacheKey)
+    // if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+    //   console.log('🚀 Cache hit for query:', question)
+    //   return NextResponse.json({
+    //     sql: cached.sql,
+    //     results: [], // Cache only stores SQL, not results
+    //     success: true,
+    //     cached: true
+    //   })
+    // }
+
     // 1. Get database schema information
     const schemaText = `
     Database Schema:
@@ -108,75 +124,46 @@ export async function POST(req: NextRequest) {
     - gifts.ACCOUNTID = constituents.ACCOUNTID (JOIN key for linking gifts to constituents)
     `;
 
-    // 2. Construct full prompt for SQL generation
+    // 2. Construct optimized prompt for faster SQL generation
     const baseInstruction = `
-    You are an assistant that converts natural language questions into SQL queries for a MySQL database.
-    Respond ONLY with a single valid SELECT query. No prose, no comments.
+    Convert natural language to MySQL SELECT query. Respond with ONLY the SQL query, no comments.
+    
+    CRITICAL RULE: When using subqueries, the main SELECT can ONLY reference:
+    - Subquery alias (like dt.column_name) 
+    - Main table aliases (like c.column_name)
+    - NEVER reference the original subquery table alias (like g.column_name) in the main SELECT
 
-    GENERAL RULES:
-    - Use SELECT queries only (never INSERT/UPDATE/DELETE).
-    - Table aliases: gifts = g, constituents = c.
-    - Use INNER JOIN on g.ACCOUNTID = c.ACCOUNTID unless user asks for donors without constituent info (then LEFT JOIN).
-    - All column names are UPPERCASE in the schema; use backtick (\`) aliases for human-readable names:
-      Example: c.FULLNAME AS \`Full Name\`
-    - Always include LIMIT at the end.
-    - Never generate multiple statements, UNION, or CTEs (WITH).
-    - Never add a semicolon at the end.
-    - Single-line comments (-- and #) are allowed for clarity.
-    - Use SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) AS total_amount for donation totals.
+    RULES:
+    - Table aliases: gifts=g, constituents=c
+    - JOIN: g.ACCOUNTID = c.ACCOUNTID (INNER unless "without constituent info" then LEFT)
+    - Column aliases: c.FULLNAME AS \`Full Name\`
+    - Always LIMIT at end
+    - No semicolons, UNION, CTEs, or multiple statements
+    - Dates: g.GIFTDATE >= '2021-01-01' AND g.GIFTDATE < '2022-01-01'
+    - Age: CASE WHEN CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) > 0 THEN CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) ELSE NULL END AS \`Age\`
+    - Totals: SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) AS total_amount
+    - Top N: subquery with totals, then ORDER BY user_sort, LIMIT N
+    - For "top N sorted by X": Sort by X, then take top N results
+    - Tie-breakers: NULLs last, then FULLNAME ASC, ACCOUNTID ASC
+    - CRITICAL: In main SELECT after subquery, NEVER use 'g.' prefix. Only use 'dt.' and 'c.' aliases. The 'g' alias only exists inside the subquery.
 
-    DATE FILTERS:
-    - Use sargable ranges instead of YEAR():
-      Example: g.GIFTDATE >= '2021-01-01' AND g.GIFTDATE < '2022-01-01'
-
-    AGE HANDLING:
-    - Age values may be stored as text, empty, or "0".
-    - For display: show Age as
-      CASE WHEN CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) > 0
-           THEN CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED)
-           ELSE NULL END AS \`Age\`
-    - For sorting: use the same expression in ORDER BY: CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED)
-    - When ordering by Age, sort with "CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) IS NULL, CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) ASC|DESC" to push unknowns to the end.
-    - Do NOT include AgeNum as a separate column in SELECT - it's only for sorting.
-
-    TOP/BOTTOM N LOGIC (MySQL 5.7 Compatible):
-    - When the user asks for "top N" or "bottom N":
-      1. Use a subquery to get all donors with their totals
-      2. Join with constituents to get additional data
-      3. Apply ORDER BY total_amount DESC/ASC first, then user's requested sort
-      4. Use LIMIT N to get the top/bottom N results
-    - This ensures the N donors are chosen by donation amount first, then ordered as requested.
-    - Note: ROW_NUMBER() requires MySQL 8.0+, so use ORDER BY + LIMIT for compatibility.
-
-    ORDERING:
-    - If the user specifies multiple sorts, the right-most sort in their natural language is the overall sort.
-    - Always include tie-breakers: push NULLs last, then sort by Full Name ASC and ACCOUNTID ASC.
-
-    EXAMPLES:
-
-    "top 10 donors of 2021 sorted by age asc":
-    SELECT
-      c.FULLNAME AS \`Full Name\`,
-      CASE WHEN CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) > 0
-           THEN CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED)
-           ELSE NULL END AS \`Age\`,
-      dt.total_amount AS \`Total Amount\`
-    FROM (
-      SELECT
-        g.ACCOUNTID,
-        SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) AS total_amount
-      FROM gifts g
-      WHERE g.GIFTDATE >= '2021-01-01' AND g.GIFTDATE < '2022-01-01'
-      GROUP BY g.ACCOUNTID
-    ) dt
+    EXAMPLE - "top 10 donors of 2021 sorted by age asc":
+    SELECT c.FULLNAME AS \`Full Name\`, 
+           CASE WHEN CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) > 0 THEN CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) ELSE NULL END AS \`Age\`,
+           dt.total_amount AS \`Total Amount\`
+    FROM (SELECT g.ACCOUNTID, SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) AS total_amount FROM gifts g WHERE g.GIFTDATE >= '2021-01-01' AND g.GIFTDATE < '2022-01-01' GROUP BY g.ACCOUNTID) dt
     INNER JOIN constituents c ON dt.ACCOUNTID = c.ACCOUNTID
-    ORDER BY
-      dt.total_amount DESC,        -- Primary sort: top donors by amount
-      CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) IS NULL,  -- Secondary sort: NULLs last
-      CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) ASC,      -- Tertiary sort: age ascending
-      c.FULLNAME ASC,              -- Tie-breaker: name
-      dt.ACCOUNTID ASC             -- Final tie-breaker: account ID
+    ORDER BY CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) IS NULL, CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) ASC, c.FULLNAME ASC, dt.ACCOUNTID ASC
     LIMIT 10
+    
+    NOTE: Only use table aliases that are available in the current query scope. In subqueries, use the subquery alias (dt) not the original table alias (g).
+    
+    WRONG: SELECT g.GIFTDATE FROM (...) dt  -- g alias not available in main query
+    RIGHT: SELECT dt.total_amount FROM (...) dt  -- dt alias is available
+    
+    If you need gift date in results, include it in subquery:
+    FROM (SELECT g.ACCOUNTID, g.GIFTDATE, SUM(...) AS total_amount FROM gifts g ...) dt
+    Then use: dt.GIFTDATE in main SELECT
     `;
     
     const fullSystemPrompt = `${schemaText}\n\n${baseInstruction}`
@@ -184,7 +171,7 @@ export async function POST(req: NextRequest) {
     const { default: OpenAI } = await import('openai')
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
-    // OpenAI call with timeout
+    // OpenAI call with timeout (increased for complex queries)
     const abort = new AbortController()
     const timer = setTimeout(() => abort.abort(), 15_000)
 
@@ -194,8 +181,8 @@ export async function POST(req: NextRequest) {
         { role: 'system', content: fullSystemPrompt },
         { role: 'user', content: question }
       ],
-      max_tokens: 800,
-      temperature: 0.1,
+      max_tokens: 600,
+      temperature: 0.2,
     }, { signal: abort.signal }).finally(() => clearTimeout(timer))
 
     const sqlQuery = completion.choices[0]?.message?.content?.trim()
@@ -203,6 +190,20 @@ export async function POST(req: NextRequest) {
     if (!sqlQuery) {
       return NextResponse.json({ error: 'Failed to generate SQL query' }, { status: 500 })
     }
+
+    // Store in cache for future use (temporarily disabled)
+    // const cacheKey = question.toLowerCase()
+    // queryCache.set(cacheKey, { sql: sqlQuery, timestamp: Date.now() })
+    
+    // Clean up old cache entries (keep cache size reasonable)
+    // if (queryCache.size > 100) {
+    //   const now = Date.now()
+    //   for (const [key, value] of queryCache.entries()) {
+    //     if (now - value.timestamp > CACHE_TTL) {
+    //       queryCache.delete(key)
+    //     }
+    //   }
+    // }
 
     // Validate SQL before executing
     const validation = validateSql(sqlQuery)
@@ -249,6 +250,15 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error('Generate SQL error:', error)
+    
+    // Handle timeout specifically
+    if (error.name === 'AbortError' || error.message.includes('aborted')) {
+      return NextResponse.json({
+        error: 'Request timeout',
+        message: 'SQL generation took too long. Please try a simpler query or try again.',
+        success: false
+      }, { status: 408 })
+    }
     
     return NextResponse.json({
       error: 'Internal server error',

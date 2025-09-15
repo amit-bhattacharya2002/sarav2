@@ -358,13 +358,13 @@ export function QueryPanel({
 
   // Auto-expand column selector only when user is actively typing, keep collapsed after search
   useEffect(() => {
-    if (question.trim().length > 0 && !selectedSavedQueryId && validationErrors.length === 0 && !isLoading && !queryResults?.length) {
+    if (question.trim().length > 0 && validationErrors.length === 0 && !isLoading && !queryResults?.length) {
       setIsColumnSelectorExpanded(true)
     } else if (question.trim().length === 0 || validationErrors.length > 0 || isLoading) {
       setIsColumnSelectorExpanded(false)
     }
     // Don't auto-collapse when queryResults exist - let user manually control column selector
-  }, [question, selectedSavedQueryId, validationErrors, isLoading])
+  }, [question, validationErrors, isLoading, queryResults])
   
   // Update external sorting state when initial values change (for saved queries)
   useEffect(() => {
@@ -976,7 +976,7 @@ export function QueryPanel({
         )}
 
                 {/* Column Selector - Show all available database columns when user is typing */}
-        {!selectedSavedQueryId && question.trim().length > 0 && (
+        {question.trim().length > 0 && (
           <div className="mb-4 bg-card border border-border rounded-lg shadow-sm overflow-hidden">
             {/* Header with toggle button */}
             <button

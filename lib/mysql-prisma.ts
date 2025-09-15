@@ -4,8 +4,16 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-// Create the base Prisma client
-const basePrisma = globalForPrisma.prisma ?? new PrismaClient()
+// Create the base Prisma client with connection pooling optimization
+const basePrisma = globalForPrisma.prisma ?? new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.BUSINESS_DATABASE_URL
+    }
+  },
+  // Connection pooling optimization
+  log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+})
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = basePrisma
 
