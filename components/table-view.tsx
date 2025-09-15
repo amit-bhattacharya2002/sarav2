@@ -109,6 +109,57 @@ export function TableView({
         bDisplayValue = bValue.name || bValue.constituentId || JSON.stringify(bValue)
       }
 
+      // Handle dates first (multiple formats)
+      const dateRegexes = [
+        /^\d{4}-\d{2}-\d{2}$/, // YYYY-MM-DD
+        /^\d{2}\/\d{2}\/\d{4}$/, // MM/DD/YYYY
+        /^\d{4}\/\d{2}\/\d{2}$/, // YYYY/MM/DD
+        /^\d{2}-\d{2}-\d{4}$/, // MM-DD-YYYY
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/, // ISO datetime
+        /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/, // MySQL datetime
+      ]
+      
+      const aIsDate = dateRegexes.some(regex => regex.test(String(aDisplayValue)))
+      const bIsDate = dateRegexes.some(regex => regex.test(String(bDisplayValue)))
+      
+      // Debug logging for date detection
+      if (sortColumn && sortColumn.toLowerCase().includes('date')) {
+        console.log('🔄 TableView: Date sorting attempt:', {
+          sortColumn,
+          aDisplayValue: String(aDisplayValue),
+          bDisplayValue: String(bDisplayValue),
+          aIsDate,
+          bIsDate,
+          aType: typeof aDisplayValue,
+          bType: typeof bDisplayValue
+        })
+      }
+      
+      if (aIsDate && bIsDate) {
+        const aDate = new Date(String(aDisplayValue))
+        const bDate = new Date(String(bDisplayValue))
+        const aTime = aDate.getTime()
+        const bTime = bDate.getTime()
+        
+        if (!isNaN(aTime) && !isNaN(bTime)) {
+          console.log('🔄 TableView: Sorting dates:', { aDisplayValue, bDisplayValue, aTime, bTime, sortDirection })
+          return sortDirection === 'asc' ? aTime - bTime : bTime - aTime
+        }
+      }
+      
+      // Fallback: Try to parse as dates even if regex doesn't match
+      if (sortColumn && sortColumn.toLowerCase().includes('date')) {
+        const aDate = new Date(String(aDisplayValue))
+        const bDate = new Date(String(bDisplayValue))
+        const aTime = aDate.getTime()
+        const bTime = bDate.getTime()
+        
+        if (!isNaN(aTime) && !isNaN(bTime)) {
+          console.log('🔄 TableView: Fallback date sorting:', { aDisplayValue, bDisplayValue, aTime, bTime, sortDirection })
+          return sortDirection === 'asc' ? aTime - bTime : bTime - aTime
+        }
+      }
+
       // Handle numbers and numeric strings
       const aNum = parseFloat(aDisplayValue)
       const bNum = parseFloat(bDisplayValue)
@@ -117,7 +168,7 @@ export function TableView({
         return sortDirection === 'asc' ? aNum - bNum : bNum - aNum
       }
 
-      // Handle strings (including date strings)
+      // Handle strings (including date strings that don't match YYYY-MM-DD)
       const aString = String(aDisplayValue).toLowerCase()
       const bString = String(bDisplayValue).toLowerCase()
       
@@ -131,6 +182,8 @@ export function TableView({
   const handleColumnSort = (columnKey: string) => {
     console.log('🔄 TableView handleColumnSort called with:', columnKey)
     console.log('🔄 TableView onSortChange callback exists:', !!onSortChange)
+    console.log('🔄 TableView available columns:', columns.map(c => ({ key: c.key, name: c.name })))
+    console.log('🔄 TableView sample data for column:', columnKey, data.slice(0, 3).map(row => ({ [columnKey]: row[columnKey] })))
     
     let newSortColumn: string | null = null
     let newSortDirection: 'asc' | 'desc' | null = 'asc'
