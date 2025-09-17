@@ -390,6 +390,7 @@ Rules:
 - If the user asks about schema/columns, set operation="explain_schema".
 - Age filters: "older than 50" → filters.donor.age.min = 50, "younger than 30" → filters.donor.age.max = 30
 - Age ranges: "between 25 and 65" → filters.donor.age.min = 25, filters.donor.age.max = 65
+- Age exclusion: "only include fields that have age" → filters.donor.age.min = 0 (excludes NULL ages)
 - Include age field: If age is mentioned (filters, sorting, or display), add "age" to include array
 - Use null for unknowns. Output ONLY the JSON.
 `.trim()
@@ -421,13 +422,17 @@ Rules:
 Routing:
 - operation=top_donors:
   - ALWAYS SELECT: Full Name, Total Amount, and any requested fields (age, etc.)
-  - ALWAYS use subquery with ORDER BY total_amount DESC LIMIT N*5 (headroom for filtering/sorting)
-  - Final ORDER BY: If sort field is amount/total/donation → use requested direction, else use total_amount DESC first, then requested field
+  - ALWAYS use subquery with ORDER BY total_amount DESC LIMIT N (get exactly the top N donors by amount)
+  - Final ORDER BY: For age/name/date sorting, use requested field as PRIMARY sort, with dt.total_amount DESC as tie-breaker
   - For amount sorting: subquery gets top donors, final sort applies user's amount direction (asc/desc)
-  - For age/name/date sorting: subquery gets top donors, final sort by requested field + tie-breakers
+  - For age/name/date sorting: subquery gets top donors by amount, final sort by requested field + tie-breakers
+  - CRITICAL: "Top N" means get the N highest donors by total amount FIRST, then sort those by the requested field
 - operation=top_donations: no GROUP BY; ORDER BY amount/date; LIMIT N.
 - operation=list_donors/list_donations: similar but without "top" semantics (no forced DESC by amount).
 - If include requests gift_date in donor aggregates, expose MAX(g.GIFTDATE) AS last_gift_date in subquery and project as dt.last_gift_date.
+
+Example for "top 10 donors of 2021, sort by age ascending":
+ORDER BY CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) IS NULL, CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) ASC, dt.total_amount DESC, tie-breakers
 
 Example for "top 10 donors of 2021, sort by amount ascending":
 SELECT c.FULLNAME AS \`Full Name\`, dt.total_amount AS \`Total Amount\`
@@ -437,7 +442,7 @@ FROM (
   WHERE g.GIFTDATE >= '2021-01-01' AND g.GIFTDATE < '2022-01-01'
   GROUP BY g.ACCOUNTID
   ORDER BY total_amount DESC
-  LIMIT 50
+  LIMIT 10
 ) dt
 LEFT JOIN constituents c ON c.ACCOUNTID = dt.ACCOUNTID
 ORDER BY dt.total_amount ASC, c.FULLNAME ASC, dt.ACCOUNTID ASC
