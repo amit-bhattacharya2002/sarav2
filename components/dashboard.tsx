@@ -278,6 +278,7 @@ export default function Dashboard() {
   const [outputMode, setOutputMode] = useState('table')
   const [isLoading, setIsLoading] = useState(false)
   const [isGlobalLoading, setIsGlobalLoading] = useState(false)
+  const [processingTime, setProcessingTime] = useState<'fast' | 'longer' | null>(null)
   const [sqlQuery, setSqlQuery] = useState<string | null>(null)
   const [queryResults, setQueryResults] = useState<any[] | null>(null)
   const [columns, setColumns] = useState<{ key: string; name: string }[]>([])
@@ -918,10 +919,50 @@ export default function Dashboard() {
 
 
   
+  // Helper function to predict if query will use fast path
+  const predictProcessingTime = (question: string): 'fast' | 'longer' => {
+    const q = question.toLowerCase().trim()
+    
+    // Check for fast path patterns
+    // Pattern 1: "top N donors of YEAR by age/name/amount" with sorting
+    const m1 = q.match(/\btop\s+(\d+)\s+donors?\s+of\s+(\d{4})(?:\s+by\s+(?:their\s+)?(age|name|amount)|\s*,\s*sort\s+by\s+(age|name|amount)(?:\s+in\s+(?:ascending|descending)\s+order)?)\b/i)
+    if (m1) return 'fast'
+    
+    // Pattern 2: "top N donors of YEAR" (basic, no additional sorting/filtering)
+    const m2 = q.match(/\btop\s+(\d+)\s+donors?\s+of\s+(\d{4})\b/i)
+    if (m2 && !q.match(/\b(?:and\s+)?(?:sort|by|age|name|amount|older|younger|between|gender|alumni)\b/i)) {
+      return 'fast'
+    }
+    
+    // Pattern 2b: "top donors of YEAR" or "show me top donors of YEAR" (without explicit number)
+    const m2b = q.match(/\b(?:show\s+me\s+)?top\s+donors?\s+of\s+(\d{4})\b/i)
+    if (m2b && !q.match(/\b(?:and\s+)?(?:sort|by|age|name|amount|older|younger|between|gender|alumni)\b/i)) {
+      return 'fast'
+    }
+    
+    // Pattern 3: "top N donations of YEAR"
+    const m3 = q.match(/\btop\s+(\d+)\s+donations?\s+of\s+(\d{4})\b/i)
+    if (m3) return 'fast'
+    
+    // Pattern 4: "top N donors of YEAR, include FIELD1, FIELD2" (with include requests)
+    const m4 = q.match(/\btop\s+(\d+)\s+donors?\s+of\s+(\d{4})(?:,|\s+and)?\s+include\s+(.+?)(?:\s+and\s+(.+?))?(?:\s+and\s+(.+?))?$/i)
+    if (m4 && !q.match(/\b(?:and\s+)?(?:sort|by|older|younger|between)\b/i)) return 'fast'
+    
+    // Pattern 4b: "show me top donors of YEAR, include FIELD1, FIELD2" (without explicit number)
+    const m4b = q.match(/\b(?:show\s+me\s+)?top\s+donors?\s+of\s+(\d{4})(?:,|\s+and)?\s+include\s+(.+?)(?:\s+and\s+(.+?))?(?:\s+and\s+(.+?))?$/i)
+    if (m4b && !q.match(/\b(?:and\s+)?(?:sort|by|older|younger|between)\b/i)) return 'fast'
+    
+    // If none of the fast path patterns match, it will use LLM pipeline
+    return 'longer'
+  }
+
   const handleQuerySubmit = async () => {
     if (!question) return
     setIsLoading(true)
     setError(null)
+    const predictedTime = predictProcessingTime(question)
+    console.log('🔮 Predicted processing time for:', question, '→', predictedTime)
+    setProcessingTime(predictedTime)
 
     try {
       const res = await fetch('/api/generate-sql', {
@@ -986,6 +1027,7 @@ export default function Dashboard() {
     } catch (err: any) {
       console.error(err)
       setError(err.message || 'Unknown error')
+      setProcessingTime(null)
     } finally {
       setIsLoading(false)
     }
@@ -996,6 +1038,7 @@ export default function Dashboard() {
     try {
       setIsLoading(true)
       setError(null)
+      setProcessingTime(null)
   
       const resultRes = await fetch('/api/query', {
         method: 'POST',
@@ -1992,6 +2035,7 @@ setIsEditingSavedQuery(true);
               outputMode={outputMode}
               setOutputMode={stableSetOutputMode}
               isLoading={isLoading}
+              processingTime={processingTime}
               sqlQuery={sqlQuery}
               setSqlQuery={stableSetSqlQuery}
               queryResults={queryResults}
@@ -2054,6 +2098,7 @@ setIsEditingSavedQuery(true);
             outputMode={outputMode}
             setOutputMode={stableSetOutputMode}
             isLoading={isLoading}
+            processingTime={processingTime}
             sqlQuery={sqlQuery}
             setSqlQuery={stableSetSqlQuery}
             queryResults={queryResults}
@@ -2857,6 +2902,9 @@ useEffect(() => {
             <div className="flex flex-col items-center gap-3">
               <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent" />
               <div className="text-sm font-medium text-muted-foreground">Loading query results...</div>
+              {processingTime === 'longer' && (
+                <div className="text-xs text-muted-foreground/70">Thinking longer for more accurate results</div>
+              )}
             </div>
           </div>
         )}

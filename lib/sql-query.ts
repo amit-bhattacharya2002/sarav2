@@ -80,43 +80,56 @@ export async function executeSQLQuery(sql: string, originalQuestion?: string, us
     })
 
     // Apply user's sorting preference to the results if specified
+    // BUT only if the SQL doesn't already have proper sorting (avoid overriding fast path SQL)
     let sortedRows = rows
     if (userSortPreference && rows.length > 0) {
       const firstRow = rows[0]
       
-      // Look for common numeric column names first
-      const priorityColumns = ['Total Amount', 'Gift Amount', 'Donation Amount', 'Average Amount', 'Gift Count']
-      let primaryNumericColumn = null
+      // Check if the SQL already has complex sorting (indicates it was generated with specific intent)
+      const hasComplexSorting = sql.toLowerCase().includes('order by') && 
+        (sql.toLowerCase().includes('age') || 
+         sql.toLowerCase().includes('fullname') || 
+         sql.toLowerCase().includes('accountid') ||
+         sql.toLowerCase().includes('is null'))
       
-      // First try to find priority columns
-      for (const colName of priorityColumns) {
-        if (firstRow.hasOwnProperty(colName)) {
-          primaryNumericColumn = colName
-          break
-        }
-      }
-      
-      // If no priority column found, look for any numeric column
-      if (!primaryNumericColumn) {
-        const numericColumns = Object.keys(firstRow).filter(key => {
-          const value = firstRow[key]
-          return typeof value === 'number' || (typeof value === 'string' && !isNaN(Number(value)))
-        })
+      // Skip post-processing if SQL already has complex sorting (fast path or LLM-generated with intent)
+      if (hasComplexSorting) {
+        console.log('🚫 Skipping post-processing sort - SQL already has complex sorting')
+      } else {
+        // Look for common numeric column names first
+        const priorityColumns = ['Total Amount', 'Gift Amount', 'Donation Amount', 'Average Amount', 'Gift Count']
+        let primaryNumericColumn = null
         
-        if (numericColumns.length > 0) {
-          primaryNumericColumn = numericColumns[0]
+        // First try to find priority columns
+        for (const colName of priorityColumns) {
+          if (firstRow.hasOwnProperty(colName)) {
+            primaryNumericColumn = colName
+            break
+          }
         }
-      }
-      
-      // Sort if we found a numeric column
-      if (primaryNumericColumn) {
-        console.log(`🔄 Applying user sort preference: ${userSortPreference} to column: "${primaryNumericColumn}"`)
-        sortedRows = [...rows].sort((a, b) => {
-          const aVal = Number(a[primaryNumericColumn]) || 0
-          const bVal = Number(b[primaryNumericColumn]) || 0
-          return userSortPreference === 'asc' ? aVal - bVal : bVal - aVal
-        })
-        console.log(`📊 Sorted ${sortedRows.length} rows in ${userSortPreference} order`)
+        
+        // If no priority column found, look for any numeric column
+        if (!primaryNumericColumn) {
+          const numericColumns = Object.keys(firstRow).filter(key => {
+            const value = firstRow[key]
+            return typeof value === 'number' || (typeof value === 'string' && !isNaN(Number(value)))
+          })
+          
+          if (numericColumns.length > 0) {
+            primaryNumericColumn = numericColumns[0]
+          }
+        }
+        
+        // Sort if we found a numeric column
+        if (primaryNumericColumn) {
+          console.log(`🔄 Applying user sort preference: ${userSortPreference} to column: "${primaryNumericColumn}"`)
+          sortedRows = [...rows].sort((a, b) => {
+            const aVal = Number(a[primaryNumericColumn]) || 0
+            const bVal = Number(b[primaryNumericColumn]) || 0
+            return userSortPreference === 'asc' ? aVal - bVal : bVal - aVal
+          })
+          console.log(`📊 Sorted ${sortedRows.length} rows in ${userSortPreference} order`)
+        }
       }
     }
 
