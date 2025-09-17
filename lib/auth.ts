@@ -9,7 +9,8 @@ export const DEMO_USERS = [
   { id: 7, username: 'user890', password: '6789' },
   { id: 8, username: 'user123', password: '0123' },
   { id: 9, username: 'user456', password: '3456' },
-  { id: 10, username: 'user999', password: '9999' }
+  { id: 10, username: 'user999', password: '9999' },
+  { id: 11, username: 'demo1', password: 'pass1' }
 ]
 
 export interface User {
