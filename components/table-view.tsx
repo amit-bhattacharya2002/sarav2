@@ -524,6 +524,7 @@ export function TableView({
                 <tr key={i} className="border-b hover:bg-muted/50">
                   {visibleColumns.map((col, j) => {
                     const cellValue = row[col.key]
+                    
                     const displayValue = (() => {
                       // Handle nested objects (like _id containing {constituentId, name})
                       if (typeof cellValue === 'object' && cellValue !== null) {
@@ -556,12 +557,44 @@ export function TableView({
                       // Removed truncation logic to show full content
                       return cellValue
                     })()
+                    
+                    // Check if this is a fallback value that needs ghost text (only for Full Name)
+                    const isFallbackValue = (() => {
+                      const stringValue = String(cellValue)
+                      
+                      // Debug: Check what we're getting
+                      if (col.name === 'Full Name' || col.key === 'Full Name') {
+                        console.log('🔍 Checking Full Name:')
+                        console.log('  - stringValue:', stringValue)
+                        console.log('  - colName:', col.name)
+                        console.log('  - colKey:', col.key)
+                        console.log('  - matches:', stringValue.match(/^\[Account [\w-]+\]$/))
+                      }
+                      
+                      // Only check for Full Name fallback pattern: [Account XXXXX] (including UUIDs with hyphens)
+                      if ((col.name === 'Full Name' || col.key === 'Full Name') && stringValue.match(/^\[Account [\w-]+\]$/)) {
+                        console.log('✅ Found fallback value:', stringValue)
+                        return true
+                      }
+                      return false
+                    })()
 
                     return (
                       <td key={j} className={`${compact ? "p-1" : "p-2"} border-r border-border/20`}                       style={{ 
                         whiteSpace: 'nowrap'
                       }}>
-                        {displayValue}
+                        {isFallbackValue ? (
+                          <div className="flex flex-col">
+                            <span className="text-gray-500 italic text-xs">
+                              No name on file
+                            </span>
+                            <span className="text-foreground/60 text-xs">
+                              {displayValue}
+                            </span>
+                          </div>
+                        ) : (
+                          displayValue
+                        )}
                       </td>
                     )
                   })}

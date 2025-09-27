@@ -265,7 +265,7 @@ export default function Dashboard() {
   const [collapsedPanels, setCollapsedPanels] = useState<Record<'left' | 'middle' | 'right', boolean>>({
     left: false, // Collapsed in edit mode, expanded in read-only mode
     middle: false,
-    right: false, // Collapsed in edit mode, expanded in read-only mode
+    right: true, // Start minimized when app loads
   })
 
   const [panelWidths, setPanelWidths] = useState<Record<'left' | 'middle' | 'right', string>>({

@@ -979,7 +979,7 @@ export function QueryPanel({
 
                 {/* Column Selector - Show all available database columns when user is typing */}
         {question.trim().length > 0 && (
-          <div className="mb-4 bg-card border border-border rounded-lg shadow-sm overflow-hidden">
+          <div className="mb-4 bg-card border border-border rounded-lg shadow-sm overflow-auto max-h-[60vh] flex flex-col">
             {/* Header with toggle button */}
             <button
               onClick={() => setIsColumnSelectorExpanded(!isColumnSelectorExpanded)}
@@ -1022,7 +1022,7 @@ export function QueryPanel({
             
             {/* Collapsible content */}
             {isColumnSelectorExpanded && (
-              <div className={`border-t border-border ${validationErrors.length > 0 ? 'opacity-50 pointer-events-none' : ''}`}>
+              <div className={`border-t border-border flex flex-col flex-1 ${validationErrors.length > 0 ? 'opacity-50 pointer-events-none' : ''}`}>
                 {/* Quick Actions - Fixed */}
                 <div className="px-4 pt-3 pb-2">
                   <div className="flex gap-2">
@@ -1080,7 +1080,7 @@ export function QueryPanel({
                 </div>
 
                 {/* Categorized Column Grid - Scrollable */}
-                <div className="px-4 h-[70%] py-2 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
+                <div className="px-4 flex-1 py-2 overflow-y-scroll scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
                   <div className="space-y-3">
                   {/* Gifts Table */}
                   <div>
@@ -1128,7 +1128,7 @@ export function QueryPanel({
                             
                             setQuestion(newQuestion);
                           }}
-                          className={`px-2 py-1 text-[10px] font-medium rounded-md border transition-all duration-200 hover:shadow-sm text-left ${
+                          className={`px-2 py-1 text-xs font-medium rounded-md border transition-all duration-200 hover:shadow-sm text-left ${
                             question.toLowerCase().includes(col.name.toLowerCase())
                               ? 'bg-primary text-primary-foreground border-primary shadow-sm'
                               : 'bg-secondary text-secondary-foreground border-border hover:bg-accent hover:text-accent-foreground'
@@ -1187,7 +1187,7 @@ export function QueryPanel({
                             
                             setQuestion(newQuestion);
                           }}
-                          className={`px-2 py-1 text-[10px] font-medium rounded-md border transition-all duration-200 hover:shadow-sm text-left ${
+                          className={`px-2 py-1 text-xs font-medium rounded-md border transition-all duration-200 hover:shadow-sm text-left ${
                             question.toLowerCase().includes(col.name.toLowerCase())
                               ? 'bg-primary text-primary-foreground border-primary shadow-sm'
                               : 'bg-secondary text-secondary-foreground border-border hover:bg-accent hover:text-accent-foreground'
@@ -1246,7 +1246,7 @@ export function QueryPanel({
                             
                             setQuestion(newQuestion);
                           }}
-                          className={`px-2 py-1 text-[10px] font-medium rounded-md border transition-all duration-200 hover:shadow-sm text-left ${
+                          className={`px-2 py-1 text-xs font-medium rounded-md border transition-all duration-200 hover:shadow-sm text-left ${
                             question.toLowerCase().includes(col.name.toLowerCase())
                               ? 'bg-primary text-primary-foreground border-primary shadow-sm'
                               : 'bg-secondary text-secondary-foreground border-border hover:bg-accent hover:text-accent-foreground'
