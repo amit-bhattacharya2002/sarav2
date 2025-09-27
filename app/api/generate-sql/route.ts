@@ -1,4 +1,5 @@
 // File: app/api/generate-sql/route.ts
+// DEMO MODE: Simplified direct natural language to SQL conversion (intent extraction commented out)
 import { NextRequest, NextResponse } from 'next/server'
 import { openai as openaiConfig, features, app } from '@/lib/config'
 import { rateLimiters, createRateLimitHeaders, checkRateLimit } from '@/lib/rate-limiter'
@@ -449,6 +450,31 @@ ORDER BY dt.total_amount ASC, c.FULLNAME ASC, dt.ACCOUNTID ASC
 LIMIT 10
 `.trim()
 
+// DEMO MODE: Direct Natural Language to SQL Prompt
+const DEMO_SQL_PROMPT = `
+You are a SQL expert for a donor & gifts database. Convert natural language questions directly into MariaDB 10.11 SELECT queries.
+
+DATABASE SCHEMA:
+- gifts table: id, ACCOUNTID, GIFTID, GIFTDATE, GIFTAMOUNT, TRANSACTIONTYPE, GIFTTYPE, PAYMENTMETHOD, PLEDGEID, SOFTCREDITINDICATOR, SOFTCREDITAMOUNT, SOFTCREDITID, SOURCECODE, DESIGNATION, UNIT, PURPOSECATEGORY, APPEAL, GIVINGLEVEL, UUID
+- constituents table: id, ACCOUNTID, LOOKUPID, TYPE, DONORTYPE1, PERSONORGANIZATIONINDICATOR, ALUMNITYPE, UNDERGRADUATEDEGREE1, UNDERGRADUATIONYEAR1, UNDERGRADUATEPREFERREDCLASSYEAR1, UNDERGRADUATESCHOOL1, UNDERGRADUATEDEGREE2, UNDERGRADUATEGRADUATIONYEAR2, UNDERGRADUATEPREFERREDCLASSYEAR2, UNDERGRADUATESCHOOL2, GRADUATEDEGREE1, GRADUATEGRADUATIONYEAR1, GRADUATEPREFERREDCLASSYEAR1, GRADUATESCHOOL1, GRADUATEDEGREE2, GRADUATEGRADUATIONYEAR2, GRADUATEPREFERREDCLASSYEAR2, GRADUATESCHOOL2, GENDER, DECEASED, SOLICITATIONRESTRICTIONS, DONOTMAIL, DONOTPHONE, DONOTEMAIL, MARRIEDTOALUM, SPOUSELOOKUPID, SPOUSEID, ASSIGNEDACCOUNT, VOLUNTEER, WEALTHSCORE, GEPSTATUS, EVENTSATTENDED, EVENTS, AGE, GUID, FULLNAME, PMFULLNAME, FULLADDRESS, HOMETELEPHONE, EMAIL
+
+RULES:
+- Output ONLY valid SQL - no explanations, no comments, no semicolons
+- Always use JOIN: FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID
+- Use human-readable aliases: c.FULLNAME AS 'Full Name', g.GIFTAMOUNT AS 'Gift Amount', g.GIFTDATE AS 'Gift Date'
+- For amounts: CAST(g.GIFTAMOUNT AS DECIMAL(15,2))
+- For dates: year 2021 → g.GIFTDATE >= '2021-01-01' AND g.GIFTDATE < '2022-01-01'
+- For "top donors": GROUP BY g.ACCOUNTID, c.FULLNAME and SUM amounts
+- For "top gifts": NO GROUP BY, just ORDER BY amount DESC
+- Always end with LIMIT (default 10, max 100)
+- Handle missing names: COALESCE(NULLIF(TRIM(c.FULLNAME), ''), CONCAT('[Account ', g.ACCOUNTID, ']')) AS 'Full Name'
+
+EXAMPLES:
+- "top 10 donors of 2021" → SELECT c.FULLNAME AS 'Full Name', SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) AS 'Total Amount' FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE g.GIFTDATE >= '2021-01-01' AND g.GIFTDATE < '2022-01-01' GROUP BY g.ACCOUNTID, c.FULLNAME ORDER BY SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) DESC LIMIT 10
+- "show me all gifts from 2022" → SELECT c.FULLNAME AS 'Full Name', g.GIFTAMOUNT AS 'Gift Amount', g.GIFTDATE AS 'Gift Date' FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE g.GIFTDATE >= '2022-01-01' AND g.GIFTDATE < '2023-01-01' ORDER BY g.GIFTDATE DESC LIMIT 50
+- "top 5 gifts of 2023" → SELECT c.FULLNAME AS 'Full Name', g.GIFTAMOUNT AS 'Gift Amount', g.GIFTDATE AS 'Gift Date' FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE g.GIFTDATE >= '2023-01-01' AND g.GIFTDATE < '2024-01-01' ORDER BY CAST(g.GIFTAMOUNT AS DECIMAL(15,2)) DESC LIMIT 5
+`.trim()
+
 // ---------- Route ----------
 
 export async function POST(req: NextRequest) {
@@ -510,6 +536,12 @@ export async function POST(req: NextRequest) {
       return response
     }
 
+    // ---- DEMO MODE: Direct Natural Language to SQL (Skip Intent Extraction) ----
+    console.log('🚀 DEMO MODE ACTIVE: Direct SQL generation for:', question)
+    console.log('📝 Skipping intent extraction step for faster demo performance')
+    
+    // Comment out intent extraction for demo - go directly to SQL generation
+    /*
     // ---- Step 1: Intent extraction
     console.log('🔄 Extracting intent for:', question)
     const intentRes = await openai.chat.completions.create({
@@ -556,6 +588,18 @@ export async function POST(req: NextRequest) {
       temperature: 0.1,
       max_tokens: 360
     })
+    */
+    
+    // ---- DEMO: Direct SQL Generation from Natural Language ----
+    const sqlRes = await openai.chat.completions.create({
+      model: openaiConfig.model,
+      messages: [
+        { role: 'system', content: DEMO_SQL_PROMPT },
+        { role: 'user', content: question }
+      ],
+      temperature: 0.1,
+      max_tokens: 500
+    })
     const sqlQuery = sqlRes.choices[0]?.message?.content?.trim() || ''
     
     console.log('\n=== SQL GENERATION ===')
@@ -570,12 +614,13 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    // ---- Return both intent & SQL (helpful for UI debug), or just SQL if you prefer
+    // ---- DEMO: Return SQL directly (no intent for demo mode)
     const response = NextResponse.json({ 
-      intent, 
       sql: sqlQuery,
+      success: true,
       fastPath: false,
-      processingTime: 'longer'
+      processingTime: 'demo',
+      demo: true
     })
     const headers = createRateLimitHeaders(rateLimitResult)
     Object.entries(headers).forEach(([k, v]) => response.headers.set(k, v))

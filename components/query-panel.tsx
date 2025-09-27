@@ -1421,9 +1421,9 @@ export function QueryPanel({
             <div className="flex flex-col items-center gap-3">
               <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent" />
               <div className="text-sm font-medium text-muted-foreground">Loading query results...</div>
-              {processingTime === 'longer' && (
+              {/* {processingTime === 'longer' && (
                 <div className="text-xs text-muted-foreground/70">Thinking longer for more accurate results</div>
-              )}
+              )} */}
             </div>
           </div>
         )}
