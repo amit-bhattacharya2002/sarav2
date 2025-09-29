@@ -357,6 +357,7 @@ export function QueryPanel({
   const [validationErrors, setValidationErrors] = useState<string[]>([])
   const [validationWarnings, setValidationWarnings] = useState<string[]>([])
   const [showValidation, setShowValidation] = useState(false)
+  const [columnSelectionFeedback, setColumnSelectionFeedback] = useState<string[]>([])
 
   // Auto-expand column selector only when user is actively typing, keep collapsed after search
   useEffect(() => {
@@ -368,6 +369,33 @@ export function QueryPanel({
     // Don't auto-collapse when queryResults exist - let user manually control column selector
   }, [question, validationErrors, isLoading, queryResults])
   
+  // Function to check if selected columns appear in results
+  const checkColumnSelection = useCallback((question: string, columns: any[]) => {
+    const feedback: string[] = []
+    
+    // Extract selected columns from question
+    const columnMatch = question.match(/\b(?:include|show|display|use)\s+(?:only\s+)?(?:columns?|fields?)\s*[:=]\s*([^.]*)/i)
+    if (columnMatch) {
+      const selectedColumnsText = columnMatch[1]
+      const selectedColumns = selectedColumnsText.split(/[,;]/).map(col => col.trim()).filter(Boolean)
+      
+      // Check which selected columns are missing from results
+      const resultColumnNames = columns.map(col => col.name)
+      const missingColumns = selectedColumns.filter(selectedCol => 
+        !resultColumnNames.some(resultCol => 
+          resultCol.toLowerCase().includes(selectedCol.toLowerCase()) ||
+          selectedCol.toLowerCase().includes(resultCol.toLowerCase())
+        )
+      )
+      
+      if (missingColumns.length > 0) {
+        feedback.push(`Note: Some selected columns (${missingColumns.join(', ')}) were not included in the results. This might be because they're not relevant to this query type or don't exist in the database.`)
+      }
+    }
+    
+    setColumnSelectionFeedback(feedback)
+  }, [])
+
   // Update external sorting state when initial values change (for saved queries)
   useEffect(() => {
     // Always update when initial values change, even if they're null
@@ -375,6 +403,15 @@ export function QueryPanel({
     setExternalSortColumn(initialSortColumn || null)
     setExternalSortDirection(initialSortDirection || null)
   }, [initialSortColumn, initialSortDirection])
+
+  // Check column selection when results come in
+  useEffect(() => {
+    if (queryResults && queryResults.length > 0 && columns.length > 0) {
+      checkColumnSelection(question, columns)
+    } else {
+      setColumnSelectionFeedback([])
+    }
+  }, [queryResults, columns, question, checkColumnSelection])
   
   // Memoized callback for column order changes to prevent infinite loops
   const handleColumnOrderChange = useCallback((reorderedColumns: { key: string; name: string }[]) => {
@@ -969,6 +1006,24 @@ export function QueryPanel({
                     <li key={index} className="flex items-start gap-1.5">
                       <span className="text-yellow-600">•</span>
                       <span>{warning}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Column Selection Feedback */}
+            {columnSelectionFeedback.length > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-2">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Info className="h-3 w-3 text-blue-600" />
+                  <span className="text-xs font-medium text-blue-800">Column Selection Info</span>
+                </div>
+                <ul className="text-xs text-blue-700 space-y-0.5">
+                  {columnSelectionFeedback.map((feedback, index) => (
+                    <li key={index} className="flex items-start gap-1.5">
+                      <span className="text-blue-600">•</span>
+                      <span>{feedback}</span>
                     </li>
                   ))}
                 </ul>

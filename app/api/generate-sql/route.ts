@@ -80,7 +80,7 @@ function fastPathSQL(q: string): string | null {
     switch (sortField?.toLowerCase()) {
       case 'age':
         selectColumns = `
-  COALESCE(NULLIF(TRIM(c.FULLNAME), ''), CONCAT('[Account ', dt.ACCOUNTID, ']')) AS \`Full Name\`,
+  c.FULLNAME AS \`Full Name\`,
   CASE WHEN TRIM(c.AGE) IS NOT NULL AND TRIM(c.AGE) != '' AND CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) IS NOT NULL
        THEN CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED)
        ELSE NULL END AS \`Age\`,
@@ -96,7 +96,7 @@ function fastPathSQL(q: string): string | null {
         
       case 'name':
         selectColumns = `
-  COALESCE(NULLIF(TRIM(c.FULLNAME), ''), CONCAT('[Account ', dt.ACCOUNTID, ']')) AS \`Full Name\`,
+  c.FULLNAME AS \`Full Name\`,
   dt.total_amount AS \`Total Amount\``
         orderByClause = `
   dt.total_amount DESC,
@@ -110,7 +110,7 @@ function fastPathSQL(q: string): string | null {
       case 'donation':
       case 'donations':
         selectColumns = `
-  COALESCE(NULLIF(TRIM(c.FULLNAME), ''), CONCAT('[Account ', dt.ACCOUNTID, ']')) AS \`Full Name\`,
+  c.FULLNAME AS \`Full Name\`,
   dt.total_amount AS \`Total Amount\``
         orderByClause = `
   dt.total_amount ${sortOrder},
@@ -122,7 +122,7 @@ function fastPathSQL(q: string): string | null {
       default:
         // For unknown sort fields, default to amount sorting
         selectColumns = `
-  COALESCE(NULLIF(TRIM(c.FULLNAME), ''), CONCAT('[Account ', dt.ACCOUNTID, ']')) AS \`Full Name\`,
+  c.FULLNAME AS \`Full Name\`,
   dt.total_amount AS \`Total Amount\``
         orderByClause = `
   dt.total_amount ${sortOrder},
@@ -139,9 +139,9 @@ FROM (
   WHERE g.GIFTDATE >= '${y}-01-01' AND g.GIFTDATE < '${y+1}-01-01'
   GROUP BY g.ACCOUNTID
   ORDER BY total_amount DESC
-  LIMIT ${n * 5}
+  LIMIT ${n * 10}
 ) dt
-LEFT JOIN constituents c ON c.ACCOUNTID = dt.ACCOUNTID
+INNER JOIN constituents c ON c.ACCOUNTID = dt.ACCOUNTID
 ORDER BY${orderByClause}
 LIMIT ${n}`.trim()
   }
@@ -154,7 +154,7 @@ LIMIT ${n}`.trim()
     const y = parseInt(m2[2],10)
     return `
 SELECT
-  COALESCE(NULLIF(TRIM(c.FULLNAME), ''), CONCAT('[Account ', dt.ACCOUNTID, ']')) AS \`Full Name\`,
+  c.FULLNAME AS \`Full Name\`,
   dt.total_amount AS \`Total Amount\`
 FROM (
   SELECT g.ACCOUNTID, SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) AS total_amount
@@ -162,9 +162,9 @@ FROM (
   WHERE g.GIFTDATE >= '${y}-01-01' AND g.GIFTDATE < '${y+1}-01-01'
   GROUP BY g.ACCOUNTID
   ORDER BY total_amount DESC
-  LIMIT ${n}
+  LIMIT ${n * 5}
 ) dt
-LEFT JOIN constituents c ON c.ACCOUNTID = dt.ACCOUNTID
+INNER JOIN constituents c ON c.ACCOUNTID = dt.ACCOUNTID
 ORDER BY
   dt.total_amount DESC,
   (TRIM(c.FULLNAME) = '' OR c.FULLNAME IS NULL),
@@ -181,7 +181,7 @@ LIMIT ${n}`.trim()
     const y = parseInt(m2b[1],10)
     return `
 SELECT
-  COALESCE(NULLIF(TRIM(c.FULLNAME), ''), CONCAT('[Account ', dt.ACCOUNTID, ']')) AS \`Full Name\`,
+  c.FULLNAME AS \`Full Name\`,
   dt.total_amount AS \`Total Amount\`
 FROM (
   SELECT g.ACCOUNTID, SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) AS total_amount
@@ -189,9 +189,9 @@ FROM (
   WHERE g.GIFTDATE >= '${y}-01-01' AND g.GIFTDATE < '${y+1}-01-01'
   GROUP BY g.ACCOUNTID
   ORDER BY total_amount DESC
-  LIMIT ${n}
+  LIMIT ${n * 5}
 ) dt
-LEFT JOIN constituents c ON c.ACCOUNTID = dt.ACCOUNTID
+INNER JOIN constituents c ON c.ACCOUNTID = dt.ACCOUNTID
 ORDER BY
   dt.total_amount DESC,
   (TRIM(c.FULLNAME) = '' OR c.FULLNAME IS NULL),
@@ -207,11 +207,11 @@ LIMIT ${n}`.trim()
     const y = parseInt(m3[2],10)
     return `
 SELECT g.GIFTID AS \`Gift ID\`, 
-       COALESCE(NULLIF(TRIM(c.FULLNAME), ''), CONCAT('[Account ', g.ACCOUNTID, ']')) AS \`Full Name\`,
+       c.FULLNAME AS \`Full Name\`,
        CAST(g.GIFTAMOUNT AS DECIMAL(15,2)) AS \`Gift Amount\`,
        g.GIFTDATE AS \`Gift Date\`
 FROM gifts g
-LEFT JOIN constituents c ON c.ACCOUNTID = g.ACCOUNTID
+INNER JOIN constituents c ON c.ACCOUNTID = g.ACCOUNTID
 WHERE g.GIFTDATE >= '${y}-01-01' AND g.GIFTDATE < '${y+1}-01-01'
 ORDER BY 
   CAST(g.GIFTAMOUNT AS DECIMAL(15,2)) DESC, 
@@ -236,7 +236,7 @@ LIMIT ${n}`.trim()
     
     // Build SELECT columns based on include fields
     let selectColumns = `
-  COALESCE(NULLIF(TRIM(c.FULLNAME), ''), CONCAT('[Account ', dt.ACCOUNTID, ']')) AS \`Full Name\`,
+  c.FULLNAME AS \`Full Name\`,
   dt.total_amount AS \`Total Amount\``
     
     // Add requested fields
@@ -275,9 +275,9 @@ FROM (
   WHERE g.GIFTDATE >= '${y}-01-01' AND g.GIFTDATE < '${y+1}-01-01'
   GROUP BY g.ACCOUNTID
   ORDER BY total_amount DESC
-  LIMIT ${n}
+  LIMIT ${n * 5}
 ) dt
-LEFT JOIN constituents c ON c.ACCOUNTID = dt.ACCOUNTID
+INNER JOIN constituents c ON c.ACCOUNTID = dt.ACCOUNTID
 ORDER BY
   dt.total_amount DESC,
   (TRIM(c.FULLNAME) = '' OR c.FULLNAME IS NULL),
@@ -300,7 +300,7 @@ LIMIT ${n}`.trim()
     
     // Build SELECT columns based on include fields (same logic as Pattern 4)
     let selectColumns = `
-  COALESCE(NULLIF(TRIM(c.FULLNAME), ''), CONCAT('[Account ', dt.ACCOUNTID, ']')) AS \`Full Name\`,
+  c.FULLNAME AS \`Full Name\`,
   dt.total_amount AS \`Total Amount\``
     
     // Add requested fields
@@ -339,9 +339,9 @@ FROM (
   WHERE g.GIFTDATE >= '${y}-01-01' AND g.GIFTDATE < '${y+1}-01-01'
   GROUP BY g.ACCOUNTID
   ORDER BY total_amount DESC
-  LIMIT ${n}
+  LIMIT ${n * 5}
 ) dt
-LEFT JOIN constituents c ON c.ACCOUNTID = dt.ACCOUNTID
+INNER JOIN constituents c ON c.ACCOUNTID = dt.ACCOUNTID
 ORDER BY
   dt.total_amount DESC,
   (TRIM(c.FULLNAME) = '' OR c.FULLNAME IS NULL),
@@ -445,7 +445,7 @@ FROM (
   ORDER BY total_amount DESC
   LIMIT 10
 ) dt
-LEFT JOIN constituents c ON c.ACCOUNTID = dt.ACCOUNTID
+INNER JOIN constituents c ON c.ACCOUNTID = dt.ACCOUNTID
 ORDER BY dt.total_amount ASC, c.FULLNAME ASC, dt.ACCOUNTID ASC
 LIMIT 10
 `.trim()
@@ -460,19 +460,24 @@ DATABASE SCHEMA:
 
 RULES:
 - Output ONLY valid SQL - no explanations, no comments, no semicolons
-- Always use JOIN: FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID
+- Always use INNER JOIN: FROM gifts g INNER JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID
 - Use human-readable aliases: c.FULLNAME AS 'Full Name', g.GIFTAMOUNT AS 'Gift Amount', g.GIFTDATE AS 'Gift Date'
 - For amounts: CAST(g.GIFTAMOUNT AS DECIMAL(15,2))
 - For dates: year 2021 → g.GIFTDATE >= '2021-01-01' AND g.GIFTDATE < '2022-01-01'
 - For "top donors": GROUP BY g.ACCOUNTID, c.FULLNAME and SUM amounts
 - For "top gifts": NO GROUP BY, just ORDER BY amount DESC
 - Always end with LIMIT (default 10, max 100)
+- DEMO MODE: Use INNER JOIN so all results have names (no fallback needed)
+- For "top N" queries: Use subquery with LIMIT (N * 5), then INNER JOIN, then final LIMIT N to ensure N donors with names
+- CRITICAL: Always include ALL columns mentioned in the user's request. If user asks for specific columns, include them in SELECT.
+- If a requested column doesn't exist or isn't relevant, include it anyway with a NULL value and appropriate alias.
 - Handle missing names: COALESCE(NULLIF(TRIM(c.FULLNAME), ''), CONCAT('[Account ', g.ACCOUNTID, ']')) AS 'Full Name'
 
 EXAMPLES:
-- "top 10 donors of 2021" → SELECT c.FULLNAME AS 'Full Name', SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) AS 'Total Amount' FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE g.GIFTDATE >= '2021-01-01' AND g.GIFTDATE < '2022-01-01' GROUP BY g.ACCOUNTID, c.FULLNAME ORDER BY SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) DESC LIMIT 10
-- "show me all gifts from 2022" → SELECT c.FULLNAME AS 'Full Name', g.GIFTAMOUNT AS 'Gift Amount', g.GIFTDATE AS 'Gift Date' FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE g.GIFTDATE >= '2022-01-01' AND g.GIFTDATE < '2023-01-01' ORDER BY g.GIFTDATE DESC LIMIT 50
-- "top 5 gifts of 2023" → SELECT c.FULLNAME AS 'Full Name', g.GIFTAMOUNT AS 'Gift Amount', g.GIFTDATE AS 'Gift Date' FROM gifts g JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE g.GIFTDATE >= '2023-01-01' AND g.GIFTDATE < '2024-01-01' ORDER BY CAST(g.GIFTAMOUNT AS DECIMAL(15,2)) DESC LIMIT 5
+- "top 10 donors of 2021" → Use subquery with LIMIT 50, then INNER JOIN, then final LIMIT 10 to ensure 10 donors with names
+- "show me all gifts from 2022" → SELECT c.FULLNAME AS 'Full Name', g.GIFTAMOUNT AS 'Gift Amount', g.GIFTDATE AS 'Gift Date' FROM gifts g INNER JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE g.GIFTDATE >= '2022-01-01' AND g.GIFTDATE < '2023-01-01' ORDER BY g.GIFTDATE DESC LIMIT 50
+- "top 5 gifts of 2023" → SELECT c.FULLNAME AS 'Full Name', g.GIFTAMOUNT AS 'Gift Amount', g.GIFTDATE AS 'Gift Date' FROM gifts g INNER JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE g.GIFTDATE >= '2023-01-01' AND g.GIFTDATE < '2024-01-01' ORDER BY CAST(g.GIFTAMOUNT AS DECIMAL(15,2)) DESC LIMIT 5
+- "top 10 donors of 2021 include Age and Email" → SELECT c.FULLNAME AS 'Full Name', c.AGE AS 'Age', c.EMAIL AS 'Email', dt.total_amount AS 'Total Amount' FROM (subquery) dt INNER JOIN constituents c ON c.ACCOUNTID = dt.ACCOUNTID
 `.trim()
 
 // ---------- Route ----------
