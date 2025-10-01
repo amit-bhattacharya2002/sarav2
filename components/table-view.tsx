@@ -22,6 +22,10 @@ interface TableViewProps {
   externalSortColumn?: string | null
   externalSortDirection?: 'asc' | 'desc' | null
   onSortChange?: (column: string | null, direction: 'asc' | 'desc' | null) => void
+  // Initial filter columns for saved queries (JSON object with column keys and boolean values)
+  initialFilterColumns?: Record<string, boolean>
+  // Callback when filter columns change
+  onFilterColumnsChange?: (filterColumns: Record<string, boolean>) => void
 }
 
 type SortDirection = 'asc' | 'desc' | null
@@ -40,12 +44,17 @@ export function TableView({
   externalSortColumn = null,
   externalSortDirection = null,
   onSortChange,
+  initialFilterColumns,
+  onFilterColumnsChange,
 }: TableViewProps) {
   
   // Debug: Log which TableView instance this is
-  console.log('🔄 TableView component rendered with onSortChange:', !!onSortChange, 'inDashboard:', inDashboard, 'readOnlyMode:', readOnlyMode)
+  console.log('🔄 TableView component rendered with onSortChange:', !!onSortChange, 'inDashboard:', inDashboard, 'readOnlyMode:', readOnlyMode, 'onFilterColumnsChange:', !!onFilterColumnsChange)
   const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set(columns.map(col => col.key)))
   const [columnOrder, setColumnOrder] = useState<string[]>(columns.map(col => col.key))
+  
+  // Track if we've initialized from saved data to prevent re-initialization
+  const hasInitializedFromSaved = useRef(false)
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null)
   const [fullscreenModalOpen, setFullscreenModalOpen] = useState(false)
   const [startInFullscreen, setStartInFullscreen] = useState(false)
@@ -56,11 +65,65 @@ export function TableView({
   const [sortColumn, setSortColumn] = useState<string | null>(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
+  // Reset initialization flag when columns change (new query)
+  useEffect(() => {
+    hasInitializedFromSaved.current = false
+  }, [columns])
+
   // Initialize selected columns and order when columns change
   useEffect(() => {
-    setSelectedColumns(new Set(columns.map(col => col.key)))
+    // If we have initial filter columns (from saved query) and haven't initialized yet, use them
+    if (initialFilterColumns && Object.keys(initialFilterColumns).length > 0 && !hasInitializedFromSaved.current) {
+      // Convert the filter columns object to a Set of selected column keys
+      const selectedColumnKeys = Object.entries(initialFilterColumns)
+        .filter(([key, isVisible]) => isVisible && columns.some(c => c.key === key))
+        .map(([key]) => key)
+      
+      if (selectedColumnKeys.length > 0) {
+        setSelectedColumns(new Set(selectedColumnKeys))
+        hasInitializedFromSaved.current = true
+      } else {
+        // If no valid filter columns, select all
+        setSelectedColumns(new Set(columns.map(col => col.key)))
+        hasInitializedFromSaved.current = true
+      }
+    } else if (!hasInitializedFromSaved.current) {
+      // Only reset to all columns if this is the first time or if no columns were previously selected
+      setSelectedColumns(prev => {
+        // If no previous selection or if all previous columns are gone, select all new columns
+        if (prev.size === 0 || !columns.some(col => prev.has(col.key))) {
+          return new Set(columns.map(col => col.key))
+        }
+        // Otherwise, keep existing selections and add any new columns
+        const newSet = new Set(prev)
+        columns.forEach(col => {
+          if (!newSet.has(col.key)) {
+            newSet.add(col.key)
+          }
+        })
+        return newSet
+      })
+      hasInitializedFromSaved.current = true
+    }
     setColumnOrder(columns.map(col => col.key))
-  }, [columns])
+  }, [columns, initialFilterColumns])
+
+  // Notify parent when filter columns change
+  useEffect(() => {
+    console.log('🔄 TableView useEffect triggered - selectedColumns changed:', Array.from(selectedColumns))
+    console.log('🔄 TableView onFilterColumnsChange callback exists:', !!onFilterColumnsChange)
+    console.log('🔄 TableView columns:', columns.map(c => c.key))
+    if (onFilterColumnsChange) {
+      // Convert selectedColumns Set to a Record<string, boolean> format
+      const filterColumnsObject: Record<string, boolean> = {}
+      columns.forEach(col => {
+        filterColumnsObject[col.key] = selectedColumns.has(col.key)
+      })
+      console.log('🔄 TableView calling onFilterColumnsChange with:', filterColumnsObject)
+      console.log('🔄 TableView selectedColumns Set:', selectedColumns)
+      onFilterColumnsChange(filterColumnsObject)
+    }
+  }, [selectedColumns, onFilterColumnsChange, columns])
 
   // Reset sorting when data changes significantly, but not when external sorting is being applied
   useEffect(() => {
@@ -250,6 +313,27 @@ export function TableView({
     }),
   }), [stableId, sortedData, visibleColumns, outputMode, sql, readOnlyMode]) // Use sortedData instead of data
 
+  // Call the callback when column order changes - only when order actually changes
+  useEffect(() => {
+    // Only proceed if column reordering is enabled
+    if (outputMode !== 'chart' && outputMode !== 'pie' && !(inDashboard && readOnlyMode)) {
+      if (onColumnOrderChange && columnOrder.length > 0) {
+        // Check if the order has actually changed from the last time we called the callback
+        const hasOrderChanged = columnOrder.length !== lastColumnOrderRef.current.length ||
+          columnOrder.some((key, index) => key !== lastColumnOrderRef.current[index])
+        
+        if (hasOrderChanged) {
+          const reorderedColumns = columnOrder
+            .map(key => columns.find(col => col.key === key))
+            .filter((col): col is { key: string; name: string } => col !== undefined)
+          
+          onColumnOrderChange(reorderedColumns)
+          lastColumnOrderRef.current = [...columnOrder]
+        }
+      }
+    }
+  }, [columnOrder, columns, onColumnOrderChange, outputMode, inDashboard, readOnlyMode])
+
   // Early return if no data or columns
   if (!data || !Array.isArray(data) || data.length === 0) {
     return (
@@ -275,13 +359,17 @@ export function TableView({
   }
 
   const toggleColumn = (columnKey: string) => {
+    console.log('🔄 TableView toggleColumn called:', columnKey)
     setSelectedColumns(prev => {
       const newSet = new Set(prev)
       if (newSet.has(columnKey)) {
         newSet.delete(columnKey)
+        console.log('🔄 Removed column:', columnKey)
       } else {
         newSet.add(columnKey)
+        console.log('🔄 Added column:', columnKey)
       }
+      console.log('🔄 New selectedColumns Set:', Array.from(newSet))
       return newSet
     })
   }
@@ -356,29 +444,6 @@ export function TableView({
     })
     setDraggedColumn(null)
   }
-
-  // Call the callback when column order changes - only when order actually changes
-  useEffect(() => {
-    // Disable column reordering for charts and tables in read-only dashboard mode
-    if (outputMode === 'chart' || outputMode === 'pie' || (inDashboard && readOnlyMode)) {
-      return
-    }
-    
-    if (onColumnOrderChange && columnOrder.length > 0) {
-      // Check if the order has actually changed from the last time we called the callback
-      const hasOrderChanged = columnOrder.length !== lastColumnOrderRef.current.length ||
-        columnOrder.some((key, index) => key !== lastColumnOrderRef.current[index])
-      
-      if (hasOrderChanged) {
-        const reorderedColumns = columnOrder
-          .map(key => columns.find(col => col.key === key))
-          .filter((col): col is { key: string; name: string } => col !== undefined)
-        
-        onColumnOrderChange(reorderedColumns)
-        lastColumnOrderRef.current = [...columnOrder]
-      }
-    }
-  }, [columnOrder, columns, onColumnOrderChange, outputMode, inDashboard, readOnlyMode])
 
   const handleColumnDragEnd = (e: React.DragEvent) => {
     // Disable column reordering for charts and tables in read-only dashboard mode

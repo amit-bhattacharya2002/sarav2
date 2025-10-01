@@ -162,6 +162,8 @@ export async function POST(req: NextRequest) {
         companyId = 1,
         visualConfig = null,
         panelPosition = null,
+        selectedColumns = null,
+        filteredColumns = null,
       } = body
 
       if (!question || !sql || !outputMode || !columns) {
@@ -187,7 +189,7 @@ export async function POST(req: NextRequest) {
       const columnsToSave = columns && columns.length > 0 ? columns : queryResult.columns || []
       
       // Only transform if columns don't already have human-readable names
-      const needsTransformation = columnsToSave.some(col => 
+      const needsTransformation = columnsToSave.some((col: any) => 
         col.name && (col.name === col.key || col.name.includes('_') || col.name === col.name.toUpperCase())
       )
       const transformedColumns = needsTransformation ? transformColumnsToHumanReadable(columnsToSave) : columnsToSave
@@ -198,12 +200,15 @@ export async function POST(req: NextRequest) {
           companyId,
           title: question,
           queryText: question,
+          comboPrompt: body.comboPrompt || question, // Store combo prompt if provided, otherwise use question
           sqlText: sql,
           outputMode: output_mode,
           visualConfig: visualConfig ? JSON.stringify(visualConfig) : null,
           panelPosition,
           resultData: JSON.stringify(queryResult.rows || []),
           resultColumns: JSON.stringify(transformedColumns),
+          selectedColumns: selectedColumns ? JSON.stringify(selectedColumns) : null,
+          filteredColumns: filteredColumns ? JSON.stringify(filteredColumns) : null,
         },
       })
 
@@ -215,7 +220,7 @@ export async function POST(req: NextRequest) {
     // ---- 2. Update Query Branch ----
     if (body.action === "update") {
       const userId = getUserIdFromRequest(req)
-      const { id, title, question, sql, outputMode, columns, visualConfig } = body
+      const { id, title, question, sql, outputMode, columns, visualConfig, selectedColumns, filteredColumns } = body
 
       if (!id || !title || !question || !sql || !outputMode || !columns) {
         return addRateLimitHeaders(
@@ -252,7 +257,7 @@ export async function POST(req: NextRequest) {
       const columnsToSave = columns && columns.length > 0 ? columns : queryResult.columns || []
       
       // Only transform if columns don't already have human-readable names
-      const needsTransformation = columnsToSave.some(col => 
+      const needsTransformation = columnsToSave.some((col: any) => 
         col.name && (col.name === col.key || col.name.includes('_') || col.name === col.name.toUpperCase())
       )
       const transformedColumns = needsTransformation ? transformColumnsToHumanReadable(columnsToSave) : columnsToSave
@@ -262,11 +267,14 @@ export async function POST(req: NextRequest) {
         data: {
           title,
           queryText: question,
+          comboPrompt: body.comboPrompt || question, // Store combo prompt if provided, otherwise use question
           sqlText: sql,
           outputMode: output_mode,
           visualConfig: visualConfig ? JSON.stringify(visualConfig) : null,
           resultData: JSON.stringify(queryResult.rows || []),
           resultColumns: JSON.stringify(transformedColumns),
+          selectedColumns: selectedColumns ? JSON.stringify(selectedColumns) : null,
+          filteredColumns: filteredColumns ? JSON.stringify(filteredColumns) : null,
           updatedAt: new Date(),
         },
       })
@@ -327,8 +335,11 @@ export async function POST(req: NextRequest) {
           resultColumns: true,
           sqlText: true,
           queryText: true,
+          comboPrompt: true,
           outputMode: true,
           visualConfig: true,
+          selectedColumns: true,
+          filteredColumns: true,
         }
       })
 
@@ -342,7 +353,7 @@ export async function POST(req: NextRequest) {
       const columns = savedQuery.resultColumns ? JSON.parse(savedQuery.resultColumns) : []
       
       // Only transform if columns don't already have human-readable names
-      const needsTransformation = columns.some(col => 
+      const needsTransformation = columns.some((col: any) => 
         col.name && (col.name === col.key || col.name.includes('_') || col.name === col.name.toUpperCase())
       )
       const transformedColumns = needsTransformation ? transformColumnsToHumanReadable(columns) : columns
@@ -359,8 +370,11 @@ export async function POST(req: NextRequest) {
           columns: transformedColumns,
           sql: savedQuery.sqlText,
           question: savedQuery.queryText,
+          comboPrompt: savedQuery.comboPrompt || savedQuery.queryText || '', // Use comboPrompt if available, fallback to queryText, then empty string
           outputMode,
           visualConfig,
+          selectedColumns: savedQuery.selectedColumns ? JSON.parse(savedQuery.selectedColumns) : null,
+          filteredColumns: savedQuery.filteredColumns ? JSON.parse(savedQuery.filteredColumns) : null,
         })
       )
     }

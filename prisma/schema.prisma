@@ -9,7 +9,60 @@ datasource db {
     url      = env("BUSINESS_DATABASE_URL")
 }
 
-model Gift {
+model constituents {
+    id                               Int      @id @default(autoincrement())
+    ACCOUNTID                        String?  @db.VarChar(40)
+    LOOKUPID                         Int?
+    TYPE                             String?  @db.VarChar(30)
+    DONORTYPE1                       String?  @db.VarChar(25)
+    PERSONORGANIZATIONINDICATOR      String?  @db.VarChar(10)
+    ALUMNITYPE                       String?  @db.VarChar(10)
+    UNDERGRADUATEDEGREE1             String?  @db.VarChar(10)
+    UNDERGRADUATIONYEAR1             Int?
+    UNDERGRADUATEPREFERREDCLASSYEAR1 Int?
+    UNDERGRADUATESCHOOL1             String?  @db.VarChar(30)
+    UNDERGRADUATEDEGREE2             String?  @db.VarChar(10)
+    UNDERGRADUATEGRADUATIONYEAR2     Int?
+    UNDERGRADUATEPREFERREDCLASSYEAR2 Int?
+    UNDERGRADUATESCHOOL2             String?  @db.VarChar(30)
+    GRADUATEDEGREE1                  String?  @db.VarChar(10)
+    GRADUATEGRADUATIONYEAR1          Int?
+    GRADUATEPREFERREDCLASSYEAR1      Int?
+    GRADUATESCHOOL1                  String?  @db.VarChar(30)
+    GRADUATEDEGREE2                  String?  @db.VarChar(10)
+    GRADUATEGRADUATIONYEAR2          Int?
+    GRADUATEPREFERREDCLASSYEAR2      Int?
+    GRADUATESCHOOL2                  String?  @db.VarChar(30)
+    GENDER                           String?  @db.VarChar(10)
+    DECEASED                         String?  @db.VarChar(10)
+    SOLICITATIONRESTRICTIONS         String?  @db.VarChar(90)
+    DONOTMAIL                        String?  @db.VarChar(15)
+    DONOTPHONE                       String?  @db.VarChar(15)
+    DONOTEMAIL                       String?  @db.VarChar(15)
+    MARRIEDTOALUM                    String?  @db.VarChar(15)
+    SPOUSELOOKUPID                   String?  @db.VarChar(40)
+    SPOUSEID                         String?  @db.VarChar(40)
+    ASSIGNEDACCOUNT                  Boolean?
+    VOLUNTEER                        String?  @db.VarChar(255)
+    WEALTHSCORE                      String?  @db.VarChar(15)
+    GEPSTATUS                        String?  @db.VarChar(20)
+    EVENTSATTENDED                   Boolean?
+    EVENTS                           Int?
+    AGE                              Int?
+    GUID                             String?  @db.VarChar(40)
+    FULLNAME                         String?  @db.VarChar(25)
+    PMFULLNAME                       String?  @db.VarChar(15)
+    FULLADDRESS                      String?  @db.VarChar(65)
+    HOMETELEPHONE                    String?  @db.VarChar(20)
+    EMAIL                            String?  @db.VarChar(30)
+
+    @@index([ACCOUNTID], map: "idx_constituents_accountid")
+    @@index([AGE], map: "idx_constituents_age")
+    @@index([FULLNAME], map: "idx_constituents_fullname")
+    @@index([GENDER], map: "idx_constituents_gender")
+}
+
+model gifts {
     ACCOUNTID           String    @db.Text
     GIFTID              String    @db.Text
     id                  Int       @id @default(autoincrement())
@@ -30,25 +83,9 @@ model Gift {
     GIVINGLEVEL         String?   @db.VarChar(50)
     UUID                String    @db.Text
 
-    @@map("gifts")
-}
-
-model SavedQuery {
-    id            Int      @id @default(autoincrement())
-    userId        Int      @default(1)
-    companyId     Int      @default(1)
-    title         String   @db.VarChar(255)
-    queryText     String   @db.Text
-    sqlText       String   @db.Text
-    outputMode    Int      @default(1)
-    visualConfig  String?  @db.Text
-    panelPosition String?  @db.VarChar(100)
-    createdAt     DateTime @default(now())
-    resultColumns String?  @db.Text
-    resultData    String?  @db.LongText
-    updatedAt     DateTime @default(now()) @updatedAt
-
-    @@map("saved_queries")
+    @@index([ACCOUNTID(length: 768)], map: "idx_gifts_accountid")
+    @@index([GIFTAMOUNT], map: "idx_gifts_giftamount")
+    @@index([GIFTDATE], map: "idx_gifts_giftdate")
 }
 
 model SavedDashboard {
@@ -65,4 +102,25 @@ model SavedDashboard {
     createdAt       DateTime @default(now())
 
     @@map("saved_dashboards")
+}
+
+model SavedQuery {
+    id              Int      @id @default(autoincrement())
+    userId          Int      @default(1)
+    companyId       Int      @default(1)
+    title           String   @db.VarChar(255)
+    queryText       String   @db.Text
+    sqlText         String   @db.Text
+    outputMode      Int      @default(1)
+    visualConfig    String?  @db.Text
+    panelPosition   String?  @db.VarChar(100)
+    createdAt       DateTime @default(now())
+    resultColumns   String?  @db.Text
+    resultData      String?  @db.LongText
+    updatedAt       DateTime @default(now())
+    comboPrompt     String?  @db.Text
+    selectedColumns String?  @db.Text
+    filteredColumns String?  @db.Text // New field for filter columns (JSON: {columnKey: boolean})
+
+    @@map("saved_queries")
 }

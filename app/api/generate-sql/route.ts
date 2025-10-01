@@ -458,6 +458,25 @@ DATABASE SCHEMA:
 - gifts table: id, ACCOUNTID, GIFTID, GIFTDATE, GIFTAMOUNT, TRANSACTIONTYPE, GIFTTYPE, PAYMENTMETHOD, PLEDGEID, SOFTCREDITINDICATOR, SOFTCREDITAMOUNT, SOFTCREDITID, SOURCECODE, DESIGNATION, UNIT, PURPOSECATEGORY, APPEAL, GIVINGLEVEL, UUID
 - constituents table: id, ACCOUNTID, LOOKUPID, TYPE, DONORTYPE1, PERSONORGANIZATIONINDICATOR, ALUMNITYPE, UNDERGRADUATEDEGREE1, UNDERGRADUATIONYEAR1, UNDERGRADUATEPREFERREDCLASSYEAR1, UNDERGRADUATESCHOOL1, UNDERGRADUATEDEGREE2, UNDERGRADUATEGRADUATIONYEAR2, UNDERGRADUATEPREFERREDCLASSYEAR2, UNDERGRADUATESCHOOL2, GRADUATEDEGREE1, GRADUATEGRADUATIONYEAR1, GRADUATEPREFERREDCLASSYEAR1, GRADUATESCHOOL1, GRADUATEDEGREE2, GRADUATEGRADUATIONYEAR2, GRADUATEPREFERREDCLASSYEAR2, GRADUATESCHOOL2, GENDER, DECEASED, SOLICITATIONRESTRICTIONS, DONOTMAIL, DONOTPHONE, DONOTEMAIL, MARRIEDTOALUM, SPOUSELOOKUPID, SPOUSEID, ASSIGNEDACCOUNT, VOLUNTEER, WEALTHSCORE, GEPSTATUS, EVENTSATTENDED, EVENTS, AGE, GUID, FULLNAME, PMFULLNAME, FULLADDRESS, HOMETELEPHONE, EMAIL
 
+VALID COLUMN MAPPINGS (user-friendly name → database column):
+- "Account ID" → c.ACCOUNTID
+- "Full Name" → c.FULLNAME  
+- "Age" → c.AGE
+- "Gender" → c.GENDER
+- "Email" → c.EMAIL
+- "Phone" → c.HOMETELEPHONE
+- "Address" → c.FULLADDRESS
+- "Alumni Type" → c.ALUMNITYPE
+- "Graduate School" → c.GRADUATESCHOOL1
+- "Volunteer" → c.VOLUNTEER
+- "GEP Status" → c.GEPSTATUS
+- "Assigned Account" → c.ASSIGNEDACCOUNT
+- "Married To Alum" → c.MARRIEDTOALUM
+- "Solicitation Restrictions" → c.SOLICITATIONRESTRICTIONS
+- "Gift Amount" → g.GIFTAMOUNT (only in direct gift queries)
+- "Gift Date" → g.GIFTDATE (only in direct gift queries)
+- "Total Amount" → dt.total_amount (in aggregated queries)
+
 RULES:
 - Output ONLY valid SQL - no explanations, no comments, no semicolons
 - Always use INNER JOIN: FROM gifts g INNER JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID
@@ -470,14 +489,18 @@ RULES:
 - DEMO MODE: Use INNER JOIN so all results have names (no fallback needed)
 - For "top N" queries: Use subquery with LIMIT (N * 5), then INNER JOIN, then final LIMIT N to ensure N donors with names
 - CRITICAL: Always include ALL columns mentioned in the user's request. If user asks for specific columns, include them in SELECT.
-- If a requested column doesn't exist or isn't relevant, include it anyway with a NULL value and appropriate alias.
-- Handle missing names: COALESCE(NULLIF(TRIM(c.FULLNAME), ''), CONCAT('[Account ', g.ACCOUNTID, ']')) AS 'Full Name'
+- SMART COLUMN HANDLING: If a requested column doesn't exist, is out of scope, or would cause SQL errors, gracefully ignore it and continue with valid columns.
+- SCOPE SAFETY: In outer queries, only reference dt.* and c.* (not g.*). Use dt.ACCOUNTID, not g.ACCOUNTID.
+- COLUMN MAPPING: Map user-friendly names to actual database columns (e.g., "Account ID" → c.ACCOUNTID, "Full Name" → c.FULLNAME).
+- Handle missing names: COALESCE(NULLIF(TRIM(c.FULLNAME), ''), CONCAT('[Account ', dt.ACCOUNTID, ']')) AS 'Full Name'
 
 EXAMPLES:
 - "top 10 donors of 2021" → Use subquery with LIMIT 50, then INNER JOIN, then final LIMIT 10 to ensure 10 donors with names
 - "show me all gifts from 2022" → SELECT c.FULLNAME AS 'Full Name', g.GIFTAMOUNT AS 'Gift Amount', g.GIFTDATE AS 'Gift Date' FROM gifts g INNER JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE g.GIFTDATE >= '2022-01-01' AND g.GIFTDATE < '2023-01-01' ORDER BY g.GIFTDATE DESC LIMIT 50
 - "top 5 gifts of 2023" → SELECT c.FULLNAME AS 'Full Name', g.GIFTAMOUNT AS 'Gift Amount', g.GIFTDATE AS 'Gift Date' FROM gifts g INNER JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE g.GIFTDATE >= '2023-01-01' AND g.GIFTDATE < '2024-01-01' ORDER BY CAST(g.GIFTAMOUNT AS DECIMAL(15,2)) DESC LIMIT 5
 - "top 10 donors of 2021 include Age and Email" → SELECT c.FULLNAME AS 'Full Name', c.AGE AS 'Age', c.EMAIL AS 'Email', dt.total_amount AS 'Total Amount' FROM (subquery) dt INNER JOIN constituents c ON c.ACCOUNTID = dt.ACCOUNTID
+- SCOPE EXAMPLE: For "top 10 donors" with subquery, use dt.ACCOUNTID in COALESCE, not g.ACCOUNTID: COALESCE(NULLIF(TRIM(c.FULLNAME), ''), CONCAT('[Account ', dt.ACCOUNTID, ']'))
+- GRACEFUL IGNORE EXAMPLE: If user asks for "Invalid Column" that doesn't exist, simply omit it from SELECT and continue with valid columns. Don't include NULL placeholders for invalid columns.
 `.trim()
 
 // ---------- Route ----------

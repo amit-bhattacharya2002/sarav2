@@ -275,6 +275,8 @@ export default function Dashboard() {
   })
 
   const [question, setQuestion] = useState('')
+  const [comboPrompt, setComboPrompt] = useState('')
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([])
   const [outputMode, setOutputMode] = useState('table')
   const [isLoading, setIsLoading] = useState(false)
   const [isGlobalLoading, setIsGlobalLoading] = useState(false)
@@ -293,6 +295,16 @@ export default function Dashboard() {
   // Stabilize setQuestion to prevent unnecessary re-renders
   const stableSetQuestion = useCallback((value: string) => {
     setQuestion(value)
+  }, [])
+
+  // Handle combo prompt changes
+  const handleComboPromptChange = useCallback((combo: string) => {
+    setComboPrompt(combo)
+  }, [])
+
+  // Handle selected columns changes
+  const handleSelectedColumnsChange = useCallback((columns: string[]) => {
+    setSelectedColumns(columns)
   }, [])
 
   const stableSetOutputMode = useCallback((value: string) => {
@@ -956,19 +968,20 @@ export default function Dashboard() {
     return 'longer'
   }
 
-  const handleQuerySubmit = async () => {
-    if (!question) return
+  const handleQuerySubmit = async (queryToExecute?: string) => {
+    const query = queryToExecute || question
+    if (!query) return
     setIsLoading(true)
     setError(null)
-    const predictedTime = predictProcessingTime(question)
-    console.log('🔮 Predicted processing time for:', question, '→', predictedTime)
+    const predictedTime = predictProcessingTime(query)
+    console.log('🔮 Predicted processing time for:', query, '→', predictedTime)
     setProcessingTime(predictedTime)
 
     try {
       const res = await fetch('/api/generate-sql', {
         method: 'POST',
         headers: createHeaders(),
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question: query }),
       })
 
       const data = await res.json()
@@ -1129,10 +1142,13 @@ console.log('🪄 Updating saved query with visualConfig:', visualConfig);
       id: selectedSavedQueryId,
       title: question,
       question: question,
+      comboPrompt: comboPrompt || question,
       sql: sqlQuery,
       outputMode: outputMode,
       columns: columns,
-      visualConfig
+      visualConfig,
+      selectedColumns: selectedColumns,
+      filteredColumns: {} // Empty for main query panel
     })
   });
 
@@ -1382,6 +1398,7 @@ const hasChanges = () => {
   // Clear query function
   const handleClearQuery = () => {
     setQuestion('');
+    setComboPrompt('');
     setSqlQuery(null);
     setQueryResults(null);
     setColumns([]);
@@ -1392,6 +1409,7 @@ const hasChanges = () => {
     setSaveStatus(null);
     setSelectedXColumn('');
     setSelectedYColumn('');
+    setSelectedColumns([]); // Reset selected columns
   }
 
 
@@ -1444,6 +1462,9 @@ const hasChanges = () => {
       
       // Populate the main query panel with saved query data
       setQuestion(result.question || '');
+      // For old saved queries without comboPrompt, use the question as comboPrompt
+      setComboPrompt(result.comboPrompt || result.question || '');
+      setSelectedColumns(result.selectedColumns || []);
       setSqlQuery(result.sql || '');
       setQueryResults(result.data || []);
       setColumns(result.columns || []);
@@ -1952,6 +1973,8 @@ setIsEditingSavedQuery(true);
           compact 
           readOnlyMode={readOnlyMode} 
           inDashboard={true}
+          initialFilterColumns={{}}
+          onFilterColumnsChange={() => {}} // No-op for dropped tables
           sql={viz.sql} // Pass SQL for potential future dynamic updates
           onColumnOrderChange={(reorderedColumns) => {
             console.log('🪄 onColumnOrderChange called with:', reorderedColumns);
@@ -2045,7 +2068,11 @@ setIsEditingSavedQuery(true);
               error={error}
               setError={stableSetError}
               onSubmit={handleQuerySubmit}
-              readOnlyMode={readOnlyMode}
+              onComboPromptChange={handleComboPromptChange}
+            onSelectedColumnsChange={handleSelectedColumnsChange}
+            readOnlyMode={readOnlyMode}
+            comboPrompt={comboPrompt}
+            initialSelectedColumns={selectedColumns}
             />
           ) : currentTab?.type === 'saved' ? (
             <SavedQueryTab
@@ -2108,6 +2135,8 @@ setIsEditingSavedQuery(true);
             error={error}
             setError={stableSetError}
             onSubmit={handleQuerySubmit}
+            onComboPromptChange={handleComboPromptChange}
+            onSelectedColumnsChange={handleSelectedColumnsChange}
             readOnlyMode={readOnlyMode}
             isEditingSavedQuery={isEditingSavedQuery}
             handleUpdateSavedQuery={handleUpdateSavedQuery}
@@ -2125,6 +2154,8 @@ setIsEditingSavedQuery(true);
             onSortChange={handleMainSortChange}
             initialSortColumn={mainSortColumn}
             initialSortDirection={mainSortDirection}
+            comboPrompt={comboPrompt}
+            initialSelectedColumns={selectedColumns}
           />
         )}
       </div>
@@ -2164,6 +2195,7 @@ setIsEditingSavedQuery(true);
     const [tabShowValidation, setTabShowValidation] = useState(false)
     const [tabSelectedColumns, setTabSelectedColumns] = useState<string[]>([])
     const [tabColumnSelectionMode, setTabColumnSelectionMode] = useState<'auto' | 'all' | 'custom'>('auto')
+    const [tabFilteredColumns, setTabFilteredColumns] = useState<Record<string, boolean>>({})
 
     // Debug: Log tab state
     console.log('🪄 SavedQueryTab state:', { 
@@ -2260,6 +2292,14 @@ console.log('🪄 Debug: This means a saved query tab is being rendered');
       }
     }, [tabOriginalData])
     
+    // Handle filter columns changes in the tab
+    const handleTabFilterColumnsChange = useCallback((filterColumns: Record<string, boolean>) => {
+      console.log('🔄 SAVED QUERY TAB filter columns changed:', filterColumns)
+      console.log('🔄 SAVED QUERY TAB current tabFilteredColumns:', tabFilteredColumns)
+      console.log('🔄 SAVED QUERY TAB setting tabFilteredColumns to:', filterColumns)
+      setTabFilteredColumns(filterColumns)
+    }, [tabFilteredColumns])
+
     // Handle sort changes in the tab
     const handleTabSortChange = useCallback((column: string | null, direction: 'asc' | 'desc' | null) => {
       console.log('🔄 SAVED QUERY TAB sort change called:', { column, direction, queryId: query.id })
@@ -2285,11 +2325,13 @@ console.log('🪄 Debug: This means a saved query tab is being rendered');
             columns: tabColumns,
             visualConfig: null,
             sortColumn: null,
-            sortDirection: null
+            sortDirection: null,
+            selectedColumns: tabSelectedColumns,
+            filteredColumns: tabFilteredColumns
           })
         }
       }
-    }, [tabIsEditing, tabOriginalData, tabQuestion, tabSqlQuery, tabOutputMode, tabQueryResults, tabColumns])
+    }, [tabIsEditing, tabOriginalData, tabQuestion, tabSqlQuery, tabOutputMode, tabQueryResults, tabColumns, tabSelectedColumns, tabFilteredColumns])
 
     // Function to determine error type and icon for tabs
     const getTabErrorInfo = (errorMessage: string) => {
@@ -2389,6 +2431,12 @@ console.log('🪄 Debug: This means a saved query tab is being rendered');
             setTabSelectedYColumn(result.columns[1]?.key || '')
           }
           
+          // Initialize selected columns for filter
+          setTabSelectedColumns(result.selectedColumns || [])
+          
+          // Initialize filtered columns
+          setTabFilteredColumns(result.filteredColumns || {})
+          
           // Initialize sorting state from visualConfig
           const savedSortColumn = result.visualConfig?.sortColumn || null
           const savedSortDirection = result.visualConfig?.sortDirection || null
@@ -2404,7 +2452,9 @@ console.log('🪄 Debug: This means a saved query tab is being rendered');
             columns: result.columns,
             visualConfig: result.visualConfig,
             sortColumn: savedSortColumn,
-            sortDirection: savedSortDirection
+            sortDirection: savedSortDirection,
+            selectedColumns: result.selectedColumns || [],
+            filteredColumns: result.filteredColumns || {}
           })
         } catch (err: any) {
           console.error('Error loading saved query:', err)
@@ -2528,7 +2578,9 @@ console.log('🪄 Debug: This means a saved query tab is being rendered');
             sql: tabSqlQuery,
             outputMode: tabOutputMode,
             columns: tabColumns,
-            visualConfig
+            visualConfig,
+            selectedColumns: tabSelectedColumns,
+            filteredColumns: tabFilteredColumns
           })
         })
 
@@ -2562,7 +2614,8 @@ console.log('🪄 Debug: This means a saved query tab is being rendered');
             columns: result.columns,
             visualConfig: result.visualConfig,
             sortColumn: tabSortColumn,
-            sortDirection: tabSortDirection
+            sortDirection: tabSortDirection,
+            selectedColumns: result.selectedColumns || []
           })
           
           // Restore chart configuration if available
@@ -2697,13 +2750,49 @@ console.log('🪄 Debug: This means a saved query tab is being rendered');
                originalSortDirection !== tabSortDirection;
       })();
       
+      // Check for selected columns changes
+      const selectedColumnsChanged = (() => {
+        const originalSelectedColumns = tabOriginalData.selectedColumns || [];
+        const currentSelectedColumns = tabSelectedColumns || [];
+        
+        console.log('🔄 hasTabChanges - selectedColumns comparison:', {
+          originalSelectedColumns,
+          currentSelectedColumns,
+          originalSorted: originalSelectedColumns.sort(),
+          currentSorted: currentSelectedColumns.sort()
+        });
+        
+        // Compare arrays by converting to JSON strings
+        const changed = JSON.stringify(originalSelectedColumns.sort()) !== JSON.stringify(currentSelectedColumns.sort());
+        console.log('🔄 hasTabChanges - selectedColumnsChanged:', changed);
+        return changed;
+      })();
+      
+      // Check for filtered columns changes
+      const filteredColumnsChanged = (() => {
+        const originalFilteredColumns = tabOriginalData.filteredColumns || {};
+        const currentFilteredColumns = tabFilteredColumns || {};
+        
+        console.log('🔄 hasTabChanges - filteredColumns comparison:', {
+          originalFilteredColumns,
+          currentFilteredColumns
+        });
+        
+        // Compare objects by converting to JSON strings
+        const changed = JSON.stringify(originalFilteredColumns) !== JSON.stringify(currentFilteredColumns);
+        console.log('🔄 hasTabChanges - filteredColumnsChanged:', changed);
+        return changed;
+      })();
+      
       const hasChanges = (
         questionChanged ||
         sqlChanged ||
         outputModeChanged ||
         columnOrderChanged ||
         sortingChanged ||
-        chartConfigChanged
+        chartConfigChanged ||
+        selectedColumnsChanged ||
+        filteredColumnsChanged
       );
       
       console.log('🪄 hasTabChanges debug:', {
@@ -2715,11 +2804,14 @@ console.log('🪄 Debug: This means a saved query tab is being rendered');
         columnOrderChanged,
         sortingChanged,
         chartConfigChanged,
+        selectedColumnsChanged,
         hasChanges,
         originalSortColumn: tabOriginalData?.sortColumn,
         currentSortColumn: tabSortColumn,
         originalSortDirection: tabOriginalData?.sortDirection,
-        currentSortDirection: tabSortDirection
+        currentSortDirection: tabSortDirection,
+        originalSelectedColumns: tabOriginalData?.selectedColumns,
+        currentSelectedColumns: tabSelectedColumns
       });
       
       console.log('🪄 hasTabChanges sorting comparison:', {
@@ -2731,7 +2823,7 @@ console.log('🪄 Debug: This means a saved query tab is being rendered');
       });
       
       return hasChanges;
-    }, [tabIsEditing, tabOriginalData, tabQuestion, tabSqlQuery, tabOutputMode, tabColumns, tabSortColumn, tabSortDirection, tabSelectedXColumn, tabSelectedYColumn])
+    }, [tabIsEditing, tabOriginalData, tabQuestion, tabSqlQuery, tabOutputMode, tabColumns, tabSortColumn, tabSortDirection, tabSelectedXColumn, tabSelectedYColumn, tabSelectedColumns, tabFilteredColumns])
 
 // Debug: Monitor X/Y column changes and trigger hasTabChanges check
 useEffect(() => {
@@ -2741,6 +2833,24 @@ useEffect(() => {
     console.log('🪄 hasTabChanges result:', hasChanges);
   }
 }, [tabSelectedXColumn, tabSelectedYColumn, tabIsEditing, tabOriginalData, hasTabChanges]);
+
+// Debug: Monitor selected columns changes and trigger hasTabChanges check
+useEffect(() => {
+  if (tabIsEditing && tabOriginalData) {
+    console.log('🪄 Selected columns changed, checking hasTabChanges...');
+    const hasChanges = hasTabChanges();
+    console.log('🪄 hasTabChanges result:', hasChanges);
+  }
+}, [tabSelectedColumns, tabIsEditing, tabOriginalData, hasTabChanges]);
+
+// Debug: Monitor filtered columns changes and trigger hasTabChanges check
+useEffect(() => {
+  if (tabIsEditing && tabOriginalData) {
+    console.log('🪄 Filtered columns changed, checking hasTabChanges...');
+    const hasChanges = hasTabChanges();
+    console.log('🪄 hasTabChanges result:', hasChanges);
+  }
+}, [tabFilteredColumns, tabIsEditing, tabOriginalData, hasTabChanges]);
 
     const handleQuestionChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newValue = e.target.value
@@ -2844,7 +2954,9 @@ useEffect(() => {
     tabOutputMode: !!tabOutputMode,
     tabColumnsLength: tabColumns.length,
     tabQueryResultsLength: tabQueryResults?.length,
-    tabSaveStatus
+    tabSaveStatus,
+    tabSelectedColumns: tabSelectedColumns,
+    tabOriginalDataSelectedColumns: tabOriginalData?.selectedColumns
   });
   return isDisabled;
 })()}
@@ -3219,6 +3331,8 @@ useEffect(() => {
                         externalSortColumn={tabSortColumn}
                         externalSortDirection={tabSortDirection}
                         inDashboard={true}
+                        initialFilterColumns={tabFilteredColumns}
+                        onFilterColumnsChange={handleTabFilterColumnsChange}
                       />
                     </div>
                   )}
@@ -3301,6 +3415,8 @@ useEffect(() => {
                       externalSortColumn={tabSortColumn}
                       externalSortDirection={tabSortDirection}
                       inDashboard={true}
+                      initialFilterColumns={tabFilteredColumns}
+                      onFilterColumnsChange={handleTabFilterColumnsChange}
                     />
                   </div>
                 )}
@@ -3398,10 +3514,12 @@ useEffect(() => {
                         action: 'save',
                         title: question || 'Saved Query',
                         question: question,
+                        comboPrompt: comboPrompt || question,
                         sql: sqlQuery,
                         outputMode: outputMode,
                         columns: columns,
-                        data: queryResults
+                        data: queryResults,
+                        selectedColumns: selectedColumns
                       })
                     });
 
