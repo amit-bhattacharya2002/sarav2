@@ -26,6 +26,10 @@ interface TableViewProps {
   initialFilterColumns?: Record<string, boolean>
   // Callback when filter columns change
   onFilterColumnsChange?: (filterColumns: Record<string, boolean>) => void
+  // Show/hide the filter button
+  showFilterButton?: boolean
+  // Show/hide the entire header section
+  showHeader?: boolean
 }
 
 type SortDirection = 'asc' | 'desc' | null
@@ -46,6 +50,8 @@ export function TableView({
   onSortChange,
   initialFilterColumns,
   onFilterColumnsChange,
+  showFilterButton = true,
+  showHeader = true,
 }: TableViewProps) {
   
   // Debug: Log which TableView instance this is
@@ -476,15 +482,17 @@ export function TableView({
         style={{ opacity: isDragging ? 0.5 : 1 }}
       >
         {/* Header with Column Selector and Expand Button */}
+        {showHeader && (
         <div className="flex items-center justify-between mb-2 p-2 bg-muted/20 rounded border border-border flex-shrink-0">
           <div className="flex items-center gap-2">
-            <Dialog open={isColumnSelectorModalOpen} onOpenChange={setIsColumnSelectorModalOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="flex items-center gap-2">
-                  <Filter className="h-4 w-4" />
-                  <span>Filter</span>
-                </Button>
-              </DialogTrigger>
+            {showFilterButton && (
+              <Dialog open={isColumnSelectorModalOpen} onOpenChange={setIsColumnSelectorModalOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="flex items-center gap-2">
+                    <Filter className="h-4 w-4" />
+                    <span>Filter</span>
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle>Filter Columns</DialogTitle>
@@ -517,6 +525,7 @@ export function TableView({
                 </div>
               </DialogContent>
             </Dialog>
+            )}
           </div>
           {/* {!hideExpandButton && (
             <Button
@@ -530,7 +539,7 @@ export function TableView({
             </Button>
           )} */}
         </div>
-        
+        )}
 
 
         {/* Table - Scrollable area with dynamic height */}

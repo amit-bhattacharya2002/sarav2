@@ -67,10 +67,10 @@ function EditableDropZone({ id, onDrop, onRemove, children, className = '' }: Om
     >
       <button
         onClick={onRemove}
-        className="absolute top-1 left-1/2 transform -translate-x-1/2 p-1 rounded-full hover:bg-muted z-10"
+        className="relative px-auto w-fit mx-auto p-1 m-[0.1rem] rounded-full hover:bg-muted z-50"
         aria-label="Remove visualization"
       >
-        <X className="h-4 w-4" />
+        <X className="h-3 w-3" />
       </button>
       <div className={`h-full w-full overflow-hidden ${
         children ? 'flex flex-col' : 'flex items-center justify-center'

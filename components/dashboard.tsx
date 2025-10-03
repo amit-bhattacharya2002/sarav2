@@ -1975,6 +1975,8 @@ setIsEditingSavedQuery(true);
           inDashboard={true}
           initialFilterColumns={{}}
           onFilterColumnsChange={() => {}} // No-op for dropped tables
+          showFilterButton={false} // Hide filter button for dropped tables
+          showHeader={false} // Hide entire header for dropped tables
           sql={viz.sql} // Pass SQL for potential future dynamic updates
           onColumnOrderChange={(reorderedColumns) => {
             console.log('🪄 onColumnOrderChange called with:', reorderedColumns);
