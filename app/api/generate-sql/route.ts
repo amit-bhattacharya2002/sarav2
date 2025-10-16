@@ -50,6 +50,119 @@ function parseIntent(jsonText: string): Intent | null {
   }
 }
 
+
+
+const SCHEMA_DEFINATION = `Table: gifts
+- id (integer): Primary key.
+- ACCOUNTID (varchar): Foreign key linking to constituents table - identifies the donor.
+- GIFTDATE (date): The date the gift was received. Use for date-based queries like "gifts from 2021".
+- GIFTAMOUNT (decimal): The amount of the gift. Use for amount-based queries like "top donations" or "gifts over $1000".
+- TRANSACTIONTYPE (varchar): Type of transaction (e.g., Gift, Pledge). Use for filtering by transaction type.
+- GIFTTYPE (varchar): Type of gift (e.g., Single, Recurring). Use for filtering by gift frequency.
+- PAYMENTMETHOD (varchar): Payment method (e.g., Credit Card, Check). Use for payment analysis.
+- SOFTCREDITINDICATOR (varchar): Whether the gift was soft-credited. Use for soft credit analysis.
+- SOFTCREDITAMOUNT (decimal): Amount soft-credited. Use for soft credit calculations.
+- SOURCECODE (varchar): Campaign or appeal source code — examples include: 
+  Phone Call, Direct Mail, Personal Solicitation, Web Gift, Event, Web Gift Mail, Useed, 
+  VRIOUS, DIRMAIL, Other, Campus Campaign, Unsolicited, Email, Coffee Club, Faculty
+  Newsletter, UNITWAY, Sponsorship, Athletics, United Way, FRISFU, ATHCOMM, WRESCOM, 
+  Telemarketing, Proposal, SPONSRP, NEWSLET, Payroll.
+  Use for campaign analysis and source tracking.
+- DESIGNATION (text): The specific fund or initiative the gift was designated to — e.g., "88 Keys Campaign", "Student Bursaries Fund", "Engineering Equipment Endowment". Use for fund-specific queries.
+- UNIT (varchar): The organizational department or division that received the gift. Example: "UA - University Advancement". Use for departmental analysis.
+- PURPOSECATEGORY (varchar): The classification of the gift's intent or use — e.g., "Endowment", "Operating", "Capital Project". Use for purpose-based analysis.
+- APPEAL (varchar): The specific fundraising effort or campaign code. Examples: "CUAGENXX", "AALGEN871", "AALGEN881", "AALGEN891". Use for appeal-specific queries.
+- GIVINGLEVEL (varchar): The dollar tier or range of the gift. Examples include "$1-$99.99", "$100-$499.99", "$500-$999.99", "$1,000+". Use for giving level analysis.
+ 
+Table: constituents
+
+- ID (char(36)): Primary key (GUID) for the constituent record.
+- ACCOUNTID (varchar): Primary identifier linking to gifts table - use for joining tables.
+- KEYNAME (varchar): Last name for individuals; organization name for org records. Use for name-based searches.
+- KEYNAMEPREFIX (varchar): For orgs, text that appears before the sort break slash in the org name.
+- FIRSTNAME (varchar): First name (individuals only). Use for first name searches.
+- MIDDLENAME (varchar): Middle name (individuals only).
+- MAIDENNAME (varchar): Maiden name (individuals only).
+- NICKNAME (varchar): Preferred or familiar name.
+- SSN (varchar): Government ID/SSN (if stored).
+- SSNINDEX (varchar): Indexed/hashed value used for searching on SSN.
+- GENDER (varchar): Gender (M/F). Use for gender-based queries.
+- BIRTHDATE (date): Date of birth (individuals only). Use for age calculations and birth date queries.
+- ISINACTIVE (bit): 1 if record is inactive. Use for filtering active vs inactive constituents.
+- GIVESANONYMOUSLY (bit): 1 if constituent prefers gifts to be anonymous. Use for anonymous gift analysis.
+- WEBADDRESS (varchar): Website URL for the constituent (person or org).
+- PICTURE (blob): Full photo/logo binary for the record.
+- PICTURETHUMBNAIL (blob): Thumbnail photo/logo binary.
+- ISORGANIZATION (bit): 1 if the record represents an organization. Use for filtering individuals vs organizations.
+- NETCOMMUNITYMEMBER (bit): 1 if user is a member of the online community/portal.
+- DONOTMAIL (bit): 1 if constituent does not want physical mail at any address. Use for contact preference queries.
+- DONOTEMAIL (bit): 1 if constituent does not want email at any address. Use for contact preference queries.
+- DONOTPHONE (bit): 1 if constituent does not want phone calls at any number. Use for contact preference queries.
+- CUSTOMIDENTIFIER (varchar): User-defined external identifier (e.g., legacy ID).
+- SEQUENCEID (int, identity): System sequence used to generate default lookup IDs.
+- DATEADDED (datetime): When the record was created in the system (NOT graduation date). Use for record creation date queries.
+- DATECHANGED (datetime): When the record was last updated. Use for record modification date queries.
+- TS (timestamp): Row version/timestamp for concurrency.
+- ISGROUP (bit): 1 if record is a group/household (not a single individual). Use for household analysis.
+- DISPLAYNAME (varchar): Household/constituent display name (UI friendly). Use for display purposes.
+- ISCONSTITUENT (bit): 1 if record is a fundraising constituent (count in KPIs). Use for fundraising constituent analysis.
+- TITLECODEID (char(36)): FK to salutations/titles (e.g., Mr., Dr.).
+- SUFFIXCODEID (char(36)): FK to name suffix (e.g., Jr., III).
+- MARITALSTATUSCODEID (char(36)): FK to marital status code (e.g., Single, Married).
+- ADDEDBYID (char(36)): FK (user GUID) who created the record.
+- CHANGEDBYID (char(36)): FK (user GUID) who last modified the record.
+- TITLE2CODEID (char(36)): FK to secondary title (e.g., dual salutations).
+- SUFFIX2CODEID (char(36)): FK to secondary suffix.
+- GENDERCODEID (char(36)): FK to gender code table (normalizes gender values).
+
+EDUCATION & ALUMNI FIELDS (use for graduation and education queries):
+- DONORTYPE1 (varchar): Donor type classification.
+- PERSONORGANIZATIONINDICATOR (varchar): Indicates if record is person or organization.
+- ALUMNITYPE (varchar): Alumni type classification (e.g., UGRD, GRAD). Use for alumni type queries.
+- UNDERGRADUATEDEGREE1 (varchar): First undergraduate degree. Use for degree-based queries.
+- UNDERGRADUATIONYEAR1 (int): First undergraduate graduation year. Use for "graduated in YEAR" queries.
+- UNDERGRADUATEPREFERREDCLASSYEAR1 (int): Preferred class year for first undergraduate degree.
+- UNDERGRADUATESCHOOL1 (varchar): First undergraduate school. Use for school-based queries.
+- UNDERGRADUATEDEGREE2 (varchar): Second undergraduate degree.
+- UNDERGRADUATEGRADUATIONYEAR2 (int): Second undergraduate graduation year. Use for "graduated in YEAR" queries.
+- UNDERGRADUATEPREFERREDCLASSYEAR2 (int): Preferred class year for second undergraduate degree.
+- UNDERGRADUATESCHOOL2 (varchar): Second undergraduate school.
+- GRADUATEDEGREE1 (varchar): First graduate degree. Use for graduate degree queries.
+- GRADUATEGRADUATIONYEAR1 (int): First graduate graduation year. Use for "graduated in YEAR" queries (ONLY use this field for graduate graduation queries).
+- GRADUATEPREFERREDCLASSYEAR1 (int): Preferred class year for first graduate degree.
+- GRADUATESCHOOL1 (varchar): First graduate school. Use for graduate school queries.
+- GRADUATEDEGREE2 (varchar): Second graduate degree.
+- GRADUATEGRADUATIONYEAR2 (int): Second graduate graduation year. Do NOT use this field for queries.
+- GRADUATEPREFERREDCLASSYEAR2 (int): Preferred class year for second graduate degree.
+- GRADUATESCHOOL2 (varchar): Second graduate school.
+
+CONTACT & ADDRESS FIELDS:
+- GENDER (varchar): Gender (M/F). Use for gender-based queries.
+- DECEASED (varchar): Deceased status. Use for deceased constituent queries.
+- SOLICITATIONRESTRICTIONS (varchar): Solicitation restrictions. Use for contact restriction queries.
+- DONOTMAIL (varchar): Do not mail preference. Use for mailing preference queries.
+- DONOTPHONE (varchar): Do not phone preference. Use for phone preference queries.
+- DONOTEMAIL (varchar): Do not email preference. Use for email preference queries.
+- MARRIEDTOALUM (varchar): Married to alumni status. Use for spouse alumni queries.
+- SPOUSELOOKUPID (varchar): Spouse lookup ID.
+- SPOUSEID (varchar): Spouse ID.
+- ASSIGNEDACCOUNT (varchar): Assigned account manager. Use for account manager queries.
+- VOLUNTEER (varchar): Volunteer status. Use for volunteer queries.
+- WEALTHSCORE (varchar): Wealth score. Use for wealth analysis.
+- GEPSTATUS (varchar): GEP status. Use for GEP status queries.
+- EVENTSATTENDED (varchar): Events attended. Use for event attendance queries.
+- EVENTS (varchar): Events information.
+- AGE (varchar): Age. Use for age-based queries.
+- GUID (varchar): GUID identifier.
+- FULLNAME (varchar): Full name. Use for name-based searches and display.
+- PMFULLNAME (varchar): Preferred mailing full name.
+- FULLADDRESS (varchar): Full address. Use for address-based queries.
+- HOMETELEPHONE (varchar): Home telephone. Use for phone-based queries.
+- EMAIL (varchar): Email address. Use for email-based queries.
+`
+
+
+
 const SCHEMA_TEXT = `
 MySQL/MariaDB Database Schema:
 - gifts (alias g): ACCOUNTID, GIFTID, GIFTDATE, GIFTAMOUNT, TRANSACTIONTYPE, GIFTTYPE, PAYMENTMETHOD, PLEDGEID, SOFTCREDITINDICATOR, SOFTCREDITAMOUNT, SOFTCREDITID, SOURCECODE, DESIGNATION, UNIT, PURPOSECATEGORY, APPEAL, GIVINGLEVEL, UUID
@@ -454,53 +567,199 @@ LIMIT 10
 const DEMO_SQL_PROMPT = `
 You are a SQL expert for a donor & gifts database. Convert natural language questions directly into MariaDB 10.11 SELECT queries.
 
-DATABASE SCHEMA:
-- gifts table: id, ACCOUNTID, GIFTID, GIFTDATE, GIFTAMOUNT, TRANSACTIONTYPE, GIFTTYPE, PAYMENTMETHOD, PLEDGEID, SOFTCREDITINDICATOR, SOFTCREDITAMOUNT, SOFTCREDITID, SOURCECODE, DESIGNATION, UNIT, PURPOSECATEGORY, APPEAL, GIVINGLEVEL, UUID
-- constituents table: id, ACCOUNTID, LOOKUPID, TYPE, DONORTYPE1, PERSONORGANIZATIONINDICATOR, ALUMNITYPE, UNDERGRADUATEDEGREE1, UNDERGRADUATIONYEAR1, UNDERGRADUATEPREFERREDCLASSYEAR1, UNDERGRADUATESCHOOL1, UNDERGRADUATEDEGREE2, UNDERGRADUATEGRADUATIONYEAR2, UNDERGRADUATEPREFERREDCLASSYEAR2, UNDERGRADUATESCHOOL2, GRADUATEDEGREE1, GRADUATEGRADUATIONYEAR1, GRADUATEPREFERREDCLASSYEAR1, GRADUATESCHOOL1, GRADUATEDEGREE2, GRADUATEGRADUATIONYEAR2, GRADUATEPREFERREDCLASSYEAR2, GRADUATESCHOOL2, GENDER, DECEASED, SOLICITATIONRESTRICTIONS, DONOTMAIL, DONOTPHONE, DONOTEMAIL, MARRIEDTOALUM, SPOUSELOOKUPID, SPOUSEID, ASSIGNEDACCOUNT, VOLUNTEER, WEALTHSCORE, GEPSTATUS, EVENTSATTENDED, EVENTS, AGE, GUID, FULLNAME, PMFULLNAME, FULLADDRESS, HOMETELEPHONE, EMAIL
+CRITICAL RULE: ONLY use column names that are explicitly listed in the schema below. NEVER invent, guess, or hallucinate column names that are not in the provided schema.
 
-VALID COLUMN MAPPINGS (user-friendly name → database column):
-- "Account ID" → c.ACCOUNTID
-- "Full Name" → c.FULLNAME  
-- "Age" → c.AGE
-- "Gender" → c.GENDER
-- "Email" → c.EMAIL
-- "Phone" → c.HOMETELEPHONE
-- "Address" → c.FULLADDRESS
-- "Alumni Type" → c.ALUMNITYPE
-- "Graduate School" → c.GRADUATESCHOOL1
-- "Volunteer" → c.VOLUNTEER
-- "GEP Status" → c.GEPSTATUS
-- "Assigned Account" → c.ASSIGNEDACCOUNT
-- "Married To Alum" → c.MARRIEDTOALUM
-- "Solicitation Restrictions" → c.SOLICITATIONRESTRICTIONS
-- "Gift Amount" → g.GIFTAMOUNT (only in direct gift queries)
-- "Gift Date" → g.GIFTDATE (only in direct gift queries)
-- "Total Amount" → dt.total_amount (in aggregated queries)
+COMPREHENSIVE DATABASE SCHEMA:
+${SCHEMA_DEFINATION}
 
-RULES:
-- Output ONLY valid SQL - no explanations, no comments, no semicolons
-- Always use INNER JOIN: FROM gifts g INNER JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID
-- Use human-readable aliases: c.FULLNAME AS 'Full Name', g.GIFTAMOUNT AS 'Gift Amount', g.GIFTDATE AS 'Gift Date'
-- For amounts: CAST(g.GIFTAMOUNT AS DECIMAL(15,2))
-- For dates: year 2021 → g.GIFTDATE >= '2021-01-01' AND g.GIFTDATE < '2022-01-01'
-- For "top donors": GROUP BY g.ACCOUNTID, c.FULLNAME and SUM amounts
-- For "top gifts": NO GROUP BY, just ORDER BY amount DESC
-- Always end with LIMIT (default 10, max 100)
-- DEMO MODE: Use INNER JOIN so all results have names (no fallback needed)
-- For "top N" queries: Use subquery with LIMIT (N * 5), then INNER JOIN, then final LIMIT N to ensure N donors with names
-- CRITICAL: Always include ALL columns mentioned in the user's request. If user asks for specific columns, include them in SELECT.
-- SMART COLUMN HANDLING: If a requested column doesn't exist, is out of scope, or would cause SQL errors, gracefully ignore it and continue with valid columns.
-- SCOPE SAFETY: In outer queries, only reference dt.* and c.* (not g.*). Use dt.ACCOUNTID, not g.ACCOUNTID.
+INTELLIGENT FIELD MAPPING INSTRUCTIONS:
+Analyze the user's query context and intent to map terms to appropriate database fields:
+
+1. CONTEXTUAL UNDERSTANDING:
+   - Read the schema descriptions to understand field purposes
+   - Consider the query context (graduation vs record creation vs gift dates)
+   - Use semantic understanding rather than exact word matching
+   - Infer field purposes from descriptions and examples
+
+2. DYNAMIC FIELD SELECTION:
+   - For graduation queries: Use graduation year fields (UNDERGRADUATIONYEAR1, UNDERGRADUATEGRADUATIONYEAR2, GRADUATEGRADUATIONYEAR1) with integer values
+   - For gift queries: Use gift-related fields (GIFTDATE, GIFTAMOUNT, etc.)
+   - For contact queries: Use contact fields (EMAIL, HOMETELEPHONE, etc.)
+   - For demographic queries: Use demographic fields (AGE, GENDER, etc.)
+
+3. SEMANTIC MAPPING:
+   - "donors" = constituents (people who give gifts)
+   - "customers" = constituents (people in the database)
+   - "graduated in YEAR" = check all graduation year fields
+   - "top donors" = aggregate by ACCOUNTID and sum gift amounts
+   - "top donations" = individual gift amounts (no aggregation)
+   - "campaigns" = SOURCECODE or APPEAL fields
+   - "funds" = DESIGNATION field
+   - "last year" = previous calendar year
+   - "this year" = current calendar year
+
+4. USER ALIAS HANDLING:
+   - When users provide aliases (e.g., "show me the customer names"), map to actual schema fields
+   - "customer names" → c.FULLNAME (not "customer names")
+   - "donor IDs" → c.ACCOUNTID (not "donor IDs")
+   - "gift amounts" → g.GIFTAMOUNT (not "gift amounts")
+   - "phone numbers" → c.HOMETELEPHONE (not "phone numbers")
+   - Always use the actual schema column names in SQL, not user-provided aliases
+
+5. ERROR PREVENTION:
+   - Always verify field existence in the schema before using
+   - Use appropriate data types (dates for dates, numbers for amounts)
+   - Handle NULL values appropriately
+   - Consider field relationships and constraints
+
+INTELLIGENT SQL GENERATION RULES:
+
+1. QUERY ANALYSIS:
+   - Analyze the user's intent from the natural language query
+   - Determine if this is a gift query, constituent query, or combined query
+   - Identify the appropriate fields based on context and schema descriptions
+   - Choose the right table joins based on the query requirements
+
+2. FIELD SELECTION:
+   - CRITICAL: ONLY use fields that exist in the provided schema above
+   - Use schema descriptions to select appropriate fields
+   - For graduation queries: Use graduation year fields (UNDERGRADUATIONYEAR1, UNDERGRADUATEGRADUATIONYEAR2, GRADUATEGRADUATIONYEAR1) with integer values, not DATEADDED
+   - For gift queries: Use gift-related fields (GIFTDATE, GIFTAMOUNT, etc.)
+   - For demographic queries: Use demographic fields (AGE, GENDER, etc.)
+   - Always verify field existence in the provided schema
+
+3. JOIN STRATEGY:
+   - Use INNER JOIN when both tables are needed: FROM gifts g INNER JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID
+   - Use single table when only one table's data is needed
+   - Consider the query context to determine necessary joins
+
+4. AGGREGATION LOGIC:
+   - "Top donors" = GROUP BY ACCOUNTID, SUM gift amounts, ORDER BY total DESC
+   - "Top donations" = Individual gifts, ORDER BY amount DESC (no GROUP BY)
+   - Use appropriate aggregation functions based on query intent
+
+5. DATA HANDLING:
+   - Handle NULL values with COALESCE or appropriate NULL checks
+   - Use proper data type casting: CAST(g.GIFTAMOUNT AS DECIMAL(15,2))
+   - Format dates correctly: year 2021 → g.GIFTDATE >= '2021-01-01' AND g.GIFTDATE < '2022-01-01'
+   - ALWAYS use human-readable aliases for ALL columns in SELECT statements
+   - Column alias examples:
+     * c.ACCOUNTID AS 'Account ID'
+     * g.GIFTID AS 'Gift ID' 
+     * g.GIFTDATE AS 'Gift Date'
+     * g.GIFTAMOUNT AS 'Gift Amount'
+     * g.TRANSACTIONTYPE AS 'Transaction Type'
+     * g.GIFTTYPE AS 'Gift Type'
+     * c.FULLNAME AS 'Full Name'
+     * c.EMAIL AS 'Email'
+     * c.HOMETELEPHONE AS 'Phone'
+     * c.FULLADDRESS AS 'Address'
+     * c.GENDER AS 'Gender'
+     * c.AGE AS 'Age'
+
+6. OUTPUT REQUIREMENTS:
+   - Output ONLY valid SQL - no explanations, no comments, no semicolons
+   - Always include LIMIT clause (default 10 if not specified, max 100)
+   - Ensure SQL is syntactically correct for MariaDB 10.11
+   - MANDATORY: Use human-readable aliases for ALL columns (e.g., c.ACCOUNTID AS 'Account ID')
+   - NEVER use raw database column names in SELECT statements without aliases
+
+7. DYNAMIC VALIDATION & ERROR RECOVERY:
+   - CRITICAL: ONLY use column names that exist in the provided schema above
+   - NEVER invent, guess, or hallucinate column names that are not explicitly listed
+   - Before using any field, verify it exists in the provided schema
+   - If a requested field doesn't exist, find the closest semantic match from the actual schema
+   - If no match exists, gracefully omit the field and continue
+   - Use schema context to infer field purposes and relationships
+   - Handle ambiguous terms by considering query context
+
+8. CONTEXT-AWARE FIELD MAPPING:
+   - "graduated in YEAR" → Use graduation year fields (UNDERGRADUATIONYEAR1 = YEAR, UNDERGRADUATEGRADUATIONYEAR2 = YEAR, GRADUATEGRADUATIONYEAR1 = YEAR)
+   - "record created" → Use DATEADDED field
+   - "gift date" → Use GIFTDATE field
+   - "donor information" → Use constituent fields
+   - "gift information" → Use gift fields
+   - "contact information" → Use contact fields (EMAIL, HOMETELEPHONE, etc.)
+
+9. GRADUATE YEAR SPECIFIC RULES:
+   - When user mentions "Graduate Year" in column selection or query context, ONLY use GRADUATEGRADUATIONYEAR1
+   - NEVER use GRADUATEGRADUATIONYEAR2 for graduate year queries
+   - For undergraduate queries, use UNDERGRADUATIONYEAR1 and UNDERGRADUATEGRADUATIONYEAR2
+   - For graduate queries, use ONLY GRADUATEGRADUATIONYEAR1
+   - Example: "Include only columns: Graduate Year, Full Name" → SELECT c.GRADUATEGRADUATIONYEAR1 AS 'Graduate Year', c.FULLNAME AS 'Full Name'
+
+10. INTELLIGENT QUERY CONSTRUCTION:
+    - Analyze the full query context to determine appropriate fields
+    - Use semantic understanding rather than exact word matching
+    - Map user aliases to actual schema column names (e.g., "customer names" → c.FULLNAME)
+    - Consider field relationships and data types
+    - Apply appropriate filters and conditions based on context
+    - Choose the right aggregation strategy based on query intent
+
+11. FALLBACK STRATEGIES:
+    - If a field doesn't exist, try alternative interpretations
+    - If a join fails, consider single-table queries
+    - If aggregation is unclear, default to appropriate grouping
+    - Always ensure the query returns meaningful results
 - COLUMN MAPPING: Map user-friendly names to actual database columns (e.g., "Account ID" → c.ACCOUNTID, "Full Name" → c.FULLNAME).
 - Handle missing names: COALESCE(NULLIF(TRIM(c.FULLNAME), ''), CONCAT('[Account ', dt.ACCOUNTID, ']')) AS 'Full Name'
 
-EXAMPLES:
-- "top 10 donors of 2021" → Use subquery with LIMIT 50, then INNER JOIN, then final LIMIT 10 to ensure 10 donors with names
-- "show me all gifts from 2022" → SELECT c.FULLNAME AS 'Full Name', g.GIFTAMOUNT AS 'Gift Amount', g.GIFTDATE AS 'Gift Date' FROM gifts g INNER JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE g.GIFTDATE >= '2022-01-01' AND g.GIFTDATE < '2023-01-01' ORDER BY g.GIFTDATE DESC LIMIT 50
-- "top 5 gifts of 2023" → SELECT c.FULLNAME AS 'Full Name', g.GIFTAMOUNT AS 'Gift Amount', g.GIFTDATE AS 'Gift Date' FROM gifts g INNER JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID WHERE g.GIFTDATE >= '2023-01-01' AND g.GIFTDATE < '2024-01-01' ORDER BY CAST(g.GIFTAMOUNT AS DECIMAL(15,2)) DESC LIMIT 5
-- "top 10 donors of 2021 include Age and Email" → SELECT c.FULLNAME AS 'Full Name', c.AGE AS 'Age', c.EMAIL AS 'Email', dt.total_amount AS 'Total Amount' FROM (subquery) dt INNER JOIN constituents c ON c.ACCOUNTID = dt.ACCOUNTID
-- SCOPE EXAMPLE: For "top 10 donors" with subquery, use dt.ACCOUNTID in COALESCE, not g.ACCOUNTID: COALESCE(NULLIF(TRIM(c.FULLNAME), ''), CONCAT('[Account ', dt.ACCOUNTID, ']'))
-- GRACEFUL IGNORE EXAMPLE: If user asks for "Invalid Column" that doesn't exist, simply omit it from SELECT and continue with valid columns. Don't include NULL placeholders for invalid columns.
+INTELLIGENT QUERY EXAMPLES:
+
+1. GRADUATION QUERIES:
+   - "donors who graduated in 2020" → Use graduation year fields (UNDERGRADUATIONYEAR1 = 2020, UNDERGRADUATEGRADUATIONYEAR2 = 2020, GRADUATEGRADUATIONYEAR1 = 2020)
+   - "alumni from 2015" → Use graduation year fields, not DATEADDED
+   - "undergraduate alumni" → Use ALUMNITYPE = 'UGRD' and undergraduate graduation fields
+   - "graduate alumni" → Use ALUMNITYPE = 'GRAD' and GRADUATEGRADUATIONYEAR1 only
+   - "Include only columns: Graduate Year, Full Name" → SELECT c.GRADUATEGRADUATIONYEAR1 AS 'Graduate Year', c.FULLNAME AS 'Full Name'
+   - "Show me graduate year and donor names" → SELECT c.GRADUATEGRADUATIONYEAR1 AS 'Graduate Year', c.FULLNAME AS 'Full Name'
+
+2. GIFT QUERIES:
+   - "top donors of 2021" → Aggregate by ACCOUNTID, sum gift amounts, filter by GIFTDATE
+   - "gifts over $1000" → Filter by GIFTAMOUNT > 1000
+   - "recurring gifts" → Filter by GIFTTYPE = 'Recurring'
+
+3. DEMOGRAPHIC QUERIES:
+   - "male donors" → Use GENDER = 'M'
+   - "donors over 65" → Use AGE > 65
+   - "volunteers" → Use VOLUNTEER field
+
+4. CONTACT QUERIES:
+   - "donors with email" → Filter by EMAIL IS NOT NULL
+   - "donors in California" → Use FULLADDRESS field with LIKE '%CA%'
+   - "phone numbers" → Use HOMETELEPHONE field
+
+5. COMPLEX QUERIES:
+   - "top 10 donors who graduated in 2020 and gave over $500" → Combine graduation year fields, gift amount filter, and aggregation
+   - "alumni volunteers from engineering school" → Use graduation fields, volunteer status, and school fields
+
+6. COLUMN ALIAS EXAMPLES:
+   - "show me donations" → SELECT g.GIFTID AS 'Gift ID', g.GIFTAMOUNT AS 'Gift Amount', g.GIFTDATE AS 'Gift Date', g.TRANSACTIONTYPE AS 'Transaction Type'
+   - "show me donors" → SELECT c.ACCOUNTID AS 'Account ID', c.FULLNAME AS 'Full Name', c.EMAIL AS 'Email', c.HOMETELEPHONE AS 'Phone'
+   - "show me gifts with donor info" → SELECT c.FULLNAME AS 'Donor Name', g.GIFTAMOUNT AS 'Gift Amount', g.GIFTDATE AS 'Gift Date', g.SOURCECODE AS 'Source Code'
+   - "show me male donors" → SELECT c.FULLNAME AS 'Full Name', c.GENDER AS 'Gender', c.AGE AS 'Age'
+
+7. USER ALIAS MAPPING EXAMPLES:
+   - "show me customer names" → SELECT c.FULLNAME AS 'Customer Names' (use c.FULLNAME, not "customer names")
+   - "show me donor IDs" → SELECT c.ACCOUNTID AS 'Donor IDs' (use c.ACCOUNTID, not "donor IDs")
+   - "show me gift amounts" → SELECT g.GIFTAMOUNT AS 'Gift Amounts' (use g.GIFTAMOUNT, not "gift amounts")
+   - "show me phone numbers" → SELECT c.HOMETELEPHONE AS 'Phone Numbers' (use c.HOMETELEPHONE, not "phone numbers")
+   - "show me email addresses" → SELECT c.EMAIL AS 'Email Addresses' (use c.EMAIL, not "email addresses")
+   - "Include only columns: Graduate Year" → SELECT c.GRADUATEGRADUATIONYEAR1 AS 'Graduate Year' (use c.GRADUATEGRADUATIONYEAR1, not "Graduate Year")
+   - "Show me Graduate Year and Full Name" → SELECT c.GRADUATEGRADUATIONYEAR1 AS 'Graduate Year', c.FULLNAME AS 'Full Name'
+
+The AI should analyze each query contextually and select the most appropriate fields based on the schema descriptions and query intent.
+
+KEY PRINCIPLES:
+- CRITICAL: ONLY use column names that exist in the provided schema - NEVER hallucinate or invent field names
+- Map user aliases to actual schema column names (e.g., "customer names" → c.FULLNAME, not "customer names")
+- GRADUATE YEAR RULE: When user mentions "Graduate Year", ONLY use GRADUATEGRADUATIONYEAR1, NEVER use GRADUATEGRADUATIONYEAR2
+- Use schema descriptions to understand field purposes and relationships
+- Apply contextual understanding to map user terms to appropriate database fields
+- Handle ambiguous terms by considering the full query context
+- Gracefully handle missing or invalid fields by finding alternatives or omitting them
+- Ensure all generated SQL is syntactically correct and returns meaningful results
+- Use appropriate data types, joins, and aggregation strategies based on query intent
 `.trim()
 
 // ---------- Route ----------

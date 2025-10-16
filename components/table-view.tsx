@@ -594,10 +594,20 @@ export function TableView({
               </tr>
             </thead>
             <tbody>
-              {sortedData.map((row, i) => (
-                <tr key={i} className="border-b hover:bg-muted/50">
-                  {visibleColumns.map((col, j) => {
-                    const cellValue = row[col.key]
+              {sortedData.length === 0 ? (
+                <tr>
+                  <td colSpan={visibleColumns.length} className="text-center py-8 text-muted-foreground">
+                    <div className="flex flex-col items-center">
+                      <div className="text-lg font-medium mb-1">No results found</div>
+                      <div className="text-sm">No data matches your current criteria</div>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                sortedData.map((row, i) => (
+                  <tr key={i} className="border-b hover:bg-muted/50">
+                    {visibleColumns.map((col, j) => {
+                      const cellValue = row[col.key]
                     
                     const displayValue = (() => {
                       // Handle nested objects (like _id containing {constituentId, name})
@@ -673,7 +683,8 @@ export function TableView({
                     )
                   })}
                 </tr>
-              ))}
+              ))
+              )}
             </tbody>
           </table>
         </div>

@@ -174,12 +174,15 @@ const validateQuery = (query: string): { isValid: boolean; errors: string[]; war
     )
   )
 
-  // Check for common nonsense words
+  // Check for common nonsense words - only exact matches or very specific patterns
   const nonsenseWords = ['asdf', 'qwerty', 'test', 'testing', 'hello', 'hi', 'hey', 'lol', 'haha', 'blah', 'blah blah', 'random', 'stuff', 'things', 'whatever', 'idk', 'idontknow', 'nothing', 'something', 'anything']
   const hasNonsenseWords = queryWords.some(word =>
-    nonsenseWords.some(nonsense =>
-      word.toLowerCase().includes(nonsense.toLowerCase())
-    )
+    nonsenseWords.some(nonsense => {
+      const wordLower = word.toLowerCase()
+      const nonsenseLower = nonsense.toLowerCase()
+      // Only match if it's an exact match or if the word starts with the nonsense word
+      return wordLower === nonsenseLower || wordLower.startsWith(nonsenseLower + ' ')
+    })
   )
 
   if (hasNonsenseWords && trimmedQuery.length > 5) {
@@ -373,13 +376,14 @@ export function QueryPanel({
 
   // Auto-expand column selector only when user is actively typing, keep collapsed after search
   useEffect(() => {
-    if (question.trim().length > 0 && validationErrors.length === 0 && !isLoading && !queryResults?.length) {
+    // Only expand when user is typing and no query has been executed yet - VALIDATION COMMENTED OUT
+    if (question.trim().length > 0 && !isLoading && (queryResults === null || queryResults === undefined)) {
       setIsColumnSelectorExpanded(true)
-    } else if (question.trim().length === 0 || validationErrors.length > 0 || isLoading) {
+    } else {
+      // Collapse in all other cases (empty question, loading, or any query results)
       setIsColumnSelectorExpanded(false)
     }
-    // Don't auto-collapse when queryResults exist - let user manually control column selector
-  }, [question, validationErrors, isLoading, queryResults])
+  }, [question, isLoading, queryResults])
 
   // Function to extract clean user prompt (without column selections)
   const extractUserPrompt = useCallback((fullPrompt: string) => {
@@ -488,13 +492,8 @@ export function QueryPanel({
     const combo = generateComboPrompt(question, selectedColumns, columnSelectionMode)
     setComboPrompt(combo)
     
-    // Only notify parent component if we're not initializing from a saved query
-    // This prevents infinite loops when loading saved queries
-    if (onComboPromptChange && !isInitializingFromSavedQuery.current) {
-      onComboPromptChange(combo)
-    }
-    
-    // Notify parent component of selected columns changes
+    // Only notify parent component of selected columns changes (not combo prompt changes)
+    // This prevents triggering SQL regeneration when user is just selecting columns
     if (onSelectedColumnsChange && !isInitializingFromSavedQuery.current) {
       onSelectedColumnsChange(selectedColumns)
     }
@@ -503,7 +502,7 @@ export function QueryPanel({
     if (isInitializingFromSavedQuery.current) {
       isInitializingFromSavedQuery.current = false
     }
-  }, [question, selectedColumns, columnSelectionMode, generateComboPrompt, onComboPromptChange, onSelectedColumnsChange])
+  }, [question, selectedColumns, columnSelectionMode, generateComboPrompt, onSelectedColumnsChange])
 
   // Check column selection when results come in
   useEffect(() => {
@@ -652,27 +651,33 @@ export function QueryPanel({
     const patterns = {
       // Donor queries
       donor: {
-        keywords: ['donor', 'donors', 'contributor', 'contributors', 'giver', 'givers'],
-        xPriority: ['donor', 'name', 'donor_name', 'contributor', 'giver'],
-        yPriority: ['amount', 'total', 'sum', 'total_amount', 'donation_amount', 'contribution_amount']
+        keywords: ['donor', 'donors', 'contributor', 'contributors', 'giver', 'givers', 'customer', 'customers'],
+        xPriority: ['fullname', 'name', 'donor', 'contributor', 'giver', 'customer', 'account'],
+        yPriority: ['amount', 'total', 'sum', 'total_amount', 'donation_amount', 'contribution_amount', 'gift_amount']
       },
       // Date/time queries
       date: {
-        keywords: ['date', 'time', 'year', 'month', 'day', 'period', 'quarter'],
-        xPriority: ['date', 'year', 'month', 'day', 'period', 'quarter', 'time'],
-        yPriority: ['amount', 'total', 'sum', 'count', 'total_amount', 'donation_amount']
+        keywords: ['date', 'time', 'year', 'month', 'day', 'period', 'quarter', 'gift date', 'donation date'],
+        xPriority: ['date', 'year', 'month', 'day', 'period', 'quarter', 'time', 'giftdate'],
+        yPriority: ['amount', 'total', 'sum', 'count', 'total_amount', 'donation_amount', 'gift_amount']
       },
       // Category queries
       category: {
-        keywords: ['category', 'type', 'group', 'classification', 'segment'],
-        xPriority: ['category', 'type', 'group', 'classification', 'segment', 'name'],
-        yPriority: ['amount', 'total', 'sum', 'count', 'total_amount']
+        keywords: ['category', 'type', 'group', 'classification', 'segment', 'source', 'designation', 'appeal'],
+        xPriority: ['category', 'type', 'group', 'classification', 'segment', 'source', 'designation', 'appeal', 'name'],
+        yPriority: ['amount', 'total', 'sum', 'count', 'total_amount', 'gift_amount']
       },
       // Location queries
       location: {
-        keywords: ['location', 'city', 'state', 'country', 'region', 'area'],
-        xPriority: ['location', 'city', 'state', 'country', 'region', 'area', 'name'],
-        yPriority: ['amount', 'total', 'sum', 'count', 'total_amount']
+        keywords: ['location', 'city', 'state', 'country', 'region', 'area', 'address'],
+        xPriority: ['location', 'city', 'state', 'country', 'region', 'area', 'address', 'name'],
+        yPriority: ['amount', 'total', 'sum', 'count', 'total_amount', 'gift_amount']
+      },
+      // Gender/Age queries
+      demographic: {
+        keywords: ['gender', 'age', 'male', 'female', 'demographic', 'old', 'young'],
+        xPriority: ['gender', 'age', 'name', 'fullname'],
+        yPriority: ['amount', 'total', 'sum', 'count', 'total_amount', 'gift_amount']
       }
     };
 
@@ -684,10 +689,6 @@ export function QueryPanel({
         break;
       }
     }
-
-    // Get column names in lowercase for matching
-    const columnNames = columns.map(col => col.key.toLowerCase());
-    const columnDisplayNames = columns.map(col => col.name.toLowerCase());
 
     // Find best X column
     let xColumn = columns[0]?.key || '';
@@ -705,7 +706,7 @@ export function QueryPanel({
       }
     }
 
-    // Find best Y column
+    // Find best Y column (prefer numeric/amount columns)
     let yColumn = columns[1]?.key || '';
     if (queryType !== 'default') {
       const pattern = patterns[queryType as keyof typeof patterns];
@@ -721,6 +722,21 @@ export function QueryPanel({
       }
     }
 
+    // If no smart match found, try to find numeric columns for Y-axis
+    if (yColumn === columns[1]?.key) {
+      const numericColumns = columns.filter(col => {
+        const key = col.key.toLowerCase();
+        const name = col.name.toLowerCase();
+        return key.includes('amount') || key.includes('total') || key.includes('sum') || 
+               key.includes('count') || name.includes('amount') || name.includes('total') ||
+               name.includes('sum') || name.includes('count');
+      });
+      
+      if (numericColumns.length > 0) {
+        yColumn = numericColumns[0].key;
+      }
+    }
+
     // Fallback: if we couldn't find good matches, use first two columns
     if (!xColumn || !yColumn) {
       xColumn = columns[0]?.key || '';
@@ -731,6 +747,8 @@ export function QueryPanel({
     if (xColumn === yColumn && columns.length > 1) {
       yColumn = columns[1]?.key || '';
     }
+
+    console.log('🎯 Smart column selection:', { question, queryType, xColumn, yColumn, columns: columns.map(c => c.key) });
 
     return { xColumn, yColumn };
   };
@@ -763,7 +781,8 @@ export function QueryPanel({
   useEffect(() => {
     // Only auto-select if we have columns and no chart configuration is set
     // AND we're not in editing mode for a saved query (which should preserve its config)
-    if (columns.length >= 2 && (!selectedXColumn || !selectedYColumn)) {
+    // AND we're not in chart/pie mode (which has its own smart selection logic)
+    if (columns.length >= 2 && (!selectedXColumn || !selectedYColumn) && outputMode !== 'chart' && outputMode !== 'pie') {
       // Check if we're editing a saved query - if so, don't auto-select
       const isEditingSavedQuery = selectedSavedQueryId !== null;
 
@@ -772,7 +791,7 @@ export function QueryPanel({
         setSelectedYColumn(columns[1]?.key || '')
       }
     }
-  }, [columns, selectedXColumn, selectedYColumn, setSelectedXColumn, setSelectedYColumn, selectedSavedQueryId])
+  }, [columns, selectedXColumn, selectedYColumn, setSelectedXColumn, setSelectedYColumn, selectedSavedQueryId, outputMode])
 
   // Auto-select chart columns when new query results come in for chart/pie mode
   useEffect(() => {
@@ -780,7 +799,10 @@ export function QueryPanel({
     // Only for new queries (not saved queries being edited)
     if ((outputMode === 'chart' || outputMode === 'pie') &&
       columns.length >= 2 &&
-      !selectedSavedQueryId) {
+      !selectedSavedQueryId &&
+      queryResults !== null) { // Only when we have actual results
+      
+      console.log('🎯 Auto-selecting chart columns for:', { outputMode, columns: columns.map(c => c.key), question });
       const { xColumn, yColumn } = getSmartColumnSelection(columns, question, queryResults || []);
       setSelectedXColumn(xColumn)
       setSelectedYColumn(yColumn)
@@ -810,29 +832,29 @@ export function QueryPanel({
     const newValue = e.target.value
     setQuestion(newValue)
 
-    // Run validation in real-time (debounced)
-    if (newValue.trim().length > 0) {
-      validateQueryInput(newValue)
-    } else {
-      setValidationErrors([])
-      setValidationWarnings([])
-      setShowValidation(false)
-    }
-  }, [setQuestion, validateQueryInput])
+    // Run validation in real-time (debounced) - COMMENTED OUT
+    // if (newValue.trim().length > 0) {
+    //   validateQueryInput(newValue)
+    // } else {
+    //   setValidationErrors([])
+    //   setValidationWarnings([])
+    //   setShowValidation(false)
+    // }
+  }, [setQuestion])
 
-  // Enhanced submit handler with validation
+  // Enhanced submit handler with validation - COMMENTED OUT
   const handleSubmitWithValidation = useCallback(() => {
-    const isValid = validateQueryInput(question)
-    if (isValid) {
+    // const isValid = validateQueryInput(question)
+    // if (isValid) {
       setShowValidation(false)
       setIsColumnSelectorExpanded(false) // Collapse column selector immediately when search is pressed
       // Use combo prompt for execution, but keep user prompt clean in the UI
       onSubmit(comboPrompt)
-    } else {
-      setShowValidation(true)
-      toast.error("Please fix the validation errors before submitting")
-    }
-  }, [question, validateQueryInput, onSubmit, comboPrompt])
+    // } else {
+    //   setShowValidation(true)
+    //   toast.error("Please fix the validation errors before submitting")
+    // }
+  }, [onSubmit, comboPrompt])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -1072,70 +1094,9 @@ export function QueryPanel({
             value={question}
             onChange={handleQuestionChange}
             onKeyDown={handleKeyDown}
-            className={`mb-2 ${validationErrors.length > 0
-                ? 'border-destructive focus:border-destructive focus:ring-destructive/20'
-                : ''
-              }`}
+            className={`mb-2`}
           />
 
-          {/* Validation Messages - Right under textarea */}
-          {showValidation && (validationErrors.length > 0 || validationWarnings.length > 0) && (
-            <div className="mb-3 space-y-1.5">
-              {/* Error Messages */}
-              {validationErrors.length > 0 && (
-                <div className="bg-destructive/10 border border-destructive/20 rounded-md p-2">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <AlertCircle className="h-3 w-3 text-destructive" />
-                    <span className="text-xs font-medium text-destructive">Validation Errors</span>
-                  </div>
-                  <ul className="text-xs text-destructive space-y-0.5">
-                    {validationErrors.map((error, index) => (
-                      <li key={index} className="flex items-start gap-1.5">
-                        <span className="text-destructive/70">•</span>
-                        <span>{error}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Warning Messages */}
-              {validationWarnings.length > 0 && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-2">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <AlertTriangle className="h-3 w-3 text-yellow-600" />
-                    <span className="text-xs font-medium text-yellow-800">Warnings</span>
-                  </div>
-                  <ul className="text-xs text-yellow-700 space-y-0.5">
-                    {validationWarnings.map((warning, index) => (
-                      <li key={index} className="flex items-start gap-1.5">
-                        <span className="text-yellow-600">•</span>
-                        <span>{warning}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Column Selection Feedback */}
-              {columnSelectionFeedback.length > 0 && (
-                <div className="bg-blue-50 border border-blue-200 rounded-md p-2">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Info className="h-3 w-3 text-blue-600" />
-                    <span className="text-xs font-medium text-blue-800">Column Selection Info</span>
-                  </div>
-                  <ul className="text-xs text-blue-700 space-y-0.5">
-                    {columnSelectionFeedback.map((feedback, index) => (
-                      <li key={index} className="flex items-start gap-1.5">
-                        <span className="text-blue-600">•</span>
-                        <span>{feedback}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Column Selector - Show all available database columns when user is typing */}
           {question.trim().length > 0 && (
@@ -1143,11 +1104,7 @@ export function QueryPanel({
               {/* Header with toggle button */}
               <button
                 onClick={() => setIsColumnSelectorExpanded(!isColumnSelectorExpanded)}
-                disabled={validationErrors.length > 0}
-                className={`w-full p-4 text-left flex items-center justify-between transition-colors ${validationErrors.length > 0
-                    ? 'opacity-50 cursor-not-allowed'
-                    : 'hover:bg-accent/50'
-                  }`}
+                className={`w-full p-4 text-left flex items-center justify-between transition-colors hover:bg-accent/50`}
               >
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-foreground">
@@ -1181,7 +1138,7 @@ export function QueryPanel({
 
               {/* Collapsible content */}
               {isColumnSelectorExpanded && (
-                <div className={`border-t border-border flex flex-col flex-1 ${validationErrors.length > 0 ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className={`border-t border-border flex flex-col flex-1`}>
                   {/* Quick Actions - Fixed */}
                   <div className="px-4 pt-3 pb-2">
                     <div className="flex gap-2">
@@ -1364,7 +1321,7 @@ export function QueryPanel({
 
             <Button
               onClick={handleSubmitWithValidation}
-              disabled={isLoading || (!!selectedSavedQueryId && !isEditingSavedQuery) || validationErrors.length > 0}
+              disabled={isLoading || (!!selectedSavedQueryId && !isEditingSavedQuery)}
             >
               {isLoading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "Search"}
             </Button>
@@ -1503,6 +1460,14 @@ export function QueryPanel({
                     />
                   </div>
                 )}
+              </div>
+            ) : queryResults && queryResults.length === 0 ? (
+              // No results found message
+              <div className="h-full flex items-center justify-center text-muted-foreground p-8">
+                <div className="text-center">
+                  <div className="text-lg font-medium mb-2">No results found</div>
+                  <div className="text-sm">Your query didn&apos;t return any data. Try adjusting your search criteria.</div>
+                </div>
               </div>
             ) : (
               <div className="h-full flex items-center justify-center text-muted-foreground  p-8">

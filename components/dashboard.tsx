@@ -2195,6 +2195,116 @@ setIsEditingSavedQuery(true);
     const [tabValidationErrors, setTabValidationErrors] = useState<string[]>([])
     const [tabValidationWarnings, setTabValidationWarnings] = useState<string[]>([])
     const [tabShowValidation, setTabShowValidation] = useState(false)
+
+    // Smart column selection function (same as in QueryPanel)
+    const getSmartColumnSelection = (columns: any[], question: string, results: any[]) => {
+      const questionLower = question.toLowerCase();
+
+      // Define patterns for different query types
+      const patterns = {
+        // Donor queries
+        donor: {
+          keywords: ['donor', 'donors', 'contributor', 'contributors', 'giver', 'givers', 'customer', 'customers'],
+          xPriority: ['fullname', 'name', 'donor', 'contributor', 'giver', 'customer', 'account'],
+          yPriority: ['amount', 'total', 'sum', 'total_amount', 'donation_amount', 'contribution_amount', 'gift_amount']
+        },
+        // Date/time queries
+        date: {
+          keywords: ['date', 'time', 'year', 'month', 'day', 'period', 'quarter', 'gift date', 'donation date'],
+          xPriority: ['date', 'year', 'month', 'day', 'period', 'quarter', 'time', 'giftdate'],
+          yPriority: ['amount', 'total', 'sum', 'count', 'total_amount', 'donation_amount', 'gift_amount']
+        },
+        // Category queries
+        category: {
+          keywords: ['category', 'type', 'group', 'classification', 'segment', 'source', 'designation', 'appeal'],
+          xPriority: ['category', 'type', 'group', 'classification', 'segment', 'source', 'designation', 'appeal', 'name'],
+          yPriority: ['amount', 'total', 'sum', 'count', 'total_amount', 'gift_amount']
+        },
+        // Location queries
+        location: {
+          keywords: ['location', 'city', 'state', 'country', 'region', 'area', 'address'],
+          xPriority: ['location', 'city', 'state', 'country', 'region', 'area', 'address', 'name'],
+          yPriority: ['amount', 'total', 'sum', 'count', 'total_amount', 'gift_amount']
+        },
+        // Gender/Age queries
+        demographic: {
+          keywords: ['gender', 'age', 'male', 'female', 'demographic', 'old', 'young'],
+          xPriority: ['gender', 'age', 'name', 'fullname'],
+          yPriority: ['amount', 'total', 'sum', 'count', 'total_amount', 'gift_amount']
+        }
+      };
+
+      // Determine query type based on question
+      let queryType = 'default';
+      for (const [type, pattern] of Object.entries(patterns)) {
+        if (pattern.keywords.some(keyword => questionLower.includes(keyword))) {
+          queryType = type;
+          break;
+        }
+      }
+
+      // Find best X column
+      let xColumn = columns[0]?.key || '';
+      if (queryType !== 'default') {
+        const pattern = patterns[queryType as keyof typeof patterns];
+        for (const priority of pattern.xPriority) {
+          const found = columns.find(col =>
+            col.key.toLowerCase().includes(priority) ||
+            col.name.toLowerCase().includes(priority)
+          );
+          if (found) {
+            xColumn = found.key;
+            break;
+          }
+        }
+      }
+
+      // Find best Y column (prefer numeric/amount columns)
+      let yColumn = columns[1]?.key || '';
+      if (queryType !== 'default') {
+        const pattern = patterns[queryType as keyof typeof patterns];
+        for (const priority of pattern.yPriority) {
+          const found = columns.find(col =>
+            col.key.toLowerCase().includes(priority) ||
+            col.name.toLowerCase().includes(priority)
+          );
+          if (found) {
+            yColumn = found.key;
+            break;
+          }
+        }
+      }
+
+      // If no smart match found, try to find numeric columns for Y-axis
+      if (yColumn === columns[1]?.key) {
+        const numericColumns = columns.filter(col => {
+          const key = col.key.toLowerCase();
+          const name = col.name.toLowerCase();
+          return key.includes('amount') || key.includes('total') || key.includes('sum') || 
+                 key.includes('count') || name.includes('amount') || name.includes('total') ||
+                 name.includes('sum') || name.includes('count');
+        });
+        
+        if (numericColumns.length > 0) {
+          yColumn = numericColumns[0].key;
+        }
+      }
+
+      // Fallback: if we couldn't find good matches, use first two columns
+      if (!xColumn || !yColumn) {
+        xColumn = columns[0]?.key || '';
+        yColumn = columns[1]?.key || '';
+      }
+
+      // Ensure X and Y are different
+      if (xColumn === yColumn && columns.length > 1) {
+        yColumn = columns[1]?.key || '';
+      }
+
+      console.log('🎯 Smart column selection (SavedQueryTab):', { question, queryType, xColumn, yColumn, columns: columns.map(c => c.key) });
+
+      return { xColumn, yColumn };
+    };
     const [tabSelectedColumns, setTabSelectedColumns] = useState<string[]>([])
     const [tabColumnSelectionMode, setTabColumnSelectionMode] = useState<'auto' | 'all' | 'custom'>('auto')
     const [tabFilteredColumns, setTabFilteredColumns] = useState<Record<string, boolean>>({})
@@ -2274,12 +2384,14 @@ console.log('🪄 Debug: This means a saved query tab is being rendered');
     
     // Auto-expand column selector when user is actively typing in saved query
     useEffect(() => {
-      if (tabQuestion.trim().length > 0 && tabIsEditing && tabValidationErrors.length === 0 && !tabIsLoading && !tabQueryResults?.length) {
+      // Only expand when user is editing and no query has been executed yet - VALIDATION COMMENTED OUT
+      if (tabQuestion.trim().length > 0 && tabIsEditing && !tabIsLoading && (tabQueryResults === null || tabQueryResults === undefined)) {
         setTabIsColumnSelectorExpanded(true)
-      } else if (tabQuestion.trim().length === 0 || tabValidationErrors.length > 0 || tabIsLoading) {
+      } else {
+        // Collapse in all other cases (empty question, loading, or any query results)
         setTabIsColumnSelectorExpanded(false)
       }
-    }, [tabQuestion, tabIsEditing, tabValidationErrors, tabIsLoading, tabQueryResults])
+    }, [tabQuestion, tabIsEditing, tabIsLoading, tabQueryResults])
     
     // Memoized callback for column order changes to prevent infinite loops
     const handleTabColumnOrderChange = useCallback((reorderedColumns: { key: string; name: string }[]) => {
@@ -2428,9 +2540,10 @@ console.log('🪄 Debug: This means a saved query tab is being rendered');
             setTabSelectedXColumn(result.visualConfig.selectedXColumn || '')
             setTabSelectedYColumn(result.visualConfig.selectedYColumn || '')
           } else if (result.columns && result.columns.length >= 2) {
-            // Fallback to first two columns if no visual config
-            setTabSelectedXColumn(result.columns[0]?.key || '')
-            setTabSelectedYColumn(result.columns[1]?.key || '')
+            // Smart column selection for charts
+            const { xColumn, yColumn } = getSmartColumnSelection(result.columns, result.question || '', result.data || []);
+            setTabSelectedXColumn(xColumn)
+            setTabSelectedYColumn(yColumn)
           }
           
           // Initialize selected columns for filter
@@ -2858,12 +2971,12 @@ useEffect(() => {
       const newValue = e.target.value
       setTabQuestion(newValue)
       
-      // Validate input and update validation state
-      const validation = validateTabQueryInput(newValue)
-      setTabValidationErrors(validation.errors)
-      setTabValidationWarnings(validation.warnings)
-      setTabShowValidation(validation.errors.length > 0)
-    }, [validateTabQueryInput])
+      // Validate input and update validation state - COMMENTED OUT
+      // const validation = validateTabQueryInput(newValue)
+      // setTabValidationErrors(validation.errors)
+      // setTabValidationWarnings(validation.warnings)
+      // setTabShowValidation(validation.errors.length > 0)
+    }, [])
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -3072,22 +3185,6 @@ useEffect(() => {
               className="mb-2"
             />
 
-            {/* Validation Errors */}
-            {tabShowValidation && tabValidationErrors.length > 0 && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
-                  <div className="text-sm">
-                    <div className="font-medium text-red-800 mb-1">Please fix these issues:</div>
-                    <ul className="text-red-700 space-y-1">
-                      {tabValidationErrors.map((error, index) => (
-                        <li key={index}>• {error}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Column Selector - Show when user is typing in saved query */}
             {tabQuestion.trim().length > 0 && (
@@ -3095,12 +3192,7 @@ useEffect(() => {
                 {/* Header with toggle button */}
                 <button
                   onClick={() => setTabIsColumnSelectorExpanded(!tabIsColumnSelectorExpanded)}
-                  disabled={tabValidationErrors.length > 0}
-                  className={`w-full p-4 text-left flex items-center justify-between transition-colors ${
-                    tabValidationErrors.length > 0 
-                      ? 'opacity-50 cursor-not-allowed' 
-                      : 'hover:bg-accent/50'
-                  }`}
+                  className={`w-full p-4 text-left flex items-center justify-between transition-colors hover:bg-accent/50`}
                 >
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-primary" />
@@ -3116,7 +3208,7 @@ useEffect(() => {
                 
                 {/* Collapsible content */}
                 {tabIsColumnSelectorExpanded && (
-                  <div className={`border-t border-border ${tabValidationErrors.length > 0 ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <div className={`border-t border-border`}>
                     {/* Quick Actions - Fixed */}
                     <div className="px-4 pt-3 pb-2">
                       <div className="flex gap-2">
