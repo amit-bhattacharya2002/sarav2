@@ -1346,7 +1346,7 @@ export function QueryPanel({
               </div>
               <Dialog open={isChartConfigModalOpen} onOpenChange={setIsChartConfigModalOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="flex ml-2 items-center gap-2">
                     <Settings className="h-4 w-4" />
                     <span>Chart Configuration</span>
                   </Button>
