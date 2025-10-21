@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, ChevronDown, ChevronUp, ArrowLeft, Database, BarChart3, Share2, Zap, Shield, Users } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Database, BarChart3, Share2, Zap, Shield, Users } from 'lucide-react'
 import { ContactForm } from '@/components/contact-form'
 import Image from 'next/image'
 
@@ -16,7 +16,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [showDemoUsers, setShowDemoUsers] = useState(false)
   const [showContactForm, setShowContactForm] = useState(false)
   const router = useRouter()
 
@@ -111,37 +110,6 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            <div className="mt-6">
-              <button
-                type="button"
-                onClick={() => setShowDemoUsers(!showDemoUsers)}
-                className="w-full flex items-center justify-between p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors border border-white/10"
-              >
-                <span className="text-sm font-medium text-white/90">Demo Users</span>
-                {showDemoUsers ? (
-                  <ChevronUp className="h-4 w-4 text-white/70" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-white/70" />
-                )}
-              </button>
-              
-              {showDemoUsers && (
-                <div className="mt-2 p-3 bg-white/5 rounded-lg border border-white/10">
-                  <div className="grid grid-cols-2 gap-2 text-sm text-white/60">
-                    <div>user142 / 2533</div>
-                    <div>user523 / 9313</div>
-                    <div>user622 / 1231</div>
-                    <div>user789 / 4567</div>
-                    <div>user234 / 8901</div>
-                    <div>user567 / 2345</div>
-                    <div>user890 / 6789</div>
-                    <div>user123 / 0123</div>
-                    <div>user456 / 3456</div>
-                    <div>user999 / 9999</div>
-                  </div>
-                </div>
-              )}
-            </div>
           </CardContent>
         </Card>
       </div>
