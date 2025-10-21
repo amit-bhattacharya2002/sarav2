@@ -1334,7 +1334,7 @@ export function QueryPanel({
               <div className="flex items-center gap-3">
                 {showChartGhostText && (
                   <div className="flex items-center gap-2 flex-row">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-md border border-border transition-opacity duration-1000 ease-in-out">
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-md border border-border transition-opacity duration-1000 ease-in-out">
                       <span>💡</span>
                       <span>Adjust X and Y values in the Chart Configuration for better results </span>
                       <span>⚠️</span>
