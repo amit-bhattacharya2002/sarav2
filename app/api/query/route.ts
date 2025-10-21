@@ -107,6 +107,20 @@ function getUserIdFromRequest(req: NextRequest): number {
   return 1 // Default to user 1 if no header
 }
 
+// Helper function to check if user is admin
+function isUserAdmin(req: NextRequest): boolean {
+  const userId = getUserIdFromRequest(req)
+  const user = DEMO_USERS.find(u => u.id === userId)
+  return user?.role === 'admin' || user?.role === 'legacy_admin'
+}
+
+// Helper function to check if user is regular user (not admin)
+function isRegularUser(req: NextRequest): boolean {
+  const userId = getUserIdFromRequest(req)
+  const user = DEMO_USERS.find(u => u.id === userId)
+  return user?.role === 'user'
+}
+
 // Map outputMode string to int for DB (customize as needed)
 const outputModeMap: Record<string, number> = {
   table: 1,
@@ -152,6 +166,16 @@ export async function POST(req: NextRequest) {
 
     // ---- 1. Save Query Branch ----
     if (body.action === "save") {
+      // Check if user has admin permissions for save operations
+      if (!isUserAdmin(req)) {
+        return addRateLimitHeaders(
+          NextResponse.json({ 
+            success: false, 
+            error: 'This option is not available for demo purpose. Only admin users can save queries.' 
+          }, { status: 403 })
+        )
+      }
+
       const userId = getUserIdFromRequest(req)
       const {
         question,
@@ -219,6 +243,16 @@ export async function POST(req: NextRequest) {
 
     // ---- 2. Update Query Branch ----
     if (body.action === "update") {
+      // Check if user has admin permissions for update operations
+      if (!isUserAdmin(req)) {
+        return addRateLimitHeaders(
+          NextResponse.json({ 
+            success: false, 
+            error: 'This option is not available for demo purpose. Only admin users can update queries.' 
+          }, { status: 403 })
+        )
+      }
+
       const userId = getUserIdFromRequest(req)
       const { id, title, question, sql, outputMode, columns, visualConfig, selectedColumns, filteredColumns } = body
 
@@ -286,6 +320,16 @@ export async function POST(req: NextRequest) {
 
     // ---- 3. Delete Query Branch ----
     if (body.action === "delete") {
+      // Check if user has admin permissions for delete operations
+      if (!isUserAdmin(req)) {
+        return addRateLimitHeaders(
+          NextResponse.json({ 
+            success: false, 
+            error: 'This option is not available for demo purpose. Only admin users can delete queries.' 
+          }, { status: 403 })
+        )
+      }
+
       const userId = getUserIdFromRequest(req)
       const { id } = body
 
@@ -343,10 +387,35 @@ export async function POST(req: NextRequest) {
         }
       })
 
-      if (!savedQuery || savedQuery.userId !== userId) {
+      if (!savedQuery) {
         return addRateLimitHeaders(
-          NextResponse.json({ success: false, error: 'Saved query not found or unauthorized' }, { status: 404 })
+          NextResponse.json({ success: false, error: 'Saved query not found' }, { status: 404 })
         )
+      }
+
+      // Check permissions based on user type
+      const currentUser = DEMO_USERS.find(u => u.id === userId)
+      const isAdminUser = currentUser?.role === 'admin' || currentUser?.role === 'legacy_admin'
+      const isRegularUser = currentUser?.role === 'user'
+      
+      if (isAdminUser) {
+        // Admin users can only access their own queries
+        if (savedQuery.userId !== userId) {
+          return addRateLimitHeaders(
+            NextResponse.json({ success: false, error: 'Unauthorized to access this query' }, { status: 403 })
+          )
+        }
+      } else if (isRegularUser) {
+        // Demo users can access queries created by admin users
+        const adminUserIds = DEMO_USERS.filter(user => user.role === 'admin').map(user => user.id)
+        if (!adminUserIds.includes(savedQuery.userId)) {
+          return addRateLimitHeaders(
+            NextResponse.json({ success: false, error: 'Unauthorized to access this query' }, { status: 403 })
+          )
+        }
+      } else {
+        // Legacy admin users can access all queries
+        // No additional check needed
       }
 
       const data = savedQuery.resultData ? JSON.parse(savedQuery.resultData) : []

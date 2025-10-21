@@ -51,9 +51,9 @@ export default function Home() {
   return (
     <main className="h-screen w-full grid grid-cols-1 md:grid-cols-2 px-10 items-center justify-center bg-background">
               <div className="flex flex-col items-start justify-center">
-          <h1 className="text-[5rem] md:text-[10rem] mb-0 sara-brand font-semibold bg-gradient-to-r from-green-800 to-green-500 bg-clip-text text-transparent w-full text-center md:text-start">SARA</h1>
-          <p className="text-sm md:text-xl text-muted-foreground mb-8 max-w-2xl text-center md:text-start sara-brand">
-          Turn questions into stunning dashboards – visualize, analyze, and share insights in seconds.
+          <h1 className="text-[5rem] md:text-[10rem] mb-0 sara-brand font-bold bg-gradient-to-r from-green-800 to-green-500 bg-clip-text text-transparent w-full text-center md:text-start">SARA</h1>
+          <p className="text-sm md:text-3xl text-muted-foreground mb-8 max-w-2xl text-center md:text-center sara-brand">
+          ASK . ANALYZE . VISUALIZE
           </p>
         </div>
       <div className="flex gap-6 flex-col justify-end">

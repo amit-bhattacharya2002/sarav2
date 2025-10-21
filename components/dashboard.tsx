@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
-import { clearSession } from '@/lib/auth'
+import { clearSession, canSaveDashboards, canUpdateDashboards } from '@/lib/auth'
 import { useCurrentUser } from '@/components/auth-guard'
 import { BarGraph } from '@/components/bar-graph'
 import { TableView } from '@/components/table-view'
@@ -14,6 +14,7 @@ import { HistoryPanel } from '@/components/history-panel'
 import { QueryPanel } from '@/components/query-panel'
 import { ShareLinkDialog } from './share-link-dialog'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { PieGraph } from '@/components/pie-chart'
 import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -3884,39 +3885,87 @@ useEffect(() => {
                     {!readOnlyMode ? (
                       // Edit mode buttons
                       <>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            onClick={handleSaveDashboard}
-                            variant="default"
-                            className="flex items-center gap-2"
-                            disabled={(() => {
-                              const hasVisualizations = Object.values(quadrants).some(Boolean);
-                              // For newly created dashboards, enable when visualizations are present
-                              // For existing dashboards, enable when there are changes
-                              const shouldDisable = !hasVisualizations || (!!dashboardIdNumber && !isNewlyCreatedDashboard && !hasDashboardChanges);
-                              console.log('🔍 Save button disabled check:', {
-                                hasVisualizations,
-                                dashboardIdNumber,
-                                hasDashboardChanges,
-                                isNewlyCreatedDashboard,
-                                shouldDisable
-                              });
-                              return shouldDisable;
-                            })()}
-                          >
-                            <Save className="h-5 w-5" />
-                            <span>{dashboardIdNumber ? 'Update' : 'Save'}</span>
-                          </Button>
+                        <div className="flex flex-col gap-1">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  onClick={handleSaveDashboard}
+                                  variant="default"
+                                  className="flex items-center gap-2"
+                                  disabled={(() => {
+                                    const hasVisualizations = Object.values(quadrants).some(Boolean);
+                                    const canSave = dashboardIdNumber ? canUpdateDashboards() : canSaveDashboards();
+                                    // For newly created dashboards, enable when visualizations are present and user can save
+                                    // For existing dashboards, enable when there are changes and user can update
+                                    const shouldDisable = !canSave || !hasVisualizations || (!!dashboardIdNumber && !isNewlyCreatedDashboard && !hasDashboardChanges);
+                                    console.log('🔍 Save button disabled check:', {
+                                      canSave,
+                                      hasVisualizations,
+                                      dashboardIdNumber,
+                                      hasDashboardChanges,
+                                      isNewlyCreatedDashboard,
+                                      shouldDisable
+                                    });
+                                    return shouldDisable;
+                                  })()}
+                                >
+                                  <Save className="h-5 w-5" />
+                                  <span>{dashboardIdNumber ? 'Update' : 'Save'}</span>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>
+                                  {!canSaveDashboards() && !canUpdateDashboards() 
+                                    ? "This option is not available for demo purpose" 
+                                    : dashboardIdNumber 
+                                      ? "Update dashboard" 
+                                      : "Save dashboard"
+                                  }
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          
+                          {!canSaveDashboards() && !canUpdateDashboards() && (
+                            <span className="text-xs text-muted-foreground italic">
+                              Demo accounts cannot save dashboards
+                            </span>
+                          )}
+                        </div>
 
                           {dashboardIdNumber && (
-                            <Button
-                              onClick={handleDeleteDashboard}
-                              variant="destructive"
-                              className="flex items-center gap-2"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              <span>Delete</span>
-                            </Button>
+                            <div className="flex flex-col gap-1">
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      onClick={handleDeleteDashboard}
+                                      variant="destructive"
+                                      className="flex items-center gap-2"
+                                      disabled={!canUpdateDashboards()}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                      <span>Delete</span>
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>
+                                      {!canUpdateDashboards() 
+                                        ? "This option is not available for demo purpose" 
+                                        : "Delete dashboard"
+                                      }
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                              
+                              {!canUpdateDashboards() && (
+                                <span className="text-xs text-muted-foreground italic">
+                                  Demo accounts cannot delete dashboards
+                                </span>
+                              )}
+                            </div>
                           )}
 
                           {dashboardIdNumber && (
@@ -3929,7 +3978,6 @@ useEffect(() => {
                               <span>Share</span>
                             </Button>
                           )}
-                        </div>
 
                         <Button
                           onClick={() => {

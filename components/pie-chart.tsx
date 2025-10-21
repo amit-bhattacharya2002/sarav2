@@ -44,21 +44,22 @@ export function PieGraph({ data, compact = false, legendScale = 1 }: PieGraphPro
   }
 
   return (
-    <div className="w-full h-full flex flex-col">
-      <div className="flex-1 min-h-0">
+    <div className="w-full h-full flex flex-row">
+      {/* Chart Area - takes up 60% of width */}
+      <div className="flex-1 min-h-0" style={{ width: '60%' }}>
         <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
             data={safeData}
             dataKey="value"
             nameKey="name"
-            cx="45%"
+            cx="50%"
             cy="50%"
             outerRadius="80%"
             fill="#8884d8"
             isAnimationActive={false}
             labelLine={false}
-            label={({ cx, cy, midAngle, outerRadius, index, value }) => {
+            label={({ cx, cy, midAngle, outerRadius, index, value, name }) => {
               const RADIAN = Math.PI / 180
               const radius = outerRadius + 10
               const x = cx + radius * Math.cos(-midAngle * RADIAN)
@@ -66,6 +67,9 @@ export function PieGraph({ data, compact = false, legendScale = 1 }: PieGraphPro
               
               // Format the value: round to nearest integer and add commas
               const formattedValue = formatNumber(value)
+              
+              // Truncate long names to prevent overlap
+              const truncatedName = name && name.length > 15 ? `${name.slice(0, 15)}...` : name
               
               return (
                 <text
@@ -76,7 +80,7 @@ export function PieGraph({ data, compact = false, legendScale = 1 }: PieGraphPro
                   dominantBaseline="central"
                   fontSize={compact ? 10 : 12}
                 >
-                  {formattedValue}
+                  {truncatedName} ({formattedValue})
                 </text>
               )
             }}
@@ -92,22 +96,35 @@ export function PieGraph({ data, compact = false, legendScale = 1 }: PieGraphPro
               return [formatNumber(value), 'Value']
             }}
           />
-
-          {safeData.length <= 6 && (
-            <Legend
-              layout="vertical"
-              verticalAlign="middle"
-              align="right"
-              wrapperStyle={{ fontSize: `${legendScale * 0.875}rem` }}
-              formatter={(value) =>
-                typeof value === 'string' && value.length > (legendScale < 1 ? 30 : 50)
-                  ? `${value.slice(0, legendScale < 1 ? 30 : 50)}…`
-                  : value
-              }
-            />
-          )}
         </PieChart>
         </ResponsiveContainer>
+      </div>
+      
+      {/* Legend Area - takes up 40% of width with proper margins */}
+      <div className="flex flex-col justify-center" style={{ width: '40%', paddingLeft: '16px', paddingRight: '8px' }}>
+        <div className="space-y-2">
+          {safeData.map((item, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <div 
+                className="w-3 h-3 rounded-sm flex-shrink-0"
+                style={{ backgroundColor: COLORS[index % COLORS.length] }}
+              />
+              <span 
+                className="text-sm text-foreground truncate"
+                style={{ fontSize: `${legendScale * 0.875}rem` }}
+                title={item.name}
+              >
+                {item.name}
+              </span>
+              <span 
+                className="text-sm text-muted-foreground ml-auto flex-shrink-0"
+                style={{ fontSize: `${legendScale * 0.875}rem` }}
+              >
+                {formatNumber(item.value)}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )

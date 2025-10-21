@@ -86,7 +86,7 @@ Table: constituents
 - NICKNAME (varchar): Preferred or familiar name.
 - SSN (varchar): Government ID/SSN (if stored).
 - SSNINDEX (varchar): Indexed/hashed value used for searching on SSN.
-- GENDER (varchar): Gender (M/F). Use for gender-based queries.
+- GENDER (varchar): Gender (Male/Female). Use for gender-based queries.
 - BIRTHDATE (date): Date of birth (individuals only). Use for age calculations and birth date queries.
 - ISINACTIVE (bit): 1 if record is inactive. Use for filtering active vs inactive constituents.
 - GIVESANONYMOUSLY (bit): 1 if constituent prefers gifts to be anonymous. Use for anonymous gift analysis.
@@ -137,7 +137,7 @@ EDUCATION & ALUMNI FIELDS (use for graduation and education queries):
 - GRADUATESCHOOL2 (varchar): Second graduate school.
 
 CONTACT & ADDRESS FIELDS:
-- GENDER (varchar): Gender (M/F). Use for gender-based queries.
+- GENDER (varchar): Gender (Male/Female). Use for gender-based queries.
 - DECEASED (varchar): Deceased status. Use for deceased constituent queries.
 - SOLICITATIONRESTRICTIONS (varchar): Solicitation restrictions. Use for contact restriction queries.
 - DONOTMAIL (varchar): Do not mail preference. Use for mailing preference queries.
@@ -720,7 +720,8 @@ INTELLIGENT QUERY EXAMPLES:
    - "recurring gifts" → Filter by GIFTTYPE = 'Recurring'
 
 3. DEMOGRAPHIC QUERIES:
-   - "male donors" → Use GENDER = 'M'
+   - "male donors" → Use GENDER = 'Male'
+   - "female donors" → Use GENDER = 'Female'
    - "donors over 65" → Use AGE > 65
    - "volunteers" → Use VOLUNTEER field
 
@@ -738,6 +739,7 @@ INTELLIGENT QUERY EXAMPLES:
    - "show me donors" → SELECT c.ACCOUNTID AS 'Account ID', c.FULLNAME AS 'Full Name', c.EMAIL AS 'Email', c.HOMETELEPHONE AS 'Phone'
    - "show me gifts with donor info" → SELECT c.FULLNAME AS 'Donor Name', g.GIFTAMOUNT AS 'Gift Amount', g.GIFTDATE AS 'Gift Date', g.SOURCECODE AS 'Source Code'
    - "show me male donors" → SELECT c.FULLNAME AS 'Full Name', c.GENDER AS 'Gender', c.AGE AS 'Age'
+   - "show me female donors" → SELECT c.FULLNAME AS 'Full Name', c.GENDER AS 'Gender', c.AGE AS 'Age'
 
 7. USER ALIAS MAPPING EXAMPLES:
    - "show me customer names" → SELECT c.FULLNAME AS 'Customer Names' (use c.FULLNAME, not "customer names")

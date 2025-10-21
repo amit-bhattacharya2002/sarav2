@@ -15,21 +15,51 @@ function getUserIdFromRequest(req: NextRequest): number {
   return 1 // Default to user 1 if no header
 }
 
+// Helper function to check if user is admin
+function isUserAdmin(req: NextRequest): boolean {
+  const userId = getUserIdFromRequest(req)
+  const user = DEMO_USERS.find(u => u.id === userId)
+  return user?.role === 'admin' || user?.role === 'legacy_admin'
+}
+
+// Helper function to check if user is regular user (not admin)
+function isRegularUser(req: NextRequest): boolean {
+  const userId = getUserIdFromRequest(req)
+  const user = DEMO_USERS.find(u => u.id === userId)
+  return user?.role === 'user'
+}
+
 export async function GET(req: NextRequest) {
   try {
+    // Get queries based on user type
     const userId = getUserIdFromRequest(req)
+    const isAdminUser = isUserAdmin(req)
+    const isRegularUserType = isRegularUser(req)
     const companyId = 1
+    
+    let whereClause: any = { companyId }
+    
+    if (isAdminUser) {
+      // Admin users see only their own content (blank slate)
+      whereClause.userId = userId
+    } else if (isRegularUserType) {
+      // Demo users see only content created by admin users (not legacy_admin)
+      // Get admin user IDs (role = 'admin')
+      const adminUserIds = DEMO_USERS.filter(user => user.role === 'admin').map(user => user.id)
+      whereClause.userId = { in: adminUserIds }
+    } else {
+      // Legacy admin users see all content
+      // No additional where clause needed - show all
+    }
 
     const queries = await businessPrisma.savedQuery.findMany({
-      where: {
-        userId,
-        companyId,
-      },
+      where: whereClause,
       orderBy: {
         createdAt: 'desc',
       },
       select: {
         id: true,
+        userId: true,
         title: true,
         sqlText: true,
         queryText: true,

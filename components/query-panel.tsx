@@ -13,6 +13,7 @@ import { DraggableChart } from './draggable-chart'
 import { DraggablePieChart } from './draggable-pie'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { canSaveQueries, canUpdateQueries } from '@/lib/auth'
 import { GhostIndicator } from '@/components/ui/ghost-indicator'
 import * as XLSX from 'xlsx'
 import { toast } from 'sonner'
@@ -1535,44 +1536,91 @@ export function QueryPanel({
         {/* Fixed Save/Clear Button Bar */}
         <div className={`flex-shrink-0 p-4 border-t bg-card flex flex-row items-center justify-between gap-2 ${isColumnSelectorExpanded ? 'hidden' : ''}`}>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-start gap-2">
             {selectedSavedQueryId ? (
               // Saved query in edit mode: Update, Delete, and Cancel
               <>
-                <Button
-                  variant="default"
-                  className="flex items-center gap-2"
-                  onClick={handleUpdateSavedQuery}
-                  disabled={(() => {
-                    const hasChangesResult = hasChanges ? hasChanges() : false;
-                    const isDisabled = !question || !sqlQuery || !outputMode || !columns.length || !queryResults?.length || saveStatus === "saving" || !hasChangesResult;
-                    console.log('🪄 QueryPanel Update button disabled check:', {
-                      hasChangesResult,
-                      isDisabled,
-                      question: !!question,
-                      sqlQuery: !!sqlQuery,
-                      outputMode: !!outputMode,
-                      columnsLength: columns.length,
-                      queryResultsLength: queryResults?.length,
-                      saveStatus
-                    });
-                    console.log('🪄 hasChangesResult:', hasChangesResult);
-                    console.log('🪄 isDisabled:', isDisabled);
-                    return isDisabled;
-                  })()}
-                >
-                  <Save className="h-5 w-5" />
-                  {saveStatus === "saving" ? "Saving..." : saveStatus === "success" ? "Saved!" : saveStatus === "error" ? "Error" : "Update"}
-                </Button>
+                <div className="flex flex-col gap-1">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="default"
+                          className="flex items-center gap-2"
+                          onClick={handleUpdateSavedQuery}
+                          disabled={(() => {
+                            const hasChangesResult = hasChanges ? hasChanges() : false;
+                            const canUpdate = canUpdateQueries();
+                            const isDisabled = !canUpdate || !question || !sqlQuery || !outputMode || !columns.length || !queryResults?.length || saveStatus === "saving" || !hasChangesResult;
+                            console.log('🪄 QueryPanel Update button disabled check:', {
+                              canUpdate,
+                              hasChangesResult,
+                              isDisabled,
+                              question: !!question,
+                              sqlQuery: !!sqlQuery,
+                              outputMode: !!outputMode,
+                              columnsLength: columns.length,
+                              queryResultsLength: queryResults?.length,
+                              saveStatus
+                            });
+                            console.log('🪄 hasChangesResult:', hasChangesResult);
+                            console.log('🪄 isDisabled:', isDisabled);
+                            return isDisabled;
+                          })()}
+                        >
+                          <Save className="h-5 w-5" />
+                          {saveStatus === "saving" ? "Saving..." : saveStatus === "success" ? "Saved!" : saveStatus === "error" ? "Error" : "Update"}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>
+                          {!canUpdateQueries() 
+                            ? "This option is not available for demo purpose" 
+                            : "Update query"
+                          }
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  
+                  {!canUpdateQueries() && (
+                    <span className="text-xs text-muted-foreground italic">
+                      Demo accounts cannot update queries
+                    </span>
+                  )}
+                </div>
 
-                <Button
-                  variant="destructive"
-                  className="flex items-center gap-2"
-                  onClick={handleDeleteSavedQuery}
-                >
-                  <Trash2 className="h-5 w-5" />
-                  <span>Delete</span>
-                </Button>
+                <div className="flex flex-col gap-1">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="destructive"
+                          className="flex items-center gap-2"
+                          onClick={handleDeleteSavedQuery}
+                          disabled={!canUpdateQueries()}
+                        >
+                          <Trash2 className="h-5 w-5" />
+                          <span>Delete</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>
+                          {!canUpdateQueries() 
+                            ? "This option is not available for demo purpose" 
+                            : "Delete query"
+                          }
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  
+                  {!canUpdateQueries() && (
+                    <span className="text-xs text-muted-foreground italic">
+                      Demo accounts cannot delete queries
+                    </span>
+                  )}
+                </div>
 
                 <Button
                   variant="outline"
@@ -1586,17 +1634,39 @@ export function QueryPanel({
             ) : (
               // New query: Save and Clear
               <>
-                <Button
-                  variant="default"
-                  className="flex items-center gap-2"
-                  onClick={handleSaveQuery}
-                  disabled={
-                    !question || !sqlQuery || !outputMode || !columns.length || !queryResults?.length || saveStatus === "saving"
-                  }
-                >
-                  <Save className="h-5 w-5" />
-                  {saveStatus === "saving" ? "Saving..." : saveStatus === "success" ? "Saved!" : saveStatus === "error" ? "Error" : "Save"}
-                </Button>
+                <div className="flex flex-col gap-1">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="default"
+                          className="flex items-center gap-2"
+                          onClick={handleSaveQuery}
+                          disabled={
+                            !canSaveQueries() || !question || !sqlQuery || !outputMode || !columns.length || !queryResults?.length || saveStatus === "saving"
+                          }
+                        >
+                          <Save className="h-5 w-5" />
+                          {saveStatus === "saving" ? "Saving..." : saveStatus === "success" ? "Saved!" : saveStatus === "error" ? "Error" : "Save"}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>
+                          {!canSaveQueries() 
+                            ? "This option is not available for demo purpose" 
+                            : "Save query"
+                          }
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  
+                  {!canSaveQueries() && (
+                    <span className="text-xs text-muted-foreground italic">
+                      Demo accounts cannot save queries
+                    </span>
+                  )}
+                </div>
 
                 <Button
                   variant="ghost"
