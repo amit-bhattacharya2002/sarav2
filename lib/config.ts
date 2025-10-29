@@ -4,10 +4,11 @@
  */
 
 // Check if we're in build mode or Vercel build environment
-const isBuildTime = process.env.NODE_ENV === 'production' && (
-  !process.env.VERCEL_ENV || 
-  process.env.VERCEL_ENV === 'preview' || 
-  typeof window === 'undefined' && !process.env.BUSINESS_DATABASE_URL
+// Only consider it build time if we're NOT in a Vercel runtime environment
+const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build' || (
+  typeof window === 'undefined' && 
+  !process.env.VERCEL_ENV && 
+  !process.env.SARAV2_DATABASE_URL
 )
 
 // Environment validation helper
