@@ -1,0 +1,5 @@
+---
+before running a new dev server always check if there is a dev server already running
+
+alwaysApply: true
+---

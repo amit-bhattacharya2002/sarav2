@@ -441,25 +441,30 @@ export async function POST(req: NextRequest) {
     if (body.generateSummary !== false) { // Default to true unless explicitly disabled
       try {
         console.time("🧠 GENERATE_SUMMARY")
-        const summaryResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/summarize-results`, {
+        const origin = req.nextUrl?.origin || 'http://localhost:3000'
+        const summaryResponse = await fetch(`${origin}/api/summarize-results`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             query: question,
             sql: sql,
             results: result.rows || [],
-            columns: transformedColumns.map(col => col.name)
+            columns: transformedColumns.map((col: any) => col.name)
           })
         })
         
         if (summaryResponse.ok) {
           const summaryData = await summaryResponse.json()
           summary = summaryData.summary
+        } else {
+          // basic local fallback
+          summary = `Analyzed ${result.rows?.length || 0} records across ${transformedColumns.length} columns. Top columns: ${transformedColumns.slice(0,3).map((c:any)=>c.name).join(', ')}.`
         }
         console.timeEnd("🧠 GENERATE_SUMMARY")
       } catch (error) {
         console.warn('Failed to generate summary:', error)
-        // Continue without summary rather than failing the entire request
+        // Local fallback summary rather than failing the entire request
+        summary = `Analyzed ${result.rows?.length || 0} records across ${transformedColumns.length} columns.`
       }
     }
     

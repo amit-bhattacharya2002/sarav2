@@ -82,13 +82,16 @@ function analyzeResults(results: any[], columns: string[]) {
       const avg = values.reduce((a: number, b: number) => a + b, 0) / values.length
       const max = Math.max(...values)
       const min = Math.min(...values)
+      const median = values.sort((a, b) => a - b)[Math.floor(values.length / 2)]
       
       insights.push({
         column: col,
         average: avg,
         max: max,
         min: min,
-        count: values.length
+        median: median,
+        count: values.length,
+        range: max - min
       })
     }
   }
@@ -113,7 +116,9 @@ function analyzeResults(results: any[], columns: string[]) {
     insights.push({
       column: col,
       distribution: sortedValues,
-      uniqueValues: sortedValues.length
+      uniqueValues: sortedValues.length,
+      mostCommon: sortedValues[0] ? sortedValues[0][0] : null,
+      mostCommonCount: sortedValues[0] ? sortedValues[0][1] : 0
     })
   }
 
@@ -187,16 +192,50 @@ function generateFallbackSummary(dataSummary: any, queryType: string): string {
   
   if (insights.length > 0) {
     summary += `Key Findings:\n`
-    insights.forEach((insight: any) => {
-      if (insight.average !== undefined) {
-        summary += `• ${insight.column}: Average of ${insight.average.toFixed(2)} (range: ${insight.min}-${insight.max})\n`
-      } else if (insight.distribution && insight.distribution.length > 0) {
-        summary += `• ${insight.column}: ${insight.uniqueValues} different categories\n`
-        if (insight.distribution.length > 0) {
-          summary += `  Top values: ${insight.distribution.slice(0, 3).map(([val, count]: [string, number]) => `${val} (${count})`).join(', ')}\n`
-        }
+    
+    // Find satisfaction insights
+    const satisfactionInsight = insights.find((i: any) => i.column.toLowerCase().includes('satisfaction'))
+    const experienceInsight = insights.find((i: any) => i.column.toLowerCase().includes('experience'))
+    const overtimeInsight = insights.find((i: any) => i.column.toLowerCase().includes('overtime'))
+    const departmentInsight = insights.find((i: any) => i.column.toLowerCase().includes('department'))
+    
+    if (satisfactionInsight && experienceInsight) {
+      summary += `• Satisfaction vs Experience: Average satisfaction is ${satisfactionInsight.average.toFixed(1)}/5.0, with experience ranging from ${experienceInsight.min} to ${experienceInsight.max} years\n`
+      
+      // Add correlation insights
+      if (satisfactionInsight.average > 4.0) {
+        summary += `• High Performance: Staff show strong satisfaction levels (${satisfactionInsight.average.toFixed(1)}/5.0), indicating good workplace conditions\n`
+      } else if (satisfactionInsight.average < 3.0) {
+        summary += `• Attention Needed: Satisfaction levels are concerning (${satisfactionInsight.average.toFixed(1)}/5.0), suggesting areas for improvement\n`
       }
-    })
+    }
+    
+    if (overtimeInsight) {
+      if (overtimeInsight.average > 10) {
+        summary += `• High Overtime: Staff average ${overtimeInsight.average.toFixed(1)} overtime hours, indicating potential workload issues\n`
+      } else if (overtimeInsight.average < 5) {
+        summary += `• Balanced Workload: Overtime levels are reasonable at ${overtimeInsight.average.toFixed(1)} hours average\n`
+      }
+    }
+    
+    if (departmentInsight && departmentInsight.distribution) {
+      const topDept = departmentInsight.distribution[0]
+      const secondDept = departmentInsight.distribution[1]
+      summary += `• Department Distribution: ${topDept[0]} leads with ${topDept[1]} staff`
+      if (secondDept) {
+        summary += `, followed by ${secondDept[0]} with ${secondDept[1]} staff`
+      }
+      summary += `\n`
+    }
+    
+    // Add specific insights based on query type
+    if (queryType === 'correlation') {
+      summary += `\nCorrelation Analysis: This data shows the relationship between different staff metrics. Look for patterns in how variables change together.\n`
+    } else if (queryType === 'ranking') {
+      summary += `\nTop Performers: These results highlight the highest-performing staff members based on your criteria.\n`
+    } else if (queryType === 'aggregation') {
+      summary += `\nDepartmental Overview: This analysis provides insights into how different departments compare across key metrics.\n`
+    }
   }
   
   summary += `\nThis analysis provides valuable insights into healthcare workforce patterns and can help inform management decisions.`
