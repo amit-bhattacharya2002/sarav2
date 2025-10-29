@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { openai as openaiConfig, features, app } from '@/lib/config'
 import { rateLimiters, createRateLimitHeaders, checkRateLimit } from '@/lib/rate-limiter'
+import { findMatchingTemplate } from '@/lib/query-templates'
 
 // ---------- Intent Types & Helpers ----------
 
@@ -241,6 +242,144 @@ ORDER BY
   AVG(h.Satisfaction_Score) DESC,
   h.Department ASC`.trim()
   }
+
+  // Pattern 5: "correlation between" queries
+  const m5 = q.match(/\bcorrelation\s+between\s+(\w+)\s+and\s+(\w+)\b/i)
+  if (m5) {
+    const field1 = m5[1].toLowerCase()
+    const field2 = m5[2].toLowerCase()
+    
+    let field1Col = ''
+    let field2Col = ''
+    
+    if (field1.includes('experience') || field1.includes('years')) {
+      field1Col = 'h.Years_of_Experience'
+    } else if (field1.includes('satisfaction')) {
+      field1Col = 'h.Satisfaction_Score'
+    } else if (field1.includes('overtime')) {
+      field1Col = 'h.Overtime_Hours'
+    } else if (field1.includes('patient') || field1.includes('load')) {
+      field1Col = 'h.Patient_Load'
+    } else if (field1.includes('absenteeism')) {
+      field1Col = 'h.Absenteeism_Days'
+    }
+    
+    if (field2.includes('experience') || field2.includes('years')) {
+      field2Col = 'h.Years_of_Experience'
+    } else if (field2.includes('satisfaction')) {
+      field2Col = 'h.Satisfaction_Score'
+    } else if (field2.includes('overtime')) {
+      field2Col = 'h.Overtime_Hours'
+    } else if (field2.includes('patient') || field2.includes('load')) {
+      field2Col = 'h.Patient_Load'
+    } else if (field2.includes('absenteeism')) {
+      field2Col = 'h.Absenteeism_Days'
+    }
+    
+    if (field1Col && field2Col) {
+      return `
+SELECT TOP 50
+  h.Staff_ID AS 'Staff ID',
+  h.Department AS 'Department',
+  ${field1Col} AS '${field1.charAt(0).toUpperCase() + field1.slice(1)}',
+  ${field2Col} AS '${field2.charAt(0).toUpperCase() + field2.slice(1)}'
+FROM healthstaff_schedule h
+WHERE ${field1Col} IS NOT NULL AND ${field2Col} IS NOT NULL
+ORDER BY ${field1Col} DESC`.trim()
+    }
+  }
+
+  // Pattern 6: "relationship between" queries
+  const m6 = q.match(/\brelationship\s+between\s+(\w+)\s+and\s+(\w+)\b/i)
+  if (m6) {
+    const field1 = m6[1].toLowerCase()
+    const field2 = m6[2].toLowerCase()
+    
+    let field1Col = ''
+    let field2Col = ''
+    
+    if (field1.includes('overtime')) {
+      field1Col = 'h.Overtime_Hours'
+    } else if (field1.includes('satisfaction')) {
+      field1Col = 'h.Satisfaction_Score'
+    } else if (field1.includes('patient') || field1.includes('load')) {
+      field1Col = 'h.Patient_Load'
+    } else if (field1.includes('absenteeism')) {
+      field1Col = 'h.Absenteeism_Days'
+    }
+    
+    if (field2.includes('overtime')) {
+      field2Col = 'h.Overtime_Hours'
+    } else if (field2.includes('satisfaction')) {
+      field2Col = 'h.Satisfaction_Score'
+    } else if (field2.includes('patient') || field2.includes('load')) {
+      field2Col = 'h.Patient_Load'
+    } else if (field2.includes('absenteeism')) {
+      field2Col = 'h.Absenteeism_Days'
+    }
+    
+    if (field1Col && field2Col) {
+      return `
+SELECT TOP 50
+  h.Staff_ID AS 'Staff ID',
+  h.Department AS 'Department',
+  ${field1Col} AS '${field1.charAt(0).toUpperCase() + field1.slice(1)}',
+  ${field2Col} AS '${field2.charAt(0).toUpperCase() + field2.slice(1)}'
+FROM healthstaff_schedule h
+WHERE ${field1Col} IS NOT NULL AND ${field2Col} IS NOT NULL
+ORDER BY ${field1Col} DESC`.trim()
+    }
+  }
+
+  // Pattern 7: "departments with" complex conditions
+  const m7 = q.match(/\bdepartments?\s+with\s+(.+?)\s+and\s+(.+?)\b/i)
+  if (m7) {
+    const condition1 = m7[1].toLowerCase()
+    const condition2 = m7[2].toLowerCase()
+    
+    let whereClause = ''
+    
+    if (condition1.includes('overtime') && condition1.includes('above')) {
+      const hours = condition1.match(/(\d+)/)?.[1] || '10'
+      whereClause += `AVG(h.Overtime_Hours) > ${hours}`
+    }
+    if (condition1.includes('satisfaction') && condition1.includes('below')) {
+      const score = condition1.match(/(\d+)/)?.[1] || '3'
+      whereClause += `AVG(h.Satisfaction_Score) < ${score}`
+    }
+    if (condition1.includes('patient') && condition1.includes('above')) {
+      const load = condition1.match(/(\d+)/)?.[1] || '20'
+      whereClause += `AVG(h.Patient_Load) > ${load}`
+    }
+    
+    if (condition2.includes('overtime') && condition2.includes('above')) {
+      const hours = condition2.match(/(\d+)/)?.[1] || '10'
+      whereClause += whereClause ? ` AND AVG(h.Overtime_Hours) > ${hours}` : `AVG(h.Overtime_Hours) > ${hours}`
+    }
+    if (condition2.includes('satisfaction') && condition2.includes('below')) {
+      const score = condition2.match(/(\d+)/)?.[1] || '3'
+      whereClause += whereClause ? ` AND AVG(h.Satisfaction_Score) < ${score}` : `AVG(h.Satisfaction_Score) < ${score}`
+    }
+    if (condition2.includes('patient') && condition2.includes('above')) {
+      const load = condition2.match(/(\d+)/)?.[1] || '20'
+      whereClause += whereClause ? ` AND AVG(h.Patient_Load) > ${load}` : `AVG(h.Patient_Load) > ${load}`
+    }
+    
+    if (whereClause) {
+      return `
+SELECT
+  h.Department AS 'Department',
+  COUNT(h.Staff_ID) AS 'Staff Count',
+  AVG(h.Satisfaction_Score) AS 'Average Satisfaction',
+  AVG(h.Overtime_Hours) AS 'Average Overtime',
+  AVG(h.Patient_Load) AS 'Average Patient Load'
+FROM healthstaff_schedule h
+WHERE h.Department IS NOT NULL
+GROUP BY h.Department
+HAVING ${whereClause}
+ORDER BY AVG(h.Satisfaction_Score) DESC`.trim()
+    }
+  }
   
   return null
 }
@@ -379,6 +518,15 @@ Analyze the user's query context and intent to map terms to appropriate database
    - "experience" = Years_of_Experience field
    - "workload" = Patient_Load or Shift_Duration_Hours
    - "overtime" = Overtime_Hours field
+   - "absenteeism" = Absenteeism_Days field
+   - "correlation" = Show relationship between two fields
+   - "relationship between" = Compare two fields side by side
+   - "departments with" = Filter departments by conditions using HAVING
+   - "overworked" = High Patient_Load or Overtime_Hours
+   - "happiest staff" = Highest Satisfaction_Score
+   - "most experienced" = Highest Years_of_Experience
+   - "pressure" = High Patient_Load per shift
+   - "drop in satisfaction" = Compare Satisfaction_Score vs Previous_Satisfaction_Rating
 
 4. USER ALIAS HANDLING:
    - When users provide aliases, map to actual schema fields
@@ -493,6 +641,20 @@ INTELLIGENT QUERY EXAMPLES:
    - "overtime analysis" → GROUP BY Department, AVG(Overtime_Hours)
    - "shift duration analysis" → Use Shift_Duration_Hours field
 
+5. CORRELATION & RELATIONSHIP QUERIES:
+   - "correlation between years of experience and satisfaction" → SELECT TOP 50 h.Staff_ID AS 'Staff ID', h.Department AS 'Department', h.Years_of_Experience AS 'Years of Experience', h.Satisfaction_Score AS 'Satisfaction Score' FROM healthstaff_schedule h WHERE h.Years_of_Experience IS NOT NULL AND h.Satisfaction_Score IS NOT NULL ORDER BY h.Years_of_Experience DESC
+   - "relationship between overtime hours and satisfaction score" → SELECT TOP 50 h.Staff_ID AS 'Staff ID', h.Department AS 'Department', h.Overtime_Hours AS 'Overtime Hours', h.Satisfaction_Score AS 'Satisfaction Score' FROM healthstaff_schedule h WHERE h.Overtime_Hours IS NOT NULL AND h.Satisfaction_Score IS NOT NULL ORDER BY h.Overtime_Hours DESC
+
+6. COMPLEX CONDITIONAL QUERIES:
+   - "staff with more than 10 overtime hours and satisfaction below 3" → SELECT TOP 50 h.Staff_ID AS 'Staff ID', h.Department AS 'Department', h.Overtime_Hours AS 'Overtime Hours', h.Satisfaction_Score AS 'Satisfaction Score' FROM healthstaff_schedule h WHERE h.Overtime_Hours > 10 AND h.Satisfaction_Score < 3
+   - "departments with overtime above 8 hours and satisfaction below 3" → SELECT h.Department AS 'Department', COUNT(h.Staff_ID) AS 'Staff Count', AVG(h.Satisfaction_Score) AS 'Average Satisfaction', AVG(h.Overtime_Hours) AS 'Average Overtime' FROM healthstaff_schedule h WHERE h.Department IS NOT NULL GROUP BY h.Department HAVING AVG(h.Overtime_Hours) > 8 AND AVG(h.Satisfaction_Score) < 3 ORDER BY AVG(h.Satisfaction_Score) DESC
+
+7. EXPERIENCE GROUPING QUERIES:
+   - "average satisfaction by years of experience group" → SELECT CASE WHEN h.Years_of_Experience <= 5 THEN '0-5 years' WHEN h.Years_of_Experience <= 10 THEN '6-10 years' ELSE '10+ years' END AS 'Experience Group', AVG(h.Satisfaction_Score) AS 'Average Satisfaction', COUNT(h.Staff_ID) AS 'Staff Count' FROM healthstaff_schedule h WHERE h.Years_of_Experience IS NOT NULL GROUP BY CASE WHEN h.Years_of_Experience <= 5 THEN '0-5 years' WHEN h.Years_of_Experience <= 10 THEN '6-10 years' ELSE '10+ years' END ORDER BY AVG(h.Satisfaction_Score) DESC
+
+8. SATISFACTION COMPARISON QUERIES:
+   - "departments with largest drop in satisfaction" → SELECT h.Department AS 'Department', AVG(h.Satisfaction_Score) AS 'Current Satisfaction', AVG(h.Previous_Satisfaction_Rating) AS 'Previous Satisfaction', AVG(h.Previous_Satisfaction_Rating) - AVG(h.Satisfaction_Score) AS 'Satisfaction Drop' FROM healthstaff_schedule h WHERE h.Department IS NOT NULL AND h.Previous_Satisfaction_Rating IS NOT NULL GROUP BY h.Department ORDER BY AVG(h.Previous_Satisfaction_Rating) - AVG(h.Satisfaction_Score) DESC
+
 5. COLUMN ALIAS EXAMPLES:
    - "show me staff" → SELECT TOP 10 h.Staff_ID AS 'Staff ID', h.Department AS 'Department', h.Satisfaction_Score AS 'Satisfaction Score' FROM healthstaff_schedule h
    - "show me departments" → SELECT h.Department AS 'Department', COUNT(h.Staff_ID) AS 'Staff Count' FROM healthstaff_schedule h GROUP BY h.Department
@@ -570,7 +732,23 @@ export async function POST(req: NextRequest) {
         success: true, 
         fastPath: true,
         processingTime: 'fast',
-        intent: { operation: 'top_donors', fastPath: true }
+        intent: { operation: 'top_staff', fastPath: true }
+      })
+      const headers = createRateLimitHeaders(rateLimitResult)
+      Object.entries(headers).forEach(([k, v]) => response.headers.set(k, v))
+      return response
+    }
+
+    // ---- Template check (for complex analytical queries)
+    const templateResult = findMatchingTemplate(question)
+    if (templateResult) {
+      console.log('🎯 Template SQL generated for:', question)
+      const response = NextResponse.json({ 
+        sql: templateResult, 
+        success: true, 
+        template: true,
+        processingTime: 'template',
+        intent: { operation: 'analytical', template: true }
       })
       const headers = createRateLimitHeaders(rateLimitResult)
       Object.entries(headers).forEach(([k, v]) => response.headers.set(k, v))
