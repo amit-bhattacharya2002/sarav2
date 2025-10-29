@@ -292,6 +292,10 @@ interface QueryPanelProps {
   setQueryResults: (value: any[] | null) => void
   columns: { key: string; name: string }[]
   setColumns: (value: { key: string; name: string }[]) => void
+  summary: string | null
+  setSummary: (value: string | null) => void
+  activeResultsTab: 'data' | 'summary'
+  setActiveResultsTab: (value: 'data' | 'summary') => void
   error: string | null
   setError: (value: string | null) => void
   onSubmit: (comboPrompt?: string) => void
@@ -333,6 +337,10 @@ export function QueryPanel({
   setQueryResults,
   columns,
   setColumns,
+  summary,
+  setSummary,
+  activeResultsTab,
+  setActiveResultsTab,
   onSubmit,
   readOnlyMode,
   isEditingSavedQuery = false,
@@ -1423,15 +1431,46 @@ export function QueryPanel({
             )}
             {queryResults && queryResults.length > 0 && columns.length >= 1 ? (
               <div className="flex flex-col flex-1 min-h-0">
-                {outputMode === 'table' && (
-                  <div className="h-full w-full overflow-hidden">
-                    <TableView
-                      data={queryResults}
-                      columns={columns}
-                      sql={sqlQuery || undefined}
-                      readOnlyMode={readOnlyMode}
-                      onColumnOrderChange={handleColumnOrderChange}
-                      externalSortColumn={externalSortColumn}
+                {/* Results Tab Navigation */}
+                <div className="flex border-b bg-muted/30">
+                  <button
+                    onClick={() => setActiveResultsTab('data')}
+                    className={`px-4 py-2 text-sm font-medium transition-colors ${
+                      activeResultsTab === 'data'
+                        ? 'border-b-2 border-primary text-primary bg-background'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <LayoutList className="h-4 w-4 mr-2 inline" />
+                    Data
+                  </button>
+                  {summary && (
+                    <button
+                      onClick={() => setActiveResultsTab('summary')}
+                      className={`px-4 py-2 text-sm font-medium transition-colors ${
+                        activeResultsTab === 'summary'
+                          ? 'border-b-2 border-primary text-primary bg-background'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <Sparkles className="h-4 w-4 mr-2 inline" />
+                      Summary
+                    </button>
+                  )}
+                </div>
+
+                {/* Results Content */}
+                {activeResultsTab === 'data' ? (
+                  <>
+                    {outputMode === 'table' && (
+                      <div className="h-full w-full overflow-hidden">
+                        <TableView
+                          data={queryResults}
+                          columns={columns}
+                          sql={sqlQuery || undefined}
+                          readOnlyMode={readOnlyMode}
+                          onColumnOrderChange={handleColumnOrderChange}
+                          externalSortColumn={externalSortColumn}
                       externalSortDirection={externalSortDirection}
                       onSortChange={handleSortChange}
                       initialFilterColumns={{}}
@@ -1464,6 +1503,23 @@ export function QueryPanel({
                       sql={sqlQuery || undefined}
                       columns={columns}
                     />
+                  </div>
+                )}
+                  </>
+                ) : (
+                  /* Summary Tab Content */
+                  <div className="flex-1 overflow-auto p-6">
+                    <div className="prose prose-sm max-w-none">
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg p-6 border">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Sparkles className="h-5 w-5 text-blue-600" />
+                          <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100">AI-Generated Summary</h3>
+                        </div>
+                        <div className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
+                          {summary}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

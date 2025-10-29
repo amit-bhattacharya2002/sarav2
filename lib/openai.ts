@@ -60,6 +60,6 @@ SQL query:
     return sql
   } catch (error) {
     console.error("Error generating SQL query:", error)
-    throw new Error(`Failed to generate SQL query: ${error.message}`)
+    throw new Error(`Failed to generate SQL query: ${error instanceof Error ? error.message : 'Unknown error occurred'}`)
   }
 }

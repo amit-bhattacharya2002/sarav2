@@ -436,6 +436,33 @@ export async function POST(req: NextRequest) {
     // Transform column names to human-readable aliases
     const transformedColumns = transformColumnsToHumanReadable(result.columns || [])
     
+    // Generate natural language summary if requested
+    let summary = null
+    if (body.generateSummary !== false) { // Default to true unless explicitly disabled
+      try {
+        console.time("🧠 GENERATE_SUMMARY")
+        const summaryResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/summarize-results`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: question,
+            sql: sql,
+            results: result.rows || [],
+            columns: transformedColumns.map(col => col.name)
+          })
+        })
+        
+        if (summaryResponse.ok) {
+          const summaryData = await summaryResponse.json()
+          summary = summaryData.summary
+        }
+        console.timeEnd("🧠 GENERATE_SUMMARY")
+      } catch (error) {
+        console.warn('Failed to generate summary:', error)
+        // Continue without summary rather than failing the entire request
+      }
+    }
+    
     return addRateLimitHeaders(
       NextResponse.json({
         success: true,
@@ -444,6 +471,7 @@ export async function POST(req: NextRequest) {
         sql: sql,
         question: question,
         outputMode: outputMode,
+        summary: summary,
       })
     )
 

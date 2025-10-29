@@ -285,6 +285,8 @@ export default function Dashboard() {
   const [sqlQuery, setSqlQuery] = useState<string | null>(null)
   const [queryResults, setQueryResults] = useState<any[] | null>(null)
   const [columns, setColumns] = useState<{ key: string; name: string }[]>([])
+  const [summary, setSummary] = useState<string | null>(null)
+  const [activeResultsTab, setActiveResultsTab] = useState<'data' | 'summary'>('data')
   const [error, setError] = useState<string | null>(null)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   
@@ -431,8 +433,8 @@ export default function Dashboard() {
     
     // Simplified visualization change detection
     const vizChanged = allVisualizations.length !== originalDashboardData.visualizations.length ||
-      JSON.stringify(allVisualizations.map(v => ({ id: v.id, type: v.type }))) !== 
-      JSON.stringify(originalDashboardData.visualizations.map(v => ({ id: v.id, type: v.type })));
+      JSON.stringify(allVisualizations.map((v: any) => ({ id: v.id, type: v.type }))) !== 
+      JSON.stringify(originalDashboardData.visualizations.map((v: any) => ({ id: v.id, type: v.type })));
 
     const hasChanges = titleChanged || topLeftChanged || topRightChanged || bottomChanged || quadrantsChanged || vizChanged;
 
@@ -498,12 +500,12 @@ export default function Dashboard() {
     }
     
     // Check if any visualization IDs, types, or column orders are different
-    const currentVizData = allVisualizations.map(v => ({ 
+    const currentVizData = allVisualizations.map((v: any) => ({ 
       id: v.id, 
       type: v.type,
       columns: v.columns // Include column order in comparison
     }));
-    const originalVizData = originalDashboardData.visualizations.map(v => ({ 
+    const originalVizData = originalDashboardData.visualizations.map((v: any) => ({ 
       id: v.id, 
       type: v.type,
       columns: v.columns // Include column order in comparison
@@ -564,8 +566,8 @@ export default function Dashboard() {
   useEffect(() => {
     if (originalDashboardData && !isGlobalLoading) {
       // Check if visualization content has changed (not just count)
-      const vizContentChanged = JSON.stringify(allVisualizations.map(v => ({ id: v.id, type: v.type, title: v.title }))) !== 
-        JSON.stringify(originalDashboardData.visualizations.map(v => ({ id: v.id, type: v.type, title: v.title })));
+      const vizContentChanged = JSON.stringify(allVisualizations.map((v: any) => ({ id: v.id, type: v.type, title: v.title }))) !== 
+        JSON.stringify(originalDashboardData.visualizations.map((v: any) => ({ id: v.id, type: v.type, title: v.title })));
       
       if (vizContentChanged) {
         console.log('🔍 Visualization content changed, triggering change detection');
@@ -787,14 +789,14 @@ export default function Dashboard() {
 
               const chartData =
                 viz.type === 'chart' || viz.type === 'pie'
-                  ? result.data.map(row => ({
+                  ? result.data.map((row: any) => ({
                       name: row[result.columns[0]?.key] || 'Unknown',
                       value: Number(row[result.columns[1]?.key]) || 0,
                     }))
                   : result.data;
   
               // Create stable ID based on content and column order
-              const stableId = `load-${viz.type}-${JSON.stringify(chartData).slice(0, 100)}-${JSON.stringify(result.columns?.map(col => col.key) || []).slice(0, 50)}-${viz.sql ? viz.sql.slice(0, 50) : 'no-sql'}`
+              const stableId = `load-${viz.type}-${JSON.stringify(chartData).slice(0, 100)}-${JSON.stringify(result.columns?.map((col: any) => col.key) || []).slice(0, 50)}-${viz.sql ? viz.sql.slice(0, 50) : 'no-sql'}`
 
               const newViz = {
                 id: stableId,
@@ -1012,9 +1014,16 @@ export default function Dashboard() {
 
       setQueryResults(result.data || [])
       setColumns(result.columns || [])
+      
+      // Set summary if available
+      if (result.summary) {
+        setSummary(result.summary)
+      } else {
+        setSummary(null)
+      }
 
       // Create stable ID based on content and column order
-      const stableId = `query-${outputMode}-${JSON.stringify(result.data).slice(0, 100)}-${JSON.stringify(result.columns?.map(col => col.key) || []).slice(0, 50)}-${data.sql ? data.sql.slice(0, 50) : 'no-sql'}`
+      const stableId = `query-${outputMode}-${JSON.stringify(result.data).slice(0, 100)}-${JSON.stringify(result.columns?.map((col: any) => col.key) || []).slice(0, 50)}-${data.sql ? data.sql.slice(0, 50) : 'no-sql'}`
       console.log('🪄 handleQuerySubmit generating stableId:', stableId)
 
       // Save as draggable visualization -- REMOVE `data`, ADD `sql`
@@ -1024,7 +1033,7 @@ export default function Dashboard() {
         title: 'Query Result',
         columns:
           outputMode === 'table' && result.columns
-            ? result.columns.map(col => ({ key: col.key, name: col.name }))
+            ? result.columns.map((col: any) => ({ key: col.key, name: col.name }))
             : [],
         color: 'hsl(var(--chart-4))',
         sql: data.sql, // <-- Always include SQL
@@ -1072,7 +1081,7 @@ export default function Dashboard() {
       setColumns(result.columns || [])
   
       // Create stable ID based on content
-      const stableId = `sql-${mode}-${JSON.stringify(result.data).slice(0, 100)}-${JSON.stringify(result.columns?.map(col => col.key) || []).slice(0, 50)}-${sql ? sql.slice(0, 50) : 'no-sql'}`
+      const stableId = `sql-${mode}-${JSON.stringify(result.data).slice(0, 100)}-${JSON.stringify(result.columns?.map((col: any) => col.key) || []).slice(0, 50)}-${sql ? sql.slice(0, 50) : 'no-sql'}`
 
       // Save as draggable visualization -- REMOVE `data`, ADD `sql`
       const newViz = {
@@ -1081,7 +1090,7 @@ export default function Dashboard() {
         title: 'Query Result',
         columns:
           mode === 'table' && result.columns
-            ? result.columns.map(col => ({ key: col.key, name: col.name }))
+            ? result.columns.map((col: any) => ({ key: col.key, name: col.name }))
             : [],
         color: 'hsl(var(--chart-4))',
         sql, // <-- Always include SQL argument
@@ -1857,7 +1866,7 @@ setIsEditingSavedQuery(true);
   
           const chartData =
             viz.type === 'chart' || viz.type === 'pie'
-              ? result.data.map(row => ({
+              ? result.data.map((row: any) => ({
                   name: row[result.columns[0]?.key] || 'Unknown',
                   value: Number(row[result.columns[1]?.key]) || 0,
                 }))
@@ -2066,6 +2075,10 @@ setIsEditingSavedQuery(true);
               setSqlQuery={stableSetSqlQuery}
               queryResults={queryResults}
               setQueryResults={stableSetQueryResults}
+              summary={summary}
+              setSummary={setSummary}
+              activeResultsTab={activeResultsTab}
+              setActiveResultsTab={setActiveResultsTab}
               columns={columns}
               setColumns={stableSetColumns}
               error={error}
@@ -2133,6 +2146,10 @@ setIsEditingSavedQuery(true);
             setSqlQuery={stableSetSqlQuery}
             queryResults={queryResults}
             setQueryResults={stableSetQueryResults}
+            summary={summary}
+            setSummary={setSummary}
+            activeResultsTab={activeResultsTab}
+            setActiveResultsTab={setActiveResultsTab}
             columns={columns}
             setColumns={stableSetColumns}
             error={error}

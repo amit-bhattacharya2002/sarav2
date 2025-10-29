@@ -15,7 +15,7 @@ export async function fetchSavedQueries(userId: number, companyId: number) {
     console.error("Error fetching saved queries:", error)
     return {
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
       message: "Error occurred while fetching saved queries",
     }
   }

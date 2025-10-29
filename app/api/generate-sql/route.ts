@@ -319,7 +319,7 @@ ORDER BY ${field1Col} DESC`.trim()
     }
     
     if (field1Col && field2Col) {
-      return `
+    return `
 SELECT TOP 50
   h.Staff_ID AS 'Staff ID',
   h.Department AS 'Department',
@@ -366,7 +366,7 @@ ORDER BY ${field1Col} DESC`.trim()
     }
     
     if (whereClause) {
-      return `
+    return `
 SELECT
   h.Department AS 'Department',
   COUNT(h.Staff_ID) AS 'Staff Count',

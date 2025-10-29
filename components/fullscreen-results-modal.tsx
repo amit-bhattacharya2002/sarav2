@@ -155,24 +155,22 @@ export function FullscreenResultsModal({
 
                 {outputMode === 'chart' && (
                   <div className="h-full w-full p-4">
-                    <BarGraph 
+                    <BarGraph
                       data={data.map(row => ({
                         name: row[columns[0]?.key] || 'Unknown',
                         value: Number(row[columns[1]?.key]) || 0
                       }))}
-                      height={600}
                     />
                   </div>
                 )}
 
                 {outputMode === 'pie' && (
                   <div className="h-full w-full p-4">
-                    <PieGraph 
+                    <PieGraph
                       data={data.map(row => ({
                         name: row[columns[0]?.key] || 'Unknown',
                         value: Number(row[columns[1]?.key]) || 0
                       }))}
-                      height={600}
                     />
                   </div>
                 )}
@@ -235,12 +233,11 @@ export function FullscreenResultsModal({
 
               {outputMode === 'chart' && (
                 <div className="h-full w-full p-4">
-                  <BarGraph 
+                  <BarGraph
                     data={data.map(row => ({
                       name: row[columns[0]?.key] || 'Unknown',
                       value: Number(row[columns[1]?.key]) || 0
                     }))}
-                    height={400}
                   />
                 </div>
               )}
@@ -252,7 +249,6 @@ export function FullscreenResultsModal({
                       name: row[columns[0]?.key] || 'Unknown',
                       value: Number(row[columns[1]?.key]) || 0
                     }))}
-                    height={400}
                   />
                 </div>
               )}

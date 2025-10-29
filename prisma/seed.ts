@@ -6,309 +6,42 @@ async function main() {
   console.log('🌱 Starting database seed...')
 
   // Clear existing data
-  await prisma.address.deleteMany()
-  await prisma.constituent.deleteMany()
-  await prisma.gift.deleteMany()
-  await prisma.schemaDefinition.deleteMany()
+  await prisma.savedDashboard.deleteMany()
+  await prisma.savedQuery.deleteMany()
 
-  // Create sample constituents
-  const constituent1 = await prisma.constituent.create({
+  // Create sample saved queries
+  const sampleQuery = await prisma.savedQuery.create({
     data: {
-      constituentId: 'a09047a3-97dc-43f5-8afa-33155c085232',
-      firstName: 'John',
-      lastName: 'Doe',
-      email: 'john.doe@example.com',
-      phone: '604-555-0101',
-      isActive: true,
-      dateAdded: new Date('2025-04-03'),
-      dateChanged: new Date('2025-04-03'),
-    },
+      title: 'Sample Health Staff Query',
+      queryText: 'Show me all health staff with their department and experience',
+      sqlText: 'SELECT Staff_ID, Department, Years_of_Experience FROM healthstaff_schedule',
+      outputMode: 1,
+      visualConfig: '{"type": "table"}',
+      panelPosition: 'top-left',
+      resultColumns: '["Staff_ID", "Department", "Years_of_Experience"]',
+      resultData: '[]',
+      comboPrompt: 'Show health staff information',
+      selectedColumns: '["Staff_ID", "Department", "Years_of_Experience"]',
+      filteredColumns: '{}'
+    }
   })
 
-  const constituent2 = await prisma.constituent.create({
+  // Create sample dashboard
+  const sampleDashboard = await prisma.savedDashboard.create({
     data: {
-      constituentId: 'adcfcb8e-f670-4e54-af34-9756c852b211',
-      firstName: 'Jane',
-      lastName: 'Smith',
-      email: 'jane.smith@example.com',
-      phone: '604-555-0102',
-      isActive: true,
-      dateAdded: new Date('2025-04-03'),
-      dateChanged: new Date('2025-04-03'),
-    },
-  })
-
-  const constituent3 = await prisma.constituent.create({
-    data: {
-      constituentId: 'c455feb9-00e0-436b-bee8-d5eeac4ad85c',
-      firstName: 'Bob',
-      lastName: 'Johnson',
-      email: 'bob.johnson@example.com',
-      phone: '604-555-0103',
-      isActive: true,
-      dateAdded: new Date('2025-04-03'),
-      dateChanged: new Date('2025-04-03'),
-    },
-  })
-
-  // Create sample addresses
-  await prisma.address.createMany({
-    data: [
-      {
-        addressId: '1b270d12-5dd5-48e3-8e3c-fd91afdcf040',
-        isPrimary: true,
-        doNotMail: false,
-        startDate: '0101',
-        endDate: '1231',
-        addressBlock: '859 Main St',
-        city: 'Maple Ridge',
-        postCode: 'V2X2X2',
-        cart: '',
-        dpc: '',
-        lot: '',
-        sequence: '9',
-        dateAdded: new Date('2025-04-03 18:24:08'),
-        dateChanged: new Date('2025-04-03 18:24:08'),
-        ts: new Date('2025-04-03 18:24:08'),
-        isConfidential: false,
-        constituentId: constituent1.constituentId,
-        countryId: 'CA',
-      },
-      {
-        addressId: '21e01c43-6eb7-435a-876a-5a1c1db3a276',
-        isPrimary: true,
-        doNotMail: false,
-        startDate: '0101',
-        endDate: '1231',
-        addressBlock: '130 Main St',
-        city: 'Richmond',
-        postCode: 'V6X3Z9',
-        cart: '',
-        dpc: '',
-        lot: '',
-        sequence: '4',
-        dateAdded: new Date('2025-04-03 18:24:08'),
-        dateChanged: new Date('2025-04-03 18:24:08'),
-        ts: new Date('2025-04-03 18:24:08'),
-        isConfidential: false,
-        constituentId: constituent2.constituentId,
-        countryId: 'CA',
-      },
-      {
-        addressId: '4558b56d-9548-468a-8e64-4a61811678ac',
-        isPrimary: true,
-        doNotMail: false,
-        startDate: '0101',
-        endDate: '1231',
-        addressBlock: '806 Main St',
-        city: 'North Vancouver',
-        postCode: 'V7P3T4',
-        cart: '',
-        dpc: '',
-        lot: '',
-        sequence: '10',
-        dateAdded: new Date('2025-04-03 18:24:08'),
-        dateChanged: new Date('2025-04-03 18:24:08'),
-        ts: new Date('2025-04-03 18:24:08'),
-        isConfidential: false,
-        constituentId: constituent3.constituentId,
-        countryId: 'CA',
-      },
-    ],
-  })
-
-  // Create sample gifts
-  await prisma.gift.createMany({
-    data: [
-      {
-        giftId: 'gift-001',
-        giftDate: new Date('2025-01-15'),
-        giftAmount: '500.00',
-        transactionType: 'Gift',
-        giftType: 'Single',
-        paymentMethod: 'Credit Card',
-        softCreditIndicator: 'N',
-        softCreditAmount: '0.00',
-        sourceCode: 'Web Gift',
-        designation: 'Student Bursaries Fund',
-        unit: 'UA - University Advancement',
-        purposeCategory: 'Operating',
-        appeal: 'AALGEN871',
-        givingLevel: '$500-$999.99',
-        constituentId: constituent1.constituentId,
-        dateAdded: new Date('2025-01-15'),
-        dateChanged: new Date('2025-01-15'),
-      },
-      {
-        giftId: 'gift-002',
-        giftDate: new Date('2025-02-20'),
-        giftAmount: '1000.00',
-        transactionType: 'Gift',
-        giftType: 'Single',
-        paymentMethod: 'Check',
-        softCreditIndicator: 'N',
-        softCreditAmount: '0.00',
-        sourceCode: 'Direct Mail',
-        designation: '88 Keys Campaign',
-        unit: 'UA - University Advancement',
-        purposeCategory: 'Capital Project',
-        appeal: 'CUAGENXX',
-        givingLevel: '$1,000+',
-        constituentId: constituent2.constituentId,
-        dateAdded: new Date('2025-02-20'),
-        dateChanged: new Date('2025-02-20'),
-      },
-      {
-        giftId: 'gift-003',
-        giftDate: new Date('2025-03-10'),
-        giftAmount: '250.00',
-        transactionType: 'Gift',
-        giftType: 'Recurring',
-        paymentMethod: 'Credit Card',
-        softCreditIndicator: 'N',
-        softCreditAmount: '0.00',
-        sourceCode: 'Email',
-        designation: 'Engineering Equipment Endowment',
-        unit: 'UA - University Advancement',
-        purposeCategory: 'Endowment',
-        appeal: 'AALGEN881',
-        givingLevel: '$100-$499.99',
-        constituentId: constituent3.constituentId,
-        dateAdded: new Date('2025-03-10'),
-        dateChanged: new Date('2025-03-10'),
-      },
-      {
-        giftId: 'gift-004',
-        giftDate: new Date('2025-01-30'),
-        giftAmount: '750.00',
-        transactionType: 'Gift',
-        giftType: 'Single',
-        paymentMethod: 'Credit Card',
-        softCreditIndicator: 'N',
-        softCreditAmount: '0.00',
-        sourceCode: 'Phone Call',
-        designation: 'Student Bursaries Fund',
-        unit: 'UA - University Advancement',
-        purposeCategory: 'Operating',
-        appeal: 'AALGEN871',
-        givingLevel: '$500-$999.99',
-        constituentId: constituent1.constituentId,
-        dateAdded: new Date('2025-01-30'),
-        dateChanged: new Date('2025-01-30'),
-      },
-      {
-        giftId: 'gift-005',
-        giftDate: new Date('2025-02-15'),
-        giftAmount: '1500.00',
-        transactionType: 'Gift',
-        giftType: 'Single',
-        paymentMethod: 'Check',
-        softCreditIndicator: 'N',
-        softCreditAmount: '0.00',
-        sourceCode: 'Personal Solicitation',
-        designation: '88 Keys Campaign',
-        unit: 'UA - University Advancement',
-        purposeCategory: 'Capital Project',
-        appeal: 'CUAGENXX',
-        givingLevel: '$1,000+',
-        constituentId: constituent2.constituentId,
-        dateAdded: new Date('2025-02-15'),
-        dateChanged: new Date('2025-02-15'),
-      },
-    ],
-  })
-
-  // Create schema definition for AI queries
-  await prisma.schemaDefinition.create({
-    data: {
-      schemaText: `
-Database Schema for Constituent Management System:
-
-Collections:
-1. constituents
-   - constituentId (String): Unique identifier for the constituent
-   - firstName (String): First name of the constituent
-   - lastName (String): Last name of the constituent
-   - email (String): Email address
-   - phone (String): Phone number
-   - dateOfBirth (DateTime): Date of birth
-   - isActive (Boolean): Whether the constituent is active
-   - dateAdded (DateTime): When the record was added
-   - dateChanged (DateTime): When the record was last changed
-
-2. addresses
-   - addressId (String): Unique identifier for the address
-   - constituentId (String): Reference to constituent
-   - isPrimary (Boolean): Whether this is the primary address
-   - doNotMail (Boolean): Whether to exclude from mailings
-   - addressBlock (String): Street address
-   - city (String): City name
-   - postCode (String): Postal code
-   - countryId (String): Country code
-   - dateAdded (DateTime): When the record was added
-   - dateChanged (DateTime): When the record was last changed
-
-3. gifts
-   - giftId (String): Unique identifier for the gift
-   - constituentId (String): Reference to constituent
-   - giftDate (DateTime): Date of the gift
-   - giftAmount (String): Amount of the gift (stored as string)
-   - transactionType (String): Type of transaction (e.g., "Gift", "Pledge")
-   - giftType (String): Type of gift (e.g., "Single", "Recurring")
-   - paymentMethod (String): Payment method (e.g., "Credit Card", "Check")
-   - sourceCode (String): Campaign or appeal source code
-   - designation (String): Specific fund or initiative
-   - unit (String): Organizational department
-   - purposeCategory (String): Classification of gift intent
-   - appeal (String): Specific fundraising effort
-   - givingLevel (String): Dollar tier of the gift
-   - dateAdded (DateTime): When the record was added
-   - dateChanged (DateTime): When the record was last changed
-
-QUERY GUIDELINES:
-1. For donor/constituent queries, use $lookup to join with constituents collection to get meaningful names
-2. When grouping by constituentId, include constituent names using $lookup
-3. For "top donors" queries, join with constituents to show names instead of IDs
-4. Use $project to format names as "firstName lastName" or similar readable format
-5. For meaningful analysis, use aggregation functions like $sum, $count, $avg instead of $push
-6. When grouping by categories (like sourceCode, designation), count or sum the values rather than collecting all objects
-
-Example queries with proper joins:
-- Top donors: Use $lookup to join gifts with constituents, then group by constituent and sum amounts
-- Donor analysis: Join gifts with constituents to show donor names in results
-- Gift summaries: Include constituent names when grouping by constituentId
-- Source code analysis: Group by sourceCode and count gifts or sum amounts
-- Designation analysis: Group by designation and sum total amounts
-
-For meaningful aggregations:
-- Count gifts by source code: Use $group with $sum: 1 or $count
-- Sum amounts by designation: Use $group with $sum: { $toDouble: "$giftAmount" }
-- Average gift amounts: Use $group with $avg: { $toDouble: "$giftAmount" }
-- Top categories: Use $sort and $limit after grouping
-
-Avoid using $push to collect all objects unless specifically needed for detailed analysis.
-
-Sample gift dates in database: 2025-01-15, 2025-02-20, 2025-03-10, 2025-01-30, 2025-02-15
-
-Common source codes include: Phone Call, Direct Mail, Personal Solicitation, Web Gift, Event, Email, Coffee Club, Faculty Newsletter, Athletics, United Way, Telemarketing, Proposal, Sponsorship.
-
-Common designations include: "88 Keys Campaign", "Student Bursaries Fund", "Engineering Equipment Endowment".
-
-Common units include: "UA - University Advancement".
-
-Common purpose categories include: "Endowment", "Operating", "Capital Project".
-
-Common giving levels include: "$1-$99.99", "$100-$499.99", "$500-$999.99", "$1,000+".
-
-Example queries with proper joins:
-- Top 3 donors by amount: Use $lookup to join gifts with constituents, group by constituent, sum amounts, sort, limit 3
-- Donors by designation: Join gifts with constituents, group by designation and constituent name
-- Gift analysis by donor: Join gifts with constituents to show donor names in results
-      `,
-    },
+      title: 'Health Staff Analytics Dashboard',
+      quadrants: '{"topLeft": "Staff Overview", "topRight": "Department Analysis", "bottom": "Experience Distribution"}',
+      visualizations: '{"topLeft": "table", "topRight": "pie", "bottom": "bar"}',
+      sVisualizations: '{"topLeft": "table", "topRight": "pie", "bottom": "bar"}',
+      topLeftTitle: 'Staff Overview',
+      topRightTitle: 'Department Analysis',
+      bottomTitle: 'Experience Distribution'
+    }
   })
 
   console.log('✅ Database seeded successfully!')
+  console.log('Created sample query:', sampleQuery.title)
+  console.log('Created sample dashboard:', sampleDashboard.title)
 }
 
 main()
@@ -318,4 +51,4 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect()
-  }) 
+  })
