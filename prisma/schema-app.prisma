@@ -1,6 +1,6 @@
 generator client {
     provider      = "prisma-client-js"
-    output        = "../node_modules/.prisma/client"
+    output        = "../node_modules/.prisma/app-client"
     binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
@@ -8,9 +8,6 @@ datasource db {
     provider = "mysql"
     url      = env("SARAV2_APP_DATABASE_URL")
 }
-
-// Application data models - READ/WRITE
-// Business data models (constituents, gifts) are in schema-business.prisma
 
 model SavedDashboard {
     id              Int      @id @default(autoincrement())

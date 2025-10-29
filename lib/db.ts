@@ -1,8 +1,8 @@
-import { businessPrisma } from './mysql-prisma'
+import { appPrisma } from './prisma-app'
 
 export async function getSavedQueries(userId: number, companyId: number) {
   try {
-    const queries = await businessPrisma.savedQuery.findMany({
+    const queries = await appPrisma.savedQuery.findMany({
       where: {
         userId,
         companyId,
@@ -31,7 +31,7 @@ export async function getSavedQueries(userId: number, companyId: number) {
 
 export async function getSavedDashboards(userId: number, companyId: number) {
   try {
-    const dashboards = await businessPrisma.savedDashboard.findMany({
+    const dashboards = await appPrisma.savedDashboard.findMany({
       where: {
         userId,
         companyId,

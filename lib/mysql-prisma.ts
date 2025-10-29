@@ -1,14 +1,15 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from '../node_modules/.prisma/business-client'
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
 // Create the base Prisma client with connection pooling optimization
+// This now connects to SARA v2 business database
 const basePrisma = globalForPrisma.prisma ?? new PrismaClient({
   datasources: {
     db: {
-      url: process.env.BUSINESS_DATABASE_URL
+      url: process.env.SARAV2_BUSINESS_DATABASE_URL
     }
   },
   // Connection pooling optimization
