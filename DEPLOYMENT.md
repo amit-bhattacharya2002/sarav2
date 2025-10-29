@@ -13,15 +13,15 @@ This guide will help you deploy the SARA (Smart Analytics & Reporting Assistant)
 
 ### One-Click Deploy
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yourusername/sara-beta)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yourusername/sarav2)
 
 ### Manual Deployment Steps
 
 #### 1. Fork/Clone Repository
 
 ```bash
-git clone https://github.com/yourusername/sara-beta.git
-cd sara-beta
+git clone https://github.com/yourusername/sarav2.git
+cd sarav2
 ```
 
 #### 2. Install Dependencies

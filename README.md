@@ -1,30 +1,53 @@
-# New Project
+# SARA v2 - Smart Analytics & Reporting Assistant
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
-
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/g-davis-projects/v0-new-project-vztsbaathcu)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/VzTSBAAthCU)
+[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://sarav2.vercel.app)
+[![Next.js](https://img.shields.io/badge/Next.js-15.2.4-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7.2-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 
 ## Overview
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+SARA v2 is an intelligent analytics and reporting assistant that enables business users to query their data using natural language. Built with Next.js, TypeScript, and AI integration, it provides a user-friendly interface for data exploration and visualization.
+
+## Features
+
+- 🤖 **AI-Powered Query Generation**: Convert natural language to SQL queries
+- 📊 **Interactive Dashboards**: Drag-and-drop chart creation and customization
+- 🔒 **Secure Authentication**: User authentication and data protection
+- 📈 **Multiple Chart Types**: Bar charts, pie charts, and data tables
+- 💾 **Query History**: Save and manage previous queries
+- 🔗 **Shareable Dashboards**: Generate shareable links for dashboards
+- 🎨 **Modern UI**: Built with Radix UI and Tailwind CSS
+
+## Tech Stack
+
+- **Frontend**: Next.js 15, React 19, TypeScript
+- **Styling**: Tailwind CSS, Radix UI
+- **Database**: Prisma ORM with MySQL/MongoDB support
+- **AI**: OpenAI GPT integration
+- **Deployment**: Vercel
+- **Charts**: Recharts
+
+## Getting Started
+
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Set up environment variables (see `.env.template`)
+4. Run the development server: `npm run dev`
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
 
 ## Deployment
 
-Your project is live at:
+This project is configured for deployment on Vercel. The deployment will be available at your Vercel project URL once configured.
 
-**[https://vercel.com/g-davis-projects/v0-new-project-vztsbaathcu](https://vercel.com/g-davis-projects/v0-new-project-vztsbaathcu)**
+## Environment Variables
 
-## Build your app
+Copy `.env.template` to `.env.local` and configure the following variables:
 
-Continue building your app on:
+- Database connection strings
+- OpenAI API key
+- Authentication secrets
+- Other service configurations
 
-**[https://v0.dev/chat/projects/VzTSBAAthCU](https://v0.dev/chat/projects/VzTSBAAthCU)**
+## Contributing
 
-## How It Works
-
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+This is a private project. For any changes or improvements, please contact the maintainer.

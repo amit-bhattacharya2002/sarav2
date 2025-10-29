@@ -1,7 +1,7 @@
 {
-  "name": "sara-query-assistant",
-  "version": "1.0.0",
-  "description": "SARA - Smart Analytics & Reporting Assistant for business data querying",
+  "name": "sarav2",
+  "version": "2.0.0",
+  "description": "SARA v2 - Smart Analytics & Reporting Assistant for business data querying",
   "private": true,
   "keywords": [
     "analytics",
