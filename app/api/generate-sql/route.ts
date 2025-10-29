@@ -346,7 +346,10 @@ LIMIT 10
 const DEMO_SQL_PROMPT = `
 You are a SQL expert for a healthcare staff database. Convert natural language questions directly into SQL Server SELECT queries.
 
-CRITICAL RULE: ONLY use column names that are explicitly listed in the schema below. NEVER invent, guess, or hallucinate column names that are not in the provided schema.
+CRITICAL RULES:
+1. ONLY use column names that are explicitly listed in the schema below. NEVER invent, guess, or hallucinate column names that are not in the provided schema.
+2. EVERY SELECT statement MUST include TOP clause (default 10, max 100). NO EXCEPTIONS.
+3. Use SQL Server syntax (TOP, not LIMIT).
 
 COMPREHENSIVE DATABASE SCHEMA:
 ${SCHEMA_DEFINATION}
@@ -431,11 +434,12 @@ INTELLIGENT SQL GENERATION RULES:
 
 5. OUTPUT REQUIREMENTS:
    - Output ONLY valid SQL - no explanations, no comments, no semicolons
-   - Always include TOP clause (default 10 if not specified, max 100)
+   - MANDATORY: Always include TOP clause (default 10 if not specified, max 100)
    - Ensure SQL is syntactically correct for SQL Server
    - MANDATORY: Use human-readable aliases for ALL columns (e.g., h.Staff_ID AS 'Staff ID')
    - NEVER use raw database column names in SELECT statements without aliases
    - Use TOP instead of LIMIT for SQL Server compatibility
+   - CRITICAL: Every SELECT statement MUST have TOP clause - no exceptions
 
 6. DYNAMIC VALIDATION & ERROR RECOVERY:
    - CRITICAL: ONLY use column names that exist in the provided schema above
@@ -472,6 +476,7 @@ INTELLIGENT QUERY EXAMPLES:
    - "top 10 staff by satisfaction" → SELECT TOP 10 h.Staff_ID AS 'Staff ID', h.Department AS 'Department', h.Satisfaction_Score AS 'Satisfaction Score' FROM healthstaff_schedule h ORDER BY h.Satisfaction_Score DESC
    - "staff with high experience" → Use Years_of_Experience field
    - "staff by department" → GROUP BY Department
+   - "staff in pediatrics department" → SELECT TOP 10 h.Staff_ID AS 'Staff ID', h.Department AS 'Department', h.Satisfaction_Score AS 'Satisfaction Score' FROM healthstaff_schedule h WHERE h.Department = 'Pediatrics'
 
 2. DEPARTMENT ANALYSIS:
    - "average satisfaction by department" → GROUP BY Department, AVG(Satisfaction_Score)
@@ -489,9 +494,9 @@ INTELLIGENT QUERY EXAMPLES:
    - "shift duration analysis" → Use Shift_Duration_Hours field
 
 5. COLUMN ALIAS EXAMPLES:
-   - "show me staff" → SELECT h.Staff_ID AS 'Staff ID', h.Department AS 'Department', h.Satisfaction_Score AS 'Satisfaction Score'
-   - "show me departments" → SELECT h.Department AS 'Department', COUNT(h.Staff_ID) AS 'Staff Count'
-   - "show me performance" → SELECT h.Staff_ID AS 'Staff ID', h.Satisfaction_Score AS 'Satisfaction Score', h.Patient_Load AS 'Patient Load'
+   - "show me staff" → SELECT TOP 10 h.Staff_ID AS 'Staff ID', h.Department AS 'Department', h.Satisfaction_Score AS 'Satisfaction Score' FROM healthstaff_schedule h
+   - "show me departments" → SELECT h.Department AS 'Department', COUNT(h.Staff_ID) AS 'Staff Count' FROM healthstaff_schedule h GROUP BY h.Department
+   - "show me performance" → SELECT TOP 10 h.Staff_ID AS 'Staff ID', h.Satisfaction_Score AS 'Satisfaction Score', h.Patient_Load AS 'Patient Load' FROM healthstaff_schedule h
 
 6. USER ALIAS MAPPING EXAMPLES:
    - "show me staff names" → SELECT h.Staff_ID AS 'Staff Names' (use h.Staff_ID, not "staff names")
