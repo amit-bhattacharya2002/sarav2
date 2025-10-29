@@ -9,83 +9,21 @@ datasource db {
     url      = env("SARAV2_DATABASE_URL")
 }
 
-// Business Data Models (constituents, gifts) - READ ONLY
-model constituents {
-    id                               Int      @id @default(autoincrement())
-    ACCOUNTID                        String?  @db.NVarChar(40)
-    LOOKUPID                         Int?
-    TYPE                             String?  @db.NVarChar(30)
-    DONORTYPE1                       String?  @db.NVarChar(25)
-    PERSONORGANIZATIONINDICATOR      String?  @db.NVarChar(10)
-    ALUMNITYPE                       String?  @db.NVarChar(10)
-    UNDERGRADUATEDEGREE1             String?  @db.NVarChar(10)
-    UNDERGRADUATIONYEAR1             Int?
-    UNDERGRADUATEPREFERREDCLASSYEAR1 Int?
-    UNDERGRADUATESCHOOL1             String?  @db.NVarChar(30)
-    UNDERGRADUATEDEGREE2             String?  @db.NVarChar(10)
-    UNDERGRADUATEGRADUATIONYEAR2     Int?
-    UNDERGRADUATEPREFERREDCLASSYEAR2 Int?
-    UNDERGRADUATESCHOOL2             String?  @db.NVarChar(30)
-    GRADUATEDEGREE1                  String?  @db.NVarChar(10)
-    GRADUATEGRADUATIONYEAR1          Int?
-    GRADUATEPREFERREDCLASSYEAR1      Int?
-    GRADUATESCHOOL1                  String?  @db.NVarChar(30)
-    GRADUATEDEGREE2                  String?  @db.NVarChar(10)
-    GRADUATEGRADUATIONYEAR2          Int?
-    GRADUATESCHOOL2                  String?  @db.NVarChar(30)
-    GENDER                           String?  @db.NVarChar(10)
-    DECEASED                         String?  @db.NVarChar(10)
-    SOLICITATIONRESTRICTIONS         String?  @db.NVarChar(90)
-    DONOTMAIL                        String?  @db.NVarChar(15)
-    DONOTPHONE                       String?  @db.NVarChar(15)
-    DONOTEMAIL                       String?  @db.NVarChar(15)
-    MARRIEDTOALUM                    String?  @db.NVarChar(15)
-    SPOUSELOOKUPID                   String?  @db.NVarChar(40)
-    SPOUSEID                         String?  @db.NVarChar(40)
-    ASSIGNEDACCOUNT                  Boolean?
-    VOLUNTEER                        String?  @db.NVarChar(255)
-    WEALTHSCORE                      String?  @db.NVarChar(15)
-    GEPSTATUS                        String?  @db.NVarChar(20)
-    EVENTSATTENDED                   Boolean?
-    EVENTS                           Int?
-    AGE                              Int?
-    GUID                             String?  @db.NVarChar(40)
-    FULLNAME                         String?  @db.NVarChar(25)
-    PMFULLNAME                       String?  @db.NVarChar(15)
-    FULLADDRESS                      String?  @db.NVarChar(65)
-    HOMETELEPHONE                    String?  @db.NVarChar(20)
-    EMAIL                            String?  @db.NVarChar(30)
+// Existing Business Data Models - READ ONLY
+// This matches your existing healthstaff_schedule table
+model healthstaff_schedule {
+    Staff_ID                      String  @id @db.NVarChar(50)
+    Department                    String? @db.NVarChar(50)
+    Shift_Duration_Hours          Int?
+    Patient_Load                  Int?
+    Workdays_per_Month            Int?
+    Overtime_Hours                Int?
+    Years_of_Experience           Int?
+    Absenteeism_Days              Int?
+    Satisfaction_Score            Decimal? @db.Decimal(18, 2)
+    Previous_Satisfaction_Rating  Decimal? @db.Decimal(18, 2)
 
-    @@index([ACCOUNTID], map: "idx_constituents_accountid")
-    @@index([AGE], map: "idx_constituents_age")
-    @@index([FULLNAME], map: "idx_constituents_fullname")
-    @@index([GENDER], map: "idx_constituents_gender")
-}
-
-model gifts {
-    ACCOUNTID           String    @db.NVarChar(255)
-    GIFTID              String    @db.NVarChar(255)
-    id                  Int       @id @default(autoincrement())
-    GIFTDATE            DateTime? @db.Date
-    GIFTAMOUNT          Decimal?  @db.Decimal(15, 2)
-    TRANSACTIONTYPE     String?   @db.NVarChar(50)
-    GIFTTYPE            String?   @db.NVarChar(50)
-    PAYMENTMETHOD       String?   @db.NVarChar(50)
-    PLEDGEID            String    @db.NVarChar(255)
-    SOFTCREDITINDICATOR String?   @db.NVarChar(50)
-    SOFTCREDITAMOUNT    Decimal?  @db.Decimal(10, 2)
-    SOFTCREDITID        String    @db.NVarChar(255)
-    SOURCECODE          String?   @db.NVarChar(100)
-    DESIGNATION         String?   @db.NText
-    UNIT                String?   @db.NVarChar(100)
-    PURPOSECATEGORY     String?   @db.NVarChar(50)
-    APPEAL              String?   @db.NVarChar(50)
-    GIVINGLEVEL         String?   @db.NVarChar(50)
-    UUID                String    @db.NVarChar(255)
-
-    @@index([ACCOUNTID], map: "idx_gifts_accountid")
-    @@index([GIFTAMOUNT], map: "idx_gifts_giftamount")
-    @@index([GIFTDATE], map: "idx_gifts_giftdate")
+    @@map("healthstaff_schedule")
 }
 
 // Application Data Models (saved queries, dashboards) - READ/WRITE

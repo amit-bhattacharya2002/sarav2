@@ -20,7 +20,7 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = basePrisma
 
 // Define business data tables that should be read-only
 const READ_ONLY_TABLES = [
-  'gifts', // Main business data - CRITICAL: Never allow writes
+  'healthstaff_schedule', // Main business data - CRITICAL: Never allow writes
   // Add other business tables here if they exist
 ]
 

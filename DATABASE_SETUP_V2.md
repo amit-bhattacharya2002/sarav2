@@ -7,6 +7,7 @@ This guide explains how to set up the completely isolated database configuration
 SARA v2 uses **one separate database** to ensure complete isolation from your existing production system:
 
 **SARA v2 Database** (`SARAV2_DATABASE_URL`)
+
 - Contains both your business data (constituents, gifts) and application data (saved queries, dashboards)
 - Completely separate from your current production database
 - Read-only access to business data tables to prevent accidental modification
@@ -106,6 +107,7 @@ npm run test-db-isolation
 ```
 
 This will verify:
+
 - ✅ Environment variables are set correctly
 - ✅ Databases are properly separated
 - ✅ Business database is read-only
