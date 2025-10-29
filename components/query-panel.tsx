@@ -1436,19 +1436,7 @@ export function QueryPanel({
                 {/* Results Tab Navigation */}
                 <div className="flex border-b bg-muted/30">
                   {/* Data tab header temporarily hidden */}
-                  {summary && (
-                    <button
-                      onClick={() => setActiveResultsTab('summary')}
-                      className={`px-4 py-2 text-sm font-medium transition-colors ${
-                        activeResultsTab === 'summary'
-                          ? 'border-b-2 border-primary text-primary bg-background'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      <Sparkles className="h-4 w-4 mr-2 inline" />
-                      Summary
-                    </button>
-                  )}
+                  {/* Summary tab temporarily hidden */}
                   {/* Chat tab temporarily disabled */}
                 </div>
 
