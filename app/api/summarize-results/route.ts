@@ -71,21 +71,31 @@ function analyzeResults(results: any[], columns: string[]) {
   const insights = []
   const count = results.length
 
-  // Analyze numeric columns
-  const numericColumns = columns.filter(col => 
-    results.some(row => typeof row[col] === 'number')
+  // Get the actual data keys from the first result
+  const dataKeys = Object.keys(results[0] || {})
+
+  // Analyze numeric columns - check both display names and data keys
+  const numericColumns = dataKeys.filter(key => 
+    results.some(row => typeof row[key] === 'number')
   )
 
-  for (const col of numericColumns) {
-    const values = results.map((row: any) => row[col]).filter((val: any) => val != null)
+  for (const key of numericColumns) {
+    const values = results.map((row: any) => row[key]).filter((val: any) => val != null)
     if (values.length > 0) {
       const avg = values.reduce((a: number, b: number) => a + b, 0) / values.length
       const max = Math.max(...values)
       const min = Math.min(...values)
       const median = values.sort((a, b) => a - b)[Math.floor(values.length / 2)]
       
+      // Find the display name for this key
+      const displayName = columns.find(col => 
+        col.toLowerCase().includes(key.toLowerCase().replace(/_/g, ' ')) ||
+        key.toLowerCase().includes(col.toLowerCase().replace(/\s/g, '_'))
+      ) || key
+      
       insights.push({
-        column: col,
+        column: displayName,
+        key: key,
         average: avg,
         max: max,
         min: min,
@@ -97,14 +107,14 @@ function analyzeResults(results: any[], columns: string[]) {
   }
 
   // Analyze categorical columns (like Department)
-  const categoricalColumns = columns.filter(col => 
-    results.some(row => typeof row[col] === 'string')
+  const categoricalColumns = dataKeys.filter(key => 
+    results.some(row => typeof row[key] === 'string')
   )
 
-  for (const col of categoricalColumns) {
+  for (const key of categoricalColumns) {
     const valueCounts: { [key: string]: number } = {}
     results.forEach((row: any) => {
-      const val = row[col]
+      const val = row[key]
       if (val != null) {
         valueCounts[val] = (valueCounts[val] || 0) + 1
       }
@@ -113,8 +123,15 @@ function analyzeResults(results: any[], columns: string[]) {
     const sortedValues = Object.entries(valueCounts)
       .sort(([,a], [,b]) => (b as number) - (a as number))
     
+    // Find the display name for this key
+    const displayName = columns.find(col => 
+      col.toLowerCase().includes(key.toLowerCase().replace(/_/g, ' ')) ||
+      key.toLowerCase().includes(col.toLowerCase().replace(/\s/g, '_'))
+    ) || key
+    
     insights.push({
-      column: col,
+      column: displayName,
+      key: key,
       distribution: sortedValues,
       uniqueValues: sortedValues.length,
       mostCommon: sortedValues[0] ? sortedValues[0][0] : null,
@@ -207,7 +224,14 @@ function generateFallbackSummary(dataSummary: any, queryType: string): string {
         summary += `• High Performance: Staff show strong satisfaction levels (${satisfactionInsight.average.toFixed(1)}/5.0), indicating good workplace conditions\n`
       } else if (satisfactionInsight.average < 3.0) {
         summary += `• Attention Needed: Satisfaction levels are concerning (${satisfactionInsight.average.toFixed(1)}/5.0), suggesting areas for improvement\n`
+      } else {
+        summary += `• Moderate Performance: Satisfaction levels are moderate (${satisfactionInsight.average.toFixed(1)}/5.0), with room for improvement\n`
       }
+      
+      // Add correlation analysis
+      const satisfactionRange = satisfactionInsight.max - satisfactionInsight.min
+      const experienceRange = experienceInsight.max - experienceInsight.min
+      summary += `• Data Range: Satisfaction varies by ${satisfactionRange.toFixed(1)} points, experience spans ${experienceRange} years\n`
     }
     
     if (overtimeInsight) {
@@ -215,6 +239,8 @@ function generateFallbackSummary(dataSummary: any, queryType: string): string {
         summary += `• High Overtime: Staff average ${overtimeInsight.average.toFixed(1)} overtime hours, indicating potential workload issues\n`
       } else if (overtimeInsight.average < 5) {
         summary += `• Balanced Workload: Overtime levels are reasonable at ${overtimeInsight.average.toFixed(1)} hours average\n`
+      } else {
+        summary += `• Moderate Overtime: Staff work ${overtimeInsight.average.toFixed(1)} overtime hours on average\n`
       }
     }
     
@@ -236,6 +262,8 @@ function generateFallbackSummary(dataSummary: any, queryType: string): string {
     } else if (queryType === 'aggregation') {
       summary += `\nDepartmental Overview: This analysis provides insights into how different departments compare across key metrics.\n`
     }
+  } else {
+    summary += `• No detailed metrics available for analysis\n`
   }
   
   summary += `\nThis analysis provides valuable insights into healthcare workforce patterns and can help inform management decisions.`
