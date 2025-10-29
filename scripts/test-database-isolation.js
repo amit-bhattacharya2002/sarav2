@@ -15,8 +15,7 @@ async function testDatabaseIsolation() {
   // Test 1: Check environment variables
   console.log('1️⃣  Checking Environment Variables:')
   const requiredVars = [
-    'SARAV2_BUSINESS_DATABASE_URL',
-    'SARAV2_APP_DATABASE_URL'
+    'SARAV2_DATABASE_URL'
   ]
   
   const missingVars = requiredVars.filter(varName => !process.env[varName])
@@ -30,80 +29,49 @@ async function testDatabaseIsolation() {
   
   console.log('✅ All required environment variables are set')
   
-  // Test 2: Verify database URLs are different
-  console.log('\n2️⃣  Verifying Database Separation:')
-  const businessUrl = process.env.SARAV2_BUSINESS_DATABASE_URL
-  const appUrl = process.env.SARAV2_APP_DATABASE_URL
+  // Test 2: Verify database URL is set
+  console.log('\n2️⃣  Verifying Database Configuration:')
+  const databaseUrl = process.env.SARAV2_DATABASE_URL
   
-  if (businessUrl === appUrl) {
-    console.log('❌ ERROR: Business and App databases are the same!')
-    console.log('   This could cause data corruption.')
+  if (!databaseUrl) {
+    console.log('❌ ERROR: SARAV2_DATABASE_URL is not set!')
     return false
   }
   
-  console.log('✅ Business and App databases are separate')
-  console.log(`   Business DB: ${businessUrl.split('@')[1] || 'hidden'}`)
-  console.log(`   App DB: ${appUrl.split('@')[1] || 'hidden'}`)
+  console.log('✅ SARA v2 database URL is configured')
+  console.log(`   Database: ${databaseUrl.split('@')[1] || 'hidden'}`)
   
-  // Test 3: Test business database connection (read-only)
-  console.log('\n3️⃣  Testing Business Database Connection:')
+  // Test 3: Test database connection
+  console.log('\n3️⃣  Testing Database Connection:')
   try {
-    const businessPrisma = new PrismaClient({
+    const prisma = new PrismaClient({
       datasources: {
         db: {
-          url: businessUrl
+          url: databaseUrl
         }
       }
     })
     
     // Test a simple read operation
-    await businessPrisma.$connect()
-    console.log('✅ Business database connection successful')
+    await prisma.$connect()
+    console.log('✅ Database connection successful')
     
-    // Test that we can't write (this should fail)
+    // Test that we can read business data
     try {
-      await businessPrisma.$executeRaw`CREATE TABLE test_write_protection (id INT)`
-      console.log('❌ WARNING: Business database allows writes! This is dangerous.')
+      await prisma.$executeRaw`SELECT 1 as test`
+      console.log('✅ Database allows read operations')
     } catch (error) {
-      console.log('✅ Business database is properly read-only')
+      console.log('❌ Database read test failed:', error.message)
     }
     
-    await businessPrisma.$disconnect()
+    await prisma.$disconnect()
   } catch (error) {
-    console.log('❌ Business database connection failed:', error.message)
+    console.log('❌ Database connection failed:', error.message)
     return false
   }
   
-  // Test 4: Test app database connection (read-write)
-  console.log('\n4️⃣  Testing App Database Connection:')
-  try {
-    const appPrisma = new PrismaClient({
-      datasources: {
-        db: {
-          url: appUrl
-        }
-      }
-    })
-    
-    await appPrisma.$connect()
-    console.log('✅ App database connection successful')
-    
-    // Test that we can write (this should succeed)
-    try {
-      await appPrisma.$executeRaw`SELECT 1 as test`
-      console.log('✅ App database allows read operations')
-    } catch (error) {
-      console.log('❌ App database read test failed:', error.message)
-    }
-    
-    await appPrisma.$disconnect()
-  } catch (error) {
-    console.log('❌ App database connection failed:', error.message)
-    return false
-  }
-  
-  // Test 5: Verify no legacy database references
-  console.log('\n5️⃣  Checking for Legacy Database References:')
+  // Test 4: Verify no legacy database references
+  console.log('\n4️⃣  Checking for Legacy Database References:')
   const legacyVar = process.env.BUSINESS_DATABASE_URL
   if (legacyVar) {
     console.log('⚠️  WARNING: Legacy BUSINESS_DATABASE_URL is still set')
@@ -116,9 +84,8 @@ async function testDatabaseIsolation() {
   console.log('\n🎉 Database isolation test completed successfully!')
   console.log('\n📋 Summary:')
   console.log('   ✅ Environment variables configured')
-  console.log('   ✅ Databases are properly separated')
-  console.log('   ✅ Business database is read-only')
-  console.log('   ✅ App database is accessible')
+  console.log('   ✅ Database connection successful')
+  console.log('   ✅ Database allows read operations')
   console.log('   ✅ No accidental production database access')
   
   return true

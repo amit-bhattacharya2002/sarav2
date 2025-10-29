@@ -30,15 +30,9 @@
     "debug-prisma": "node scripts/debug-prisma-vercel.js",
     "vercel-setup": "node scripts/vercel-build-setup.js",
     "deploy": "npm run pre-deploy && npx vercel --prod",
-    "db:generate": "prisma generate --schema=./prisma/schema.prisma && prisma generate --schema=./prisma/schema-business.prisma && prisma generate --schema=./prisma/schema-app.prisma",
-    "db:generate:business": "prisma generate --schema=./prisma/schema-business.prisma",
-    "db:generate:app": "prisma generate --schema=./prisma/schema-app.prisma",
-    "db:push": "prisma db push --schema=./prisma/schema.prisma",
-    "db:push:business": "prisma db push --schema=./prisma/schema-business.prisma",
-    "db:push:app": "prisma db push --schema=./prisma/schema-app.prisma",
-    "db:studio": "prisma studio --schema=./prisma/schema.prisma",
-    "db:studio:business": "prisma studio --schema=./prisma/schema-business.prisma",
-    "db:studio:app": "prisma studio --schema=./prisma/schema-app.prisma",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
     "postinstall": "npm run db:generate"
   },
   "dependencies": {

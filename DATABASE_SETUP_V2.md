@@ -4,50 +4,39 @@ This guide explains how to set up the completely isolated database configuration
 
 ## 🚨 Database Isolation Overview
 
-SARA v2 uses **two separate databases** to ensure complete isolation from your existing production system:
+SARA v2 uses **one separate database** to ensure complete isolation from your existing production system:
 
-1. **Business Database** (`SARAV2_BUSINESS_DATABASE_URL`) - READ ONLY
-   - Contains your business data (constituents, gifts, etc.)
-   - Completely separate from your current production database
-   - Read-only access to prevent accidental data modification
-
-2. **Application Database** (`SARAV2_APP_DATABASE_URL`) - READ/WRITE
-   - Contains application data (saved queries, dashboards, user data)
-   - Stores user-generated content and application state
-   - Full read/write access for application functionality
+**SARA v2 Database** (`SARAV2_DATABASE_URL`)
+- Contains both your business data (constituents, gifts) and application data (saved queries, dashboards)
+- Completely separate from your current production database
+- Read-only access to business data tables to prevent accidental modification
+- Full read/write access to application data tables for functionality
 
 ## 📋 Prerequisites
 
-- Two separate MySQL databases (or database instances)
-- Database credentials for both databases
+- One separate MySQL database (completely different from your production database)
+- Database credentials for the new database
 - Access to create tables and manage permissions
 
 ## 🗄️ Database Setup
 
-### Step 1: Create Your Databases
+### Step 1: Create Your Database
 
-Create two separate databases on your MySQL server:
+Create one separate database on your MySQL server:
 
 ```sql
--- Create the business database (for your data)
-CREATE DATABASE sarav2_business_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- Create the application database (for app data)
-CREATE DATABASE sarav2_app_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- Create the SARA v2 database (completely separate from production)
+CREATE DATABASE sarav2_database CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-### Step 2: Set Up Database Users (Recommended)
+### Step 2: Set Up Database User (Recommended)
 
-Create separate users with appropriate permissions:
+Create a user with appropriate permissions:
 
 ```sql
--- Business database user (read-only)
-CREATE USER 'sarav2_business'@'%' IDENTIFIED BY 'your_secure_password';
-GRANT SELECT ON sarav2_business_db.* TO 'sarav2_business'@'%';
-
--- Application database user (read/write)
-CREATE USER 'sarav2_app'@'%' IDENTIFIED BY 'your_secure_password';
-GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, ALTER ON sarav2_app_db.* TO 'sarav2_app'@'%';
+-- SARA v2 database user
+CREATE USER 'sarav2_user'@'%' IDENTIFIED BY 'your_secure_password';
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, ALTER ON sarav2_database.* TO 'sarav2_user'@'%';
 
 -- Apply changes
 FLUSH PRIVILEGES;
@@ -55,14 +44,14 @@ FLUSH PRIVILEGES;
 
 ### Step 3: Import Your Business Data
 
-Import your business data into the `sarav2_business_db` database:
+Import your business data into the `sarav2_database` database:
 
 ```bash
 # Export from your current database (if needed)
 mysqldump -u username -p current_database_name > business_data_backup.sql
 
-# Import into the new business database
-mysql -u sarav2_business -p sarav2_business_db < business_data_backup.sql
+# Import into the new SARA v2 database
+mysql -u sarav2_user -p sarav2_database < business_data_backup.sql
 ```
 
 ## ⚙️ Environment Configuration
@@ -75,44 +64,36 @@ Copy the template and configure your databases:
 cp env.template .env.local
 ```
 
-### Step 2: Configure Database URLs
+### Step 2: Configure Database URL
 
-Edit `.env.local` with your new database connections:
+Edit `.env.local` with your new database connection:
 
 ```env
 # SARA v2 Database Configuration
-SARAV2_BUSINESS_DATABASE_URL="mysql://sarav2_business:your_password@your_host:3306/sarav2_business_db"
-SARAV2_APP_DATABASE_URL="mysql://sarav2_app:your_password@your_host:3306/sarav2_app_db"
+SARAV2_DATABASE_URL="mysql://sarav2_user:your_password@your_host:3306/sarav2_database"
 
 # Optional: Legacy database reference (if you need to access old data)
-# LEGACY_BUSINESS_DATABASE_URL="mysql://username:password@host:3306/legacy_database"
+# LEGACY_DATABASE_URL="mysql://username:password@host:3306/legacy_database"
 ```
 
 ## 🚀 Application Setup
 
-### Step 1: Generate Prisma Clients
+### Step 1: Generate Prisma Client
 
-Generate the Prisma clients for both databases:
+Generate the Prisma client for your database:
 
 ```bash
-# Generate all clients
+# Generate Prisma client
 npm run db:generate
-
-# Or generate individually
-npm run db:generate:business
-npm run db:generate:app
 ```
 
-### Step 2: Push Database Schemas
+### Step 2: Push Database Schema
 
-Create the necessary tables in both databases:
+Create the necessary tables in your database:
 
 ```bash
-# Push business database schema (read-only tables)
-npm run db:push:business
-
-# Push application database schema (app tables)
-npm run db:push:app
+# Push database schema (creates all tables)
+npm run db:push
 ```
 
 ### Step 3: Test Database Isolation

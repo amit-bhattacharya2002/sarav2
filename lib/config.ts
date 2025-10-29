@@ -33,12 +33,10 @@ function getEnv(key: string, defaultValue: string = ''): string {
 
 // Database Configuration - SARA v2
 export const database = {
-  // New v2 business database (read-only)
-  businessUrl: isBuildTime ? 'mysql://placeholder:placeholder@localhost:3306/sarav2_business' : requireEnv('SARAV2_BUSINESS_DATABASE_URL'),
-  // New v2 application database (read-write)
-  appUrl: isBuildTime ? 'mysql://placeholder:placeholder@localhost:3306/sarav2_app' : requireEnv('SARAV2_APP_DATABASE_URL'),
+  // New v2 database (completely separate from production)
+  url: isBuildTime ? 'mysql://placeholder:placeholder@localhost:3306/sarav2_database' : requireEnv('SARAV2_DATABASE_URL'),
   // Legacy database (optional, read-only)
-  legacyUrl: getEnv('LEGACY_BUSINESS_DATABASE_URL'),
+  legacyUrl: getEnv('LEGACY_DATABASE_URL'),
 } as const
 
 // OpenAI Configuration
@@ -121,19 +119,11 @@ export function validateConfig(): void {
   const errors: string[] = []
 
   try {
-    if (!process.env.SARAV2_BUSINESS_DATABASE_URL) {
-      errors.push('SARAV2_BUSINESS_DATABASE_URL is required')
+    if (!process.env.SARAV2_DATABASE_URL) {
+      errors.push('SARAV2_DATABASE_URL is required')
     }
   } catch (e) {
-    errors.push('SARAV2_BUSINESS_DATABASE_URL is required')
-  }
-
-  try {
-    if (!process.env.SARAV2_APP_DATABASE_URL) {
-      errors.push('SARAV2_APP_DATABASE_URL is required')
-    }
-  } catch (e) {
-    errors.push('SARAV2_APP_DATABASE_URL is required')
+    errors.push('SARAV2_DATABASE_URL is required')
   }
 
   try {
