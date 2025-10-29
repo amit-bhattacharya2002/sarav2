@@ -12,16 +12,16 @@ datasource db {
 // Existing Business Data Models - READ ONLY
 // This matches your existing healthstaff_schedule table
 model healthstaff_schedule {
-    Staff_ID                      String  @id @db.NVarChar(50)
-    Department                    String? @db.NVarChar(50)
-    Shift_Duration_Hours          Int?
-    Patient_Load                  Int?
-    Workdays_per_Month            Int?
-    Overtime_Hours                Int?
-    Years_of_Experience           Int?
-    Absenteeism_Days              Int?
-    Satisfaction_Score            Decimal? @db.Decimal(18, 2)
-    Previous_Satisfaction_Rating  Decimal? @db.Decimal(18, 2)
+    Staff_ID                     String   @id @db.NVarChar(50)
+    Department                   String?  @db.NVarChar(50)
+    Shift_Duration_Hours         Int?
+    Patient_Load                 Int?
+    Workdays_per_Month           Int?
+    Overtime_Hours               Int?
+    Years_of_Experience          Int?
+    Absenteeism_Days             Int?
+    Satisfaction_Score           Decimal? @db.Decimal(18, 2)
+    Previous_Satisfaction_Rating Decimal? @db.Decimal(18, 2)
 
     @@map("healthstaff_schedule")
 }

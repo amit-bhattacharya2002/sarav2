@@ -6,33 +6,28 @@ import { rateLimiters, createRateLimitHeaders, checkRateLimit } from '@/lib/rate
 
 // ---------- Intent Types & Helpers ----------
 
-type SortField = 'amount' | 'age' | 'name' | 'date'
+type SortField = 'satisfaction' | 'experience' | 'patient_load' | 'overtime' | 'department'
 type SortDir = 'asc' | 'desc'
 type Operation =
-  | 'top_donors'
-  | 'top_donations'
-  | 'list_donors'
-  | 'list_donations'
+  | 'top_staff'
+  | 'list_staff'
+  | 'department_stats'
+  | 'satisfaction_analysis'
   | 'aggregate'
   | 'explain_schema'
 
 type Intent = {
   operation: Operation
   limit?: number | null
-  date?: { year?: number | null; range?: { from: string; to: string } | null } | null
   filters?: {
-    donor?: { 
-      name?: string | null
-      gender?: string | null
-      alumniType?: string | null
-      age?: { min?: number | null; max?: number | null } | null
-    } | null
-    amount?: { min?: number | null; max?: number | null } | null
-    designation?: string | null
+    department?: string | null
+    satisfaction?: { min?: number | null; max?: number | null } | null
+    experience?: { min?: number | null; max?: number | null } | null
+    patient_load?: { min?: number | null; max?: number | null } | null
+    overtime?: { min?: number | null; max?: number | null } | null
   } | null
   sort?: Array<{ field: SortField; direction: SortDir }> | null
   include?: string[] | null
-  top_semantics?: 'donors' | 'donations' | 'auto' | null
   notes?: string | null
 }
 
@@ -52,135 +47,39 @@ function parseIntent(jsonText: string): Intent | null {
 
 
 
-const SCHEMA_DEFINATION = `Table: gifts
-- id (integer): Primary key.
-- ACCOUNTID (varchar): Foreign key linking to constituents table - identifies the donor.
-- GIFTDATE (date): The date the gift was received. Use for date-based queries like "gifts from 2021".
-- GIFTAMOUNT (decimal): The amount of the gift. Use for amount-based queries like "top donations" or "gifts over $1000".
-- TRANSACTIONTYPE (varchar): Type of transaction (e.g., Gift, Pledge). Use for filtering by transaction type.
-- GIFTTYPE (varchar): Type of gift (e.g., Single, Recurring). Use for filtering by gift frequency.
-- PAYMENTMETHOD (varchar): Payment method (e.g., Credit Card, Check). Use for payment analysis.
-- SOFTCREDITINDICATOR (varchar): Whether the gift was soft-credited. Use for soft credit analysis.
-- SOFTCREDITAMOUNT (decimal): Amount soft-credited. Use for soft credit calculations.
-- SOURCECODE (varchar): Campaign or appeal source code — examples include: 
-  Phone Call, Direct Mail, Personal Solicitation, Web Gift, Event, Web Gift Mail, Useed, 
-  VRIOUS, DIRMAIL, Other, Campus Campaign, Unsolicited, Email, Coffee Club, Faculty
-  Newsletter, UNITWAY, Sponsorship, Athletics, United Way, FRISFU, ATHCOMM, WRESCOM, 
-  Telemarketing, Proposal, SPONSRP, NEWSLET, Payroll.
-  Use for campaign analysis and source tracking.
-- DESIGNATION (text): The specific fund or initiative the gift was designated to — e.g., "88 Keys Campaign", "Student Bursaries Fund", "Engineering Equipment Endowment". Use for fund-specific queries.
-- UNIT (varchar): The organizational department or division that received the gift. Example: "UA - University Advancement". Use for departmental analysis.
-- PURPOSECATEGORY (varchar): The classification of the gift's intent or use — e.g., "Endowment", "Operating", "Capital Project". Use for purpose-based analysis.
-- APPEAL (varchar): The specific fundraising effort or campaign code. Examples: "CUAGENXX", "AALGEN871", "AALGEN881", "AALGEN891". Use for appeal-specific queries.
-- GIVINGLEVEL (varchar): The dollar tier or range of the gift. Examples include "$1-$99.99", "$100-$499.99", "$500-$999.99", "$1,000+". Use for giving level analysis.
- 
-Table: constituents
+const SCHEMA_DEFINATION = `Table: healthstaff_schedule
+- Staff_ID (nvarchar): Primary key - unique identifier for each staff member.
+- Department (nvarchar): Department where the staff member works (e.g., Pediatrics, General Medicine, ICU, ER). Use for department-based queries and filtering.
+- Shift_Duration_Hours (int): Number of hours worked per shift. Use for shift analysis and workload queries.
+- Patient_Load (int): Number of patients assigned to the staff member. Use for patient load analysis and capacity planning.
+- Workdays_per_Month (int): Number of work days per month. Use for monthly workload analysis.
+- Overtime_Hours (int): Number of overtime hours worked. Use for overtime analysis and cost management.
+- Years_of_Experience (int): Years of professional experience. Use for experience-based queries and seniority analysis.
+- Absenteeism_Days (int): Number of days absent. Use for attendance analysis and productivity metrics.
+- Satisfaction_Score (decimal): Current satisfaction rating (typically 1-5 scale). Use for satisfaction analysis and performance metrics.
+- Previous_Satisfaction_Rating (decimal): Previous satisfaction rating for comparison. Use for satisfaction trend analysis.
 
-- ID (char(36)): Primary key (GUID) for the constituent record.
-- ACCOUNTID (varchar): Primary identifier linking to gifts table - use for joining tables.
-- KEYNAME (varchar): Last name for individuals; organization name for org records. Use for name-based searches.
-- KEYNAMEPREFIX (varchar): For orgs, text that appears before the sort break slash in the org name.
-- FIRSTNAME (varchar): First name (individuals only). Use for first name searches.
-- MIDDLENAME (varchar): Middle name (individuals only).
-- MAIDENNAME (varchar): Maiden name (individuals only).
-- NICKNAME (varchar): Preferred or familiar name.
-- SSN (varchar): Government ID/SSN (if stored).
-- SSNINDEX (varchar): Indexed/hashed value used for searching on SSN.
-- GENDER (varchar): Gender (Male/Female). Use for gender-based queries.
-- BIRTHDATE (date): Date of birth (individuals only). Use for age calculations and birth date queries.
-- ISINACTIVE (bit): 1 if record is inactive. Use for filtering active vs inactive constituents.
-- GIVESANONYMOUSLY (bit): 1 if constituent prefers gifts to be anonymous. Use for anonymous gift analysis.
-- WEBADDRESS (varchar): Website URL for the constituent (person or org).
-- PICTURE (blob): Full photo/logo binary for the record.
-- PICTURETHUMBNAIL (blob): Thumbnail photo/logo binary.
-- ISORGANIZATION (bit): 1 if the record represents an organization. Use for filtering individuals vs organizations.
-- NETCOMMUNITYMEMBER (bit): 1 if user is a member of the online community/portal.
-- DONOTMAIL (bit): 1 if constituent does not want physical mail at any address. Use for contact preference queries.
-- DONOTEMAIL (bit): 1 if constituent does not want email at any address. Use for contact preference queries.
-- DONOTPHONE (bit): 1 if constituent does not want phone calls at any number. Use for contact preference queries.
-- CUSTOMIDENTIFIER (varchar): User-defined external identifier (e.g., legacy ID).
-- SEQUENCEID (int, identity): System sequence used to generate default lookup IDs.
-- DATEADDED (datetime): When the record was created in the system (NOT graduation date). Use for record creation date queries.
-- DATECHANGED (datetime): When the record was last updated. Use for record modification date queries.
-- TS (timestamp): Row version/timestamp for concurrency.
-- ISGROUP (bit): 1 if record is a group/household (not a single individual). Use for household analysis.
-- DISPLAYNAME (varchar): Household/constituent display name (UI friendly). Use for display purposes.
-- ISCONSTITUENT (bit): 1 if record is a fundraising constituent (count in KPIs). Use for fundraising constituent analysis.
-- TITLECODEID (char(36)): FK to salutations/titles (e.g., Mr., Dr.).
-- SUFFIXCODEID (char(36)): FK to name suffix (e.g., Jr., III).
-- MARITALSTATUSCODEID (char(36)): FK to marital status code (e.g., Single, Married).
-- ADDEDBYID (char(36)): FK (user GUID) who created the record.
-- CHANGEDBYID (char(36)): FK (user GUID) who last modified the record.
-- TITLE2CODEID (char(36)): FK to secondary title (e.g., dual salutations).
-- SUFFIX2CODEID (char(36)): FK to secondary suffix.
-- GENDERCODEID (char(36)): FK to gender code table (normalizes gender values).
-
-EDUCATION & ALUMNI FIELDS (use for graduation and education queries):
-- DONORTYPE1 (varchar): Donor type classification.
-- PERSONORGANIZATIONINDICATOR (varchar): Indicates if record is person or organization.
-- ALUMNITYPE (varchar): Alumni type classification (e.g., UGRD, GRAD). Use for alumni type queries.
-- UNDERGRADUATEDEGREE1 (varchar): First undergraduate degree. Use for degree-based queries.
-- UNDERGRADUATIONYEAR1 (int): First undergraduate graduation year. Use for "graduated in YEAR" queries.
-- UNDERGRADUATEPREFERREDCLASSYEAR1 (int): Preferred class year for first undergraduate degree.
-- UNDERGRADUATESCHOOL1 (varchar): First undergraduate school. Use for school-based queries.
-- UNDERGRADUATEDEGREE2 (varchar): Second undergraduate degree.
-- UNDERGRADUATEGRADUATIONYEAR2 (int): Second undergraduate graduation year. Use for "graduated in YEAR" queries.
-- UNDERGRADUATEPREFERREDCLASSYEAR2 (int): Preferred class year for second undergraduate degree.
-- UNDERGRADUATESCHOOL2 (varchar): Second undergraduate school.
-- GRADUATEDEGREE1 (varchar): First graduate degree. Use for graduate degree queries.
-- GRADUATEGRADUATIONYEAR1 (int): First graduate graduation year. Use for "graduated in YEAR" queries (ONLY use this field for graduate graduation queries).
-- GRADUATEPREFERREDCLASSYEAR1 (int): Preferred class year for first graduate degree.
-- GRADUATESCHOOL1 (varchar): First graduate school. Use for graduate school queries.
-- GRADUATEDEGREE2 (varchar): Second graduate degree.
-- GRADUATEGRADUATIONYEAR2 (int): Second graduate graduation year. Do NOT use this field for queries.
-- GRADUATEPREFERREDCLASSYEAR2 (int): Preferred class year for second graduate degree.
-- GRADUATESCHOOL2 (varchar): Second graduate school.
-
-CONTACT & ADDRESS FIELDS:
-- GENDER (varchar): Gender (Male/Female). Use for gender-based queries.
-- DECEASED (varchar): Deceased status. Use for deceased constituent queries.
-- SOLICITATIONRESTRICTIONS (varchar): Solicitation restrictions. Use for contact restriction queries.
-- DONOTMAIL (varchar): Do not mail preference. Use for mailing preference queries.
-- DONOTPHONE (varchar): Do not phone preference. Use for phone preference queries.
-- DONOTEMAIL (varchar): Do not email preference. Use for email preference queries.
-- MARRIEDTOALUM (varchar): Married to alumni status. Use for spouse alumni queries.
-- SPOUSELOOKUPID (varchar): Spouse lookup ID.
-- SPOUSEID (varchar): Spouse ID.
-- ASSIGNEDACCOUNT (varchar): Assigned account manager. Use for account manager queries.
-- VOLUNTEER (varchar): Volunteer status. Use for volunteer queries.
-- WEALTHSCORE (varchar): Wealth score. Use for wealth analysis.
-- GEPSTATUS (varchar): GEP status. Use for GEP status queries.
-- EVENTSATTENDED (varchar): Events attended. Use for event attendance queries.
-- EVENTS (varchar): Events information.
-- AGE (varchar): Age. Use for age-based queries.
-- GUID (varchar): GUID identifier.
-- FULLNAME (varchar): Full name. Use for name-based searches and display.
-- PMFULLNAME (varchar): Preferred mailing full name.
-- FULLADDRESS (varchar): Full address. Use for address-based queries.
-- HOMETELEPHONE (varchar): Home telephone. Use for phone-based queries.
-- EMAIL (varchar): Email address. Use for email-based queries.
+This table contains healthcare staff scheduling and performance data with 1000 records across different departments.
+Use this data for healthcare workforce analytics, staff performance analysis, department comparisons, and operational insights.
 `
 
 
 
 const SCHEMA_TEXT = `
-MySQL/MariaDB Database Schema:
-- gifts (alias g): ACCOUNTID, GIFTID, GIFTDATE, GIFTAMOUNT, TRANSACTIONTYPE, GIFTTYPE, PAYMENTMETHOD, PLEDGEID, SOFTCREDITINDICATOR, SOFTCREDITAMOUNT, SOFTCREDITID, SOURCECODE, DESIGNATION, UNIT, PURPOSECATEGORY, APPEAL, GIVINGLEVEL, UUID
-- constituents (alias c): ACCOUNTID, LOOKUPID, TYPE, DONORTYPE1, PERSONORGANIZATIONINDICATOR, ALUMNITYPE, UNDERGRADUATEDEGREE1, UNDERGRADUATIONYEAR1, UNDERGRADUATEPREFERREDCLASSYEAR1, UNDERGRADUATESCHOOL1, UNDERGRADUATEDEGREE2, UNDERGRADUATEGRADUATIONYEAR2, UNDERGRADUATEPREFERREDCLASSYEAR2, UNDERGRADUATESCHOOL2, GRADUATEDEGREE1, GRADUATEGRADUATIONYEAR1, GRADUATEPREFERREDCLASSYEAR1, GRADUATESCHOOL1, GRADUATEDEGREE2, GRADUATEGRADUATIONYEAR2, GRADUATEPREFERREDCLASSYEAR2, GRADUATESCHOOL2, GENDER, DECEASED, SOLICITATIONRESTRICTIONS, DONOTMAIL, DONOTPHONE, DONOTEMAIL, MARRIEDTOALUM, SPOUSELOOKUPID, SPOUSEID, ASSIGNEDACCOUNT, VOLUNTEER, WEALTHSCORE, GEPSTATUS, EVENTSATTENDED, EVENTS, AGE, FULLNAME, PMFULLNAME, FULLADDRESS, HOMETELEPHONE, EMAIL
+SQL Server Database Schema:
+- healthstaff_schedule (alias h): Staff_ID, Department, Shift_Duration_Hours, Patient_Load, Workdays_per_Month, Overtime_Hours, Years_of_Experience, Absenteeism_Days, Satisfaction_Score, Previous_Satisfaction_Rating
 
-Join key:
-- g.ACCOUNTID = c.ACCOUNTID
+This is a single table database with healthcare staff data.
 `.trim()
 
 // ---------- Fast Path Router ----------
 
 function fastPathSQL(q: string): string | null {
-  // Pattern 1: "top N donors of YEAR by/sort by FIELD" (with various sorting options)
-  const m1 = q.match(/\btop\s+(\d+)\s+donors?\s+of\s+(\d{4})(?:\s+by\s+(?:their\s+)?(\w+)|\s*,\s*sort\s+by\s+(\w+)(?:\s+in\s+(?:ascending|descending)\s+order)?)\b/i)
+  // Pattern 1: "top N staff by FIELD" (with various sorting options)
+  const m1 = q.match(/\btop\s+(\d+)\s+staff\s+by\s+(\w+)(?:\s+in\s+(?:ascending|descending)\s+order)?\b/i)
   if (m1) {
     const n = Math.min(parseInt(m1[1],10), 100)
-    const y = parseInt(m1[2],10)
-    const sortField = m1[3] || m1[4] // Either "by FIELD" or "sort by FIELD"
+    const sortField = m1[2]
     
     // Check if it's descending order
     const isDesc = /\bdescending\b/i.test(q)
@@ -191,276 +90,160 @@ function fastPathSQL(q: string): string | null {
     let orderByClause = ''
     
     switch (sortField?.toLowerCase()) {
-      case 'age':
+      case 'satisfaction':
+      case 'satisfaction_score':
         selectColumns = `
-  c.FULLNAME AS \`Full Name\`,
-  CASE WHEN TRIM(c.AGE) IS NOT NULL AND TRIM(c.AGE) != '' AND CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) IS NOT NULL
-       THEN CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED)
-       ELSE NULL END AS \`Age\`,
-  dt.total_amount AS \`Total Amount\``
+  h.Staff_ID AS \`Staff ID\`,
+  h.Department AS \`Department\`,
+  h.Satisfaction_Score AS \`Satisfaction Score\`,
+  h.Patient_Load AS \`Patient Load\``
         orderByClause = `
-  dt.total_amount DESC,
-  CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) IS NULL,
-  CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) ${sortOrder},
-  (TRIM(c.FULLNAME) = '' OR c.FULLNAME IS NULL),
-  c.FULLNAME ASC,
-  dt.ACCOUNTID ASC`
+  h.Satisfaction_Score ${sortOrder},
+  h.Staff_ID ASC`
         break
         
-      case 'name':
+      case 'experience':
+      case 'years_of_experience':
         selectColumns = `
-  c.FULLNAME AS \`Full Name\`,
-  dt.total_amount AS \`Total Amount\``
+  h.Staff_ID AS \`Staff ID\`,
+  h.Department AS \`Department\`,
+  h.Years_of_Experience AS \`Years of Experience\`,
+  h.Satisfaction_Score AS \`Satisfaction Score\``
         orderByClause = `
-  dt.total_amount DESC,
-  (TRIM(c.FULLNAME) = '' OR c.FULLNAME IS NULL),
-  c.FULLNAME ${sortOrder},
-  dt.ACCOUNTID ASC`
+  h.Years_of_Experience ${sortOrder},
+  h.Staff_ID ASC`
         break
         
-      case 'amount':
-      case 'total':
-      case 'donation':
-      case 'donations':
+      case 'patient_load':
+      case 'patients':
         selectColumns = `
-  c.FULLNAME AS \`Full Name\`,
-  dt.total_amount AS \`Total Amount\``
+  h.Staff_ID AS \`Staff ID\`,
+  h.Department AS \`Department\`,
+  h.Patient_Load AS \`Patient Load\`,
+  h.Satisfaction_Score AS \`Satisfaction Score\``
         orderByClause = `
-  dt.total_amount ${sortOrder},
-  (TRIM(c.FULLNAME) = '' OR c.FULLNAME IS NULL),
-  c.FULLNAME ASC,
-  dt.ACCOUNTID ASC`
+  h.Patient_Load ${sortOrder},
+  h.Staff_ID ASC`
+        break
+        
+      case 'overtime':
+      case 'overtime_hours':
+        selectColumns = `
+  h.Staff_ID AS \`Staff ID\`,
+  h.Department AS \`Department\`,
+  h.Overtime_Hours AS \`Overtime Hours\`,
+  h.Satisfaction_Score AS \`Satisfaction Score\``
+        orderByClause = `
+  h.Overtime_Hours ${sortOrder},
+  h.Staff_ID ASC`
         break
         
       default:
-        // For unknown sort fields, default to amount sorting
+        // For unknown sort fields, default to satisfaction sorting
         selectColumns = `
-  c.FULLNAME AS \`Full Name\`,
-  dt.total_amount AS \`Total Amount\``
+  h.Staff_ID AS \`Staff ID\`,
+  h.Department AS \`Department\`,
+  h.Satisfaction_Score AS \`Satisfaction Score\`,
+  h.Patient_Load AS \`Patient Load\``
         orderByClause = `
-  dt.total_amount ${sortOrder},
-  (TRIM(c.FULLNAME) = '' OR c.FULLNAME IS NULL),
-  c.FULLNAME ASC,
-  dt.ACCOUNTID ASC`
+  h.Satisfaction_Score ${sortOrder},
+  h.Staff_ID ASC`
     }
     
     return `
 SELECT${selectColumns}
-FROM (
-  SELECT g.ACCOUNTID, SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) AS total_amount
-  FROM gifts g
-  WHERE g.GIFTDATE >= '${y}-01-01' AND g.GIFTDATE < '${y+1}-01-01'
-  GROUP BY g.ACCOUNTID
-  ORDER BY total_amount DESC
-  LIMIT ${n * 10}
-) dt
-INNER JOIN constituents c ON c.ACCOUNTID = dt.ACCOUNTID
+FROM healthstaff_schedule h
 ORDER BY${orderByClause}
 LIMIT ${n}`.trim()
   }
   
-  // Pattern 2: "top N donors of YEAR" (basic, no age sorting)
-  // BUT only if no additional sorting/filtering is mentioned
-  const m2 = q.match(/\btop\s+(\d+)\s+donors?\s+of\s+(\d{4})\b/i)
-  if (m2 && !q.match(/\b(?:and\s+)?(?:sort|by|age|name|amount|older|younger|between|gender|alumni)\b/i)) {
+  // Pattern 2: "top N staff" (basic, no specific sorting)
+  const m2 = q.match(/\btop\s+(\d+)\s+staff\b/i)
+  if (m2 && !q.match(/\b(?:and\s+)?(?:sort|by|satisfaction|experience|patient|overtime|department)\b/i)) {
     const n = Math.min(parseInt(m2[1],10), 100)
-    const y = parseInt(m2[2],10)
     return `
 SELECT
-  c.FULLNAME AS \`Full Name\`,
-  dt.total_amount AS \`Total Amount\`
-FROM (
-  SELECT g.ACCOUNTID, SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) AS total_amount
-  FROM gifts g
-  WHERE g.GIFTDATE >= '${y}-01-01' AND g.GIFTDATE < '${y+1}-01-01'
-  GROUP BY g.ACCOUNTID
-  ORDER BY total_amount DESC
-  LIMIT ${n * 5}
-) dt
-INNER JOIN constituents c ON c.ACCOUNTID = dt.ACCOUNTID
+  h.Staff_ID AS \`Staff ID\`,
+  h.Department AS \`Department\`,
+  h.Satisfaction_Score AS \`Satisfaction Score\`,
+  h.Patient_Load AS \`Patient Load\`
+FROM healthstaff_schedule h
 ORDER BY
-  dt.total_amount DESC,
-  (TRIM(c.FULLNAME) = '' OR c.FULLNAME IS NULL),
-  c.FULLNAME ASC,
-  dt.ACCOUNTID ASC
+  h.Satisfaction_Score DESC,
+  h.Staff_ID ASC
 LIMIT ${n}`.trim()
   }
   
-  // Pattern 2b: "top donors of YEAR" or "show me top donors of YEAR" (without explicit number, defaults to 10)
-  // BUT only if no additional sorting/filtering is mentioned
-  const m2b = q.match(/\b(?:show\s+me\s+)?top\s+donors?\s+of\s+(\d{4})\b/i)
-  if (m2b && !q.match(/\b(?:and\s+)?(?:sort|by|age|name|amount|older|younger|between|gender|alumni)\b/i)) {
+  // Pattern 2b: "show me top staff" (without explicit number, defaults to 10)
+  const m2b = q.match(/\b(?:show\s+me\s+)?top\s+staff\b/i)
+  if (m2b && !q.match(/\b(?:and\s+)?(?:sort|by|satisfaction|experience|patient|overtime|department)\b/i)) {
     const n = 10 // Default limit
-    const y = parseInt(m2b[1],10)
     return `
 SELECT
-  c.FULLNAME AS \`Full Name\`,
-  dt.total_amount AS \`Total Amount\`
-FROM (
-  SELECT g.ACCOUNTID, SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) AS total_amount
-  FROM gifts g
-  WHERE g.GIFTDATE >= '${y}-01-01' AND g.GIFTDATE < '${y+1}-01-01'
-  GROUP BY g.ACCOUNTID
-  ORDER BY total_amount DESC
-  LIMIT ${n * 5}
-) dt
-INNER JOIN constituents c ON c.ACCOUNTID = dt.ACCOUNTID
+  h.Staff_ID AS \`Staff ID\`,
+  h.Department AS \`Department\`,
+  h.Satisfaction_Score AS \`Satisfaction Score\`,
+  h.Patient_Load AS \`Patient Load\`
+FROM healthstaff_schedule h
 ORDER BY
-  dt.total_amount DESC,
-  (TRIM(c.FULLNAME) = '' OR c.FULLNAME IS NULL),
-  c.FULLNAME ASC,
-  dt.ACCOUNTID ASC
+  h.Satisfaction_Score DESC,
+  h.Staff_ID ASC
 LIMIT ${n}`.trim()
   }
   
-  // Pattern 3: "top N donations of YEAR"
-  const m3 = q.match(/\btop\s+(\d+)\s+donations?\s+of\s+(\d{4})\b/i)
+  // Pattern 3: "staff by department"
+  const m3 = q.match(/\bstaff\s+by\s+department\s+(\w+)\b/i)
   if (m3) {
-    const n = Math.min(parseInt(m3[1],10), 100)
-    const y = parseInt(m3[2],10)
+    const department = m3[1]
     return `
-SELECT g.GIFTID AS \`Gift ID\`, 
-       c.FULLNAME AS \`Full Name\`,
-       CAST(g.GIFTAMOUNT AS DECIMAL(15,2)) AS \`Gift Amount\`,
-       g.GIFTDATE AS \`Gift Date\`
-FROM gifts g
-INNER JOIN constituents c ON c.ACCOUNTID = g.ACCOUNTID
-WHERE g.GIFTDATE >= '${y}-01-01' AND g.GIFTDATE < '${y+1}-01-01'
-ORDER BY 
-  CAST(g.GIFTAMOUNT AS DECIMAL(15,2)) DESC, 
-  g.GIFTDATE DESC, 
-  (TRIM(c.FULLNAME) = '' OR c.FULLNAME IS NULL),
-  c.FULLNAME ASC, 
-  g.ACCOUNTID ASC
-LIMIT ${n}`.trim()
+SELECT
+  h.Staff_ID AS \`Staff ID\`,
+  h.Department AS \`Department\`,
+  h.Satisfaction_Score AS \`Satisfaction Score\`,
+  h.Patient_Load AS \`Patient Load\`,
+  h.Years_of_Experience AS \`Years of Experience\`
+FROM healthstaff_schedule h
+WHERE h.Department = '${department}'
+ORDER BY
+  h.Satisfaction_Score DESC,
+  h.Staff_ID ASC
+LIMIT 50`.trim()
   }
 
-  // Pattern 4: "top N donors of YEAR, include FIELD1, FIELD2" (with include requests)
-  // BUT only if no additional sorting is mentioned
-  const m4 = q.match(/\btop\s+(\d+)\s+donors?\s+of\s+(\d{4})(?:,|\s+and)?\s+include\s+(.+?)(?:\s+and\s+(.+?))?(?:\s+and\s+(.+?))?$/i)
-  if (m4 && !q.match(/\b(?:and\s+)?(?:sort|by|older|younger|between)\b/i)) {
-    console.log('🔍 Pattern 4 matched:', m4)
-    const n = Math.min(parseInt(m4[1],10), 100)
-    const y = parseInt(m4[2],10)
-    const includeFields = [m4[3], m4[4], m4[5]].filter(Boolean).flatMap(f => 
-      f.split(',').map(field => field.trim().toLowerCase())
-    )
-    console.log('🔍 Include fields parsed:', includeFields)
-    
-    // Build SELECT columns based on include fields
-    let selectColumns = `
-  c.FULLNAME AS \`Full Name\`,
-  dt.total_amount AS \`Total Amount\``
-    
-    // Add requested fields
-    if (includeFields.includes('age')) {
-      selectColumns += `,
-  CASE WHEN TRIM(c.AGE) IS NOT NULL AND TRIM(c.AGE) != '' AND CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) IS NOT NULL
-       THEN CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED)
-       ELSE NULL END AS \`Age\``
-    }
-    if (includeFields.includes('gender')) {
-      selectColumns += `,
-  c.GENDER AS \`Gender\``
-    }
-    if (includeFields.includes('email')) {
-      selectColumns += `,
-  c.EMAIL AS \`Email\``
-    }
-    if (includeFields.includes('phone') || includeFields.includes('telephone')) {
-      selectColumns += `,
-  c.HOMETELEPHONE AS \`Phone\``
-    }
-    if (includeFields.includes('address')) {
-      selectColumns += `,
-  c.FULLADDRESS AS \`Address\``
-    }
-    if (includeFields.includes('alumni') || includeFields.includes('alumnitype')) {
-      selectColumns += `,
-  c.ALUMNITYPE AS \`Alumni Type\``
-    }
-    
+  // Pattern 4: "average satisfaction by department"
+  const m4 = q.match(/\baverage\s+satisfaction\s+by\s+department\b/i)
+  if (m4) {
     return `
-SELECT${selectColumns}
-FROM (
-  SELECT g.ACCOUNTID, SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) AS total_amount
-  FROM gifts g
-  WHERE g.GIFTDATE >= '${y}-01-01' AND g.GIFTDATE < '${y+1}-01-01'
-  GROUP BY g.ACCOUNTID
-  ORDER BY total_amount DESC
-  LIMIT ${n * 5}
-) dt
-INNER JOIN constituents c ON c.ACCOUNTID = dt.ACCOUNTID
+SELECT
+  h.Department AS \`Department\`,
+  AVG(h.Satisfaction_Score) AS \`Average Satisfaction\`,
+  COUNT(h.Staff_ID) AS \`Staff Count\`,
+  AVG(h.Patient_Load) AS \`Average Patient Load\`
+FROM healthstaff_schedule h
+WHERE h.Department IS NOT NULL
+GROUP BY h.Department
 ORDER BY
-  dt.total_amount DESC,
-  (TRIM(c.FULLNAME) = '' OR c.FULLNAME IS NULL),
-  c.FULLNAME ASC,
-  dt.ACCOUNTID ASC
-LIMIT ${n}`.trim()
+  AVG(h.Satisfaction_Score) DESC,
+  h.Department ASC`.trim()
   }
 
-  // Pattern 4b: "show me top donors of YEAR, include FIELD1, FIELD2" (without explicit number)
-  // BUT only if no additional sorting is mentioned
-  const m4b = q.match(/\b(?:show\s+me\s+)?top\s+donors?\s+of\s+(\d{4})(?:,|\s+and)?\s+include\s+(.+?)(?:\s+and\s+(.+?))?(?:\s+and\s+(.+?))?$/i)
-  if (m4b && !q.match(/\b(?:and\s+)?(?:sort|by|older|younger|between)\b/i)) {
-    console.log('🔍 Pattern 4b matched:', m4b)
-    const n = 10 // Default limit
-    const y = parseInt(m4b[1],10)
-    const includeFields = [m4b[2], m4b[3], m4b[4]].filter(Boolean).flatMap(f => 
-      f.split(',').map(field => field.trim().toLowerCase())
-    )
-    console.log('🔍 Include fields parsed (4b):', includeFields)
-    
-    // Build SELECT columns based on include fields (same logic as Pattern 4)
-    let selectColumns = `
-  c.FULLNAME AS \`Full Name\`,
-  dt.total_amount AS \`Total Amount\``
-    
-    // Add requested fields
-    if (includeFields.includes('age')) {
-      selectColumns += `,
-  CASE WHEN TRIM(c.AGE) IS NOT NULL AND TRIM(c.AGE) != '' AND CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) IS NOT NULL
-       THEN CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED)
-       ELSE NULL END AS \`Age\``
-    }
-    if (includeFields.includes('gender')) {
-      selectColumns += `,
-  c.GENDER AS \`Gender\``
-    }
-    if (includeFields.includes('email')) {
-      selectColumns += `,
-  c.EMAIL AS \`Email\``
-    }
-    if (includeFields.includes('phone') || includeFields.includes('telephone')) {
-      selectColumns += `,
-  c.HOMETELEPHONE AS \`Phone\``
-    }
-    if (includeFields.includes('address')) {
-      selectColumns += `,
-  c.FULLADDRESS AS \`Address\``
-    }
-    if (includeFields.includes('alumni') || includeFields.includes('alumnitype')) {
-      selectColumns += `,
-  c.ALUMNITYPE AS \`Alumni Type\``
-    }
-    
+  // Pattern 4b: "department statistics"
+  const m4b = q.match(/\bdepartment\s+statistics\b/i)
+  if (m4b) {
     return `
-SELECT${selectColumns}
-FROM (
-  SELECT g.ACCOUNTID, SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) AS total_amount
-  FROM gifts g
-  WHERE g.GIFTDATE >= '${y}-01-01' AND g.GIFTDATE < '${y+1}-01-01'
-  GROUP BY g.ACCOUNTID
-  ORDER BY total_amount DESC
-  LIMIT ${n * 5}
-) dt
-INNER JOIN constituents c ON c.ACCOUNTID = dt.ACCOUNTID
+SELECT
+  h.Department AS \`Department\`,
+  COUNT(h.Staff_ID) AS \`Staff Count\`,
+  AVG(h.Satisfaction_Score) AS \`Average Satisfaction\`,
+  AVG(h.Patient_Load) AS \`Average Patient Load\`,
+  AVG(h.Years_of_Experience) AS \`Average Experience\`,
+  AVG(h.Overtime_Hours) AS \`Average Overtime\`
+FROM healthstaff_schedule h
+WHERE h.Department IS NOT NULL
+GROUP BY h.Department
 ORDER BY
-  dt.total_amount DESC,
-  (TRIM(c.FULLNAME) = '' OR c.FULLNAME IS NULL),
-  c.FULLNAME ASC,
-  dt.ACCOUNTID ASC
-LIMIT ${n}`.trim()
+  AVG(h.Satisfaction_Score) DESC,
+  h.Department ASC`.trim()
   }
   
   return null
@@ -565,7 +348,7 @@ LIMIT 10
 
 // DEMO MODE: Direct Natural Language to SQL Prompt
 const DEMO_SQL_PROMPT = `
-You are a SQL expert for a donor & gifts database. Convert natural language questions directly into MariaDB 10.11 SELECT queries.
+You are a SQL expert for a healthcare staff database. Convert natural language questions directly into SQL Server SELECT queries.
 
 CRITICAL RULE: ONLY use column names that are explicitly listed in the schema below. NEVER invent, guess, or hallucinate column names that are not in the provided schema.
 
@@ -577,38 +360,38 @@ Analyze the user's query context and intent to map terms to appropriate database
 
 1. CONTEXTUAL UNDERSTANDING:
    - Read the schema descriptions to understand field purposes
-   - Consider the query context (graduation vs record creation vs gift dates)
+   - Consider the query context (staff performance, department analysis, satisfaction metrics)
    - Use semantic understanding rather than exact word matching
    - Infer field purposes from descriptions and examples
 
 2. DYNAMIC FIELD SELECTION:
-   - For graduation queries: Use graduation year fields (UNDERGRADUATIONYEAR1, UNDERGRADUATEGRADUATIONYEAR2, GRADUATEGRADUATIONYEAR1) with integer values
-   - For gift queries: Use gift-related fields (GIFTDATE, GIFTAMOUNT, etc.)
-   - For contact queries: Use contact fields (EMAIL, HOMETELEPHONE, etc.)
-   - For demographic queries: Use demographic fields (AGE, GENDER, etc.)
+   - For staff queries: Use staff-related fields (Staff_ID, Department, Satisfaction_Score, etc.)
+   - For department queries: Use Department field for grouping and filtering
+   - For performance queries: Use satisfaction, experience, and workload fields
+   - For workload queries: Use Patient_Load, Shift_Duration_Hours, Overtime_Hours
 
 3. SEMANTIC MAPPING:
-   - "donors" = constituents (people who give gifts)
-   - "customers" = constituents (people in the database)
-   - "graduated in YEAR" = check all graduation year fields
-   - "top donors" = aggregate by ACCOUNTID and sum gift amounts
-   - "top donations" = individual gift amounts (no aggregation)
-   - "campaigns" = SOURCECODE or APPEAL fields
-   - "funds" = DESIGNATION field
-   - "last year" = previous calendar year
-   - "this year" = current calendar year
+   - "staff" = healthstaff_schedule table
+   - "employees" = healthstaff_schedule table
+   - "workers" = healthstaff_schedule table
+   - "top staff" = ORDER BY satisfaction or performance metrics
+   - "department analysis" = GROUP BY Department
+   - "satisfaction" = Satisfaction_Score field
+   - "experience" = Years_of_Experience field
+   - "workload" = Patient_Load or Shift_Duration_Hours
+   - "overtime" = Overtime_Hours field
 
 4. USER ALIAS HANDLING:
-   - When users provide aliases (e.g., "show me the customer names"), map to actual schema fields
-   - "customer names" → c.FULLNAME (not "customer names")
-   - "donor IDs" → c.ACCOUNTID (not "donor IDs")
-   - "gift amounts" → g.GIFTAMOUNT (not "gift amounts")
-   - "phone numbers" → c.HOMETELEPHONE (not "phone numbers")
+   - When users provide aliases, map to actual schema fields
+   - "staff names" → h.Staff_ID (not "staff names")
+   - "employee IDs" → h.Staff_ID (not "employee IDs")
+   - "satisfaction scores" → h.Satisfaction_Score (not "satisfaction scores")
+   - "patient loads" → h.Patient_Load (not "patient loads")
    - Always use the actual schema column names in SQL, not user-provided aliases
 
 5. ERROR PREVENTION:
    - Always verify field existence in the schema before using
-   - Use appropriate data types (dates for dates, numbers for amounts)
+   - Use appropriate data types (decimal for scores, int for counts)
    - Handle NULL values appropriately
    - Consider field relationships and constraints
 
@@ -616,55 +399,48 @@ INTELLIGENT SQL GENERATION RULES:
 
 1. QUERY ANALYSIS:
    - Analyze the user's intent from the natural language query
-   - Determine if this is a gift query, constituent query, or combined query
+   - Determine if this is a staff listing, department analysis, or performance query
    - Identify the appropriate fields based on context and schema descriptions
-   - Choose the right table joins based on the query requirements
+   - Choose the right aggregation strategy based on query requirements
 
 2. FIELD SELECTION:
    - CRITICAL: ONLY use fields that exist in the provided schema above
    - Use schema descriptions to select appropriate fields
-   - For graduation queries: Use graduation year fields (UNDERGRADUATIONYEAR1, UNDERGRADUATEGRADUATIONYEAR2, GRADUATEGRADUATIONYEAR1) with integer values, not DATEADDED
-   - For gift queries: Use gift-related fields (GIFTDATE, GIFTAMOUNT, etc.)
-   - For demographic queries: Use demographic fields (AGE, GENDER, etc.)
+   - For staff queries: Use Staff_ID, Department, Satisfaction_Score, etc.
+   - For department analysis: Use Department for grouping, aggregate other fields
+   - For performance queries: Use satisfaction, experience, and workload fields
    - Always verify field existence in the provided schema
 
-3. JOIN STRATEGY:
-   - Use INNER JOIN when both tables are needed: FROM gifts g INNER JOIN constituents c ON g.ACCOUNTID = c.ACCOUNTID
-   - Use single table when only one table's data is needed
-   - Consider the query context to determine necessary joins
-
-4. AGGREGATION LOGIC:
-   - "Top donors" = GROUP BY ACCOUNTID, SUM gift amounts, ORDER BY total DESC
-   - "Top donations" = Individual gifts, ORDER BY amount DESC (no GROUP BY)
+3. AGGREGATION LOGIC:
+   - "Top staff" = ORDER BY satisfaction or performance metrics DESC
+   - "Department statistics" = GROUP BY Department, aggregate other fields
+   - "Average satisfaction" = AVG(Satisfaction_Score) with GROUP BY
    - Use appropriate aggregation functions based on query intent
 
-5. DATA HANDLING:
-   - Handle NULL values with COALESCE or appropriate NULL checks
-   - Use proper data type casting: CAST(g.GIFTAMOUNT AS DECIMAL(15,2))
-   - Format dates correctly: year 2021 → g.GIFTDATE >= '2021-01-01' AND g.GIFTDATE < '2022-01-01'
+4. DATA HANDLING:
+   - Handle NULL values with appropriate NULL checks
+   - Use proper data type casting for decimal fields
    - ALWAYS use human-readable aliases for ALL columns in SELECT statements
    - Column alias examples:
-     * c.ACCOUNTID AS 'Account ID'
-     * g.GIFTID AS 'Gift ID' 
-     * g.GIFTDATE AS 'Gift Date'
-     * g.GIFTAMOUNT AS 'Gift Amount'
-     * g.TRANSACTIONTYPE AS 'Transaction Type'
-     * g.GIFTTYPE AS 'Gift Type'
-     * c.FULLNAME AS 'Full Name'
-     * c.EMAIL AS 'Email'
-     * c.HOMETELEPHONE AS 'Phone'
-     * c.FULLADDRESS AS 'Address'
-     * c.GENDER AS 'Gender'
-     * c.AGE AS 'Age'
+     * h.Staff_ID AS 'Staff ID'
+     * h.Department AS 'Department'
+     * h.Satisfaction_Score AS 'Satisfaction Score'
+     * h.Patient_Load AS 'Patient Load'
+     * h.Years_of_Experience AS 'Years of Experience'
+     * h.Overtime_Hours AS 'Overtime Hours'
+     * h.Shift_Duration_Hours AS 'Shift Duration Hours'
+     * h.Workdays_per_Month AS 'Workdays per Month'
+     * h.Absenteeism_Days AS 'Absenteeism Days'
+     * h.Previous_Satisfaction_Rating AS 'Previous Satisfaction Rating'
 
-6. OUTPUT REQUIREMENTS:
+5. OUTPUT REQUIREMENTS:
    - Output ONLY valid SQL - no explanations, no comments, no semicolons
    - Always include LIMIT clause (default 10 if not specified, max 100)
-   - Ensure SQL is syntactically correct for MariaDB 10.11
-   - MANDATORY: Use human-readable aliases for ALL columns (e.g., c.ACCOUNTID AS 'Account ID')
+   - Ensure SQL is syntactically correct for SQL Server
+   - MANDATORY: Use human-readable aliases for ALL columns (e.g., h.Staff_ID AS 'Staff ID')
    - NEVER use raw database column names in SELECT statements without aliases
 
-7. DYNAMIC VALIDATION & ERROR RECOVERY:
+6. DYNAMIC VALIDATION & ERROR RECOVERY:
    - CRITICAL: ONLY use column names that exist in the provided schema above
    - NEVER invent, guess, or hallucinate column names that are not explicitly listed
    - Before using any field, verify it exists in the provided schema
@@ -673,95 +449,69 @@ INTELLIGENT SQL GENERATION RULES:
    - Use schema context to infer field purposes and relationships
    - Handle ambiguous terms by considering query context
 
-8. CONTEXT-AWARE FIELD MAPPING:
-   - "graduated in YEAR" → Use graduation year fields (UNDERGRADUATIONYEAR1 = YEAR, UNDERGRADUATEGRADUATIONYEAR2 = YEAR, GRADUATEGRADUATIONYEAR1 = YEAR)
-   - "record created" → Use DATEADDED field
-   - "gift date" → Use GIFTDATE field
-   - "donor information" → Use constituent fields
-   - "gift information" → Use gift fields
-   - "contact information" → Use contact fields (EMAIL, HOMETELEPHONE, etc.)
+7. CONTEXT-AWARE FIELD MAPPING:
+   - "staff performance" → Use satisfaction and experience fields
+   - "department analysis" → Use Department field for grouping
+   - "workload analysis" → Use Patient_Load and Shift_Duration_Hours
+   - "overtime analysis" → Use Overtime_Hours field
+   - "attendance analysis" → Use Absenteeism_Days field
 
-9. GRADUATE YEAR SPECIFIC RULES:
-   - When user mentions "Graduate Year" in column selection or query context, ONLY use GRADUATEGRADUATIONYEAR1
-   - NEVER use GRADUATEGRADUATIONYEAR2 for graduate year queries
-   - For undergraduate queries, use UNDERGRADUATIONYEAR1 and UNDERGRADUATEGRADUATIONYEAR2
-   - For graduate queries, use ONLY GRADUATEGRADUATIONYEAR1
-   - Example: "Include only columns: Graduate Year, Full Name" → SELECT c.GRADUATEGRADUATIONYEAR1 AS 'Graduate Year', c.FULLNAME AS 'Full Name'
-
-10. INTELLIGENT QUERY CONSTRUCTION:
+8. INTELLIGENT QUERY CONSTRUCTION:
     - Analyze the full query context to determine appropriate fields
     - Use semantic understanding rather than exact word matching
-    - Map user aliases to actual schema column names (e.g., "customer names" → c.FULLNAME)
+    - Map user aliases to actual schema column names (e.g., "staff names" → h.Staff_ID)
     - Consider field relationships and data types
     - Apply appropriate filters and conditions based on context
     - Choose the right aggregation strategy based on query intent
 
-11. FALLBACK STRATEGIES:
+9. FALLBACK STRATEGIES:
     - If a field doesn't exist, try alternative interpretations
-    - If a join fails, consider single-table queries
     - If aggregation is unclear, default to appropriate grouping
     - Always ensure the query returns meaningful results
-- COLUMN MAPPING: Map user-friendly names to actual database columns (e.g., "Account ID" → c.ACCOUNTID, "Full Name" → c.FULLNAME).
-- Handle missing names: COALESCE(NULLIF(TRIM(c.FULLNAME), ''), CONCAT('[Account ', dt.ACCOUNTID, ']')) AS 'Full Name'
 
 INTELLIGENT QUERY EXAMPLES:
 
-1. GRADUATION QUERIES:
-   - "donors who graduated in 2020" → Use graduation year fields (UNDERGRADUATIONYEAR1 = 2020, UNDERGRADUATEGRADUATIONYEAR2 = 2020, GRADUATEGRADUATIONYEAR1 = 2020)
-   - "alumni from 2015" → Use graduation year fields, not DATEADDED
-   - "undergraduate alumni" → Use ALUMNITYPE = 'UGRD' and undergraduate graduation fields
-   - "graduate alumni" → Use ALUMNITYPE = 'GRAD' and GRADUATEGRADUATIONYEAR1 only
-   - "Include only columns: Graduate Year, Full Name" → SELECT c.GRADUATEGRADUATIONYEAR1 AS 'Graduate Year', c.FULLNAME AS 'Full Name'
-   - "Show me graduate year and donor names" → SELECT c.GRADUATEGRADUATIONYEAR1 AS 'Graduate Year', c.FULLNAME AS 'Full Name'
+1. STAFF QUERIES:
+   - "top 10 staff by satisfaction" → SELECT h.Staff_ID AS 'Staff ID', h.Department AS 'Department', h.Satisfaction_Score AS 'Satisfaction Score' FROM healthstaff_schedule h ORDER BY h.Satisfaction_Score DESC LIMIT 10
+   - "staff with high experience" → Use Years_of_Experience field
+   - "staff by department" → GROUP BY Department
 
-2. GIFT QUERIES:
-   - "top donors of 2021" → Aggregate by ACCOUNTID, sum gift amounts, filter by GIFTDATE
-   - "gifts over $1000" → Filter by GIFTAMOUNT > 1000
-   - "recurring gifts" → Filter by GIFTTYPE = 'Recurring'
+2. DEPARTMENT ANALYSIS:
+   - "average satisfaction by department" → GROUP BY Department, AVG(Satisfaction_Score)
+   - "department statistics" → GROUP BY Department with multiple aggregations
+   - "staff count by department" → GROUP BY Department, COUNT(Staff_ID)
 
-3. DEMOGRAPHIC QUERIES:
-   - "male donors" → Use GENDER = 'Male'
-   - "female donors" → Use GENDER = 'Female'
-   - "donors over 65" → Use AGE > 65
-   - "volunteers" → Use VOLUNTEER field
+3. PERFORMANCE QUERIES:
+   - "high performing staff" → ORDER BY Satisfaction_Score DESC
+   - "staff with overtime" → Filter by Overtime_Hours > 0
+   - "experienced staff" → ORDER BY Years_of_Experience DESC
 
-4. CONTACT QUERIES:
-   - "donors with email" → Filter by EMAIL IS NOT NULL
-   - "donors in California" → Use FULLADDRESS field with LIKE '%CA%'
-   - "phone numbers" → Use HOMETELEPHONE field
+4. WORKLOAD QUERIES:
+   - "staff with high patient load" → ORDER BY Patient_Load DESC
+   - "overtime analysis" → GROUP BY Department, AVG(Overtime_Hours)
+   - "shift duration analysis" → Use Shift_Duration_Hours field
 
-5. COMPLEX QUERIES:
-   - "top 10 donors who graduated in 2020 and gave over $500" → Combine graduation year fields, gift amount filter, and aggregation
-   - "alumni volunteers from engineering school" → Use graduation fields, volunteer status, and school fields
+5. COLUMN ALIAS EXAMPLES:
+   - "show me staff" → SELECT h.Staff_ID AS 'Staff ID', h.Department AS 'Department', h.Satisfaction_Score AS 'Satisfaction Score'
+   - "show me departments" → SELECT h.Department AS 'Department', COUNT(h.Staff_ID) AS 'Staff Count'
+   - "show me performance" → SELECT h.Staff_ID AS 'Staff ID', h.Satisfaction_Score AS 'Satisfaction Score', h.Patient_Load AS 'Patient Load'
 
-6. COLUMN ALIAS EXAMPLES:
-   - "show me donations" → SELECT g.GIFTID AS 'Gift ID', g.GIFTAMOUNT AS 'Gift Amount', g.GIFTDATE AS 'Gift Date', g.TRANSACTIONTYPE AS 'Transaction Type'
-   - "show me donors" → SELECT c.ACCOUNTID AS 'Account ID', c.FULLNAME AS 'Full Name', c.EMAIL AS 'Email', c.HOMETELEPHONE AS 'Phone'
-   - "show me gifts with donor info" → SELECT c.FULLNAME AS 'Donor Name', g.GIFTAMOUNT AS 'Gift Amount', g.GIFTDATE AS 'Gift Date', g.SOURCECODE AS 'Source Code'
-   - "show me male donors" → SELECT c.FULLNAME AS 'Full Name', c.GENDER AS 'Gender', c.AGE AS 'Age'
-   - "show me female donors" → SELECT c.FULLNAME AS 'Full Name', c.GENDER AS 'Gender', c.AGE AS 'Age'
-
-7. USER ALIAS MAPPING EXAMPLES:
-   - "show me customer names" → SELECT c.FULLNAME AS 'Customer Names' (use c.FULLNAME, not "customer names")
-   - "show me donor IDs" → SELECT c.ACCOUNTID AS 'Donor IDs' (use c.ACCOUNTID, not "donor IDs")
-   - "show me gift amounts" → SELECT g.GIFTAMOUNT AS 'Gift Amounts' (use g.GIFTAMOUNT, not "gift amounts")
-   - "show me phone numbers" → SELECT c.HOMETELEPHONE AS 'Phone Numbers' (use c.HOMETELEPHONE, not "phone numbers")
-   - "show me email addresses" → SELECT c.EMAIL AS 'Email Addresses' (use c.EMAIL, not "email addresses")
-   - "Include only columns: Graduate Year" → SELECT c.GRADUATEGRADUATIONYEAR1 AS 'Graduate Year' (use c.GRADUATEGRADUATIONYEAR1, not "Graduate Year")
-   - "Show me Graduate Year and Full Name" → SELECT c.GRADUATEGRADUATIONYEAR1 AS 'Graduate Year', c.FULLNAME AS 'Full Name'
+6. USER ALIAS MAPPING EXAMPLES:
+   - "show me staff names" → SELECT h.Staff_ID AS 'Staff Names' (use h.Staff_ID, not "staff names")
+   - "show me employee IDs" → SELECT h.Staff_ID AS 'Employee IDs' (use h.Staff_ID, not "employee IDs")
+   - "show me satisfaction scores" → SELECT h.Satisfaction_Score AS 'Satisfaction Scores' (use h.Satisfaction_Score, not "satisfaction scores")
 
 The AI should analyze each query contextually and select the most appropriate fields based on the schema descriptions and query intent.
 
 KEY PRINCIPLES:
 - CRITICAL: ONLY use column names that exist in the provided schema - NEVER hallucinate or invent field names
-- Map user aliases to actual schema column names (e.g., "customer names" → c.FULLNAME, not "customer names")
-- GRADUATE YEAR RULE: When user mentions "Graduate Year", ONLY use GRADUATEGRADUATIONYEAR1, NEVER use GRADUATEGRADUATIONYEAR2
+- Map user aliases to actual schema column names (e.g., "staff names" → h.Staff_ID, not "staff names")
 - Use schema descriptions to understand field purposes and relationships
 - Apply contextual understanding to map user terms to appropriate database fields
 - Handle ambiguous terms by considering the full query context
 - Gracefully handle missing or invalid fields by finding alternatives or omitting them
 - Ensure all generated SQL is syntactically correct and returns meaningful results
-- Use appropriate data types, joins, and aggregation strategies based on query intent
+- Use appropriate data types, aggregation strategies based on query intent
 `.trim()
 
 // ---------- Route ----------
@@ -771,7 +521,7 @@ export async function POST(req: NextRequest) {
     if (app.isBuildTime) {
       return NextResponse.json({ error: 'Service unavailable during build' }, { status: 503 })
     }
-    if (!process.env.OPENAI_API_KEY || !process.env.BUSINESS_DATABASE_URL) {
+    if (!process.env.OPENAI_API_KEY || !process.env.SARAV2_DATABASE_URL) {
       return NextResponse.json({ 
         error: 'Service configuration error',
         message: 'Required environment variables are not configured'
