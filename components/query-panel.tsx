@@ -294,8 +294,8 @@ interface QueryPanelProps {
   setColumns: (value: { key: string; name: string }[]) => void
   summary: string | null
   setSummary: (value: string | null) => void
-  activeResultsTab: 'data' | 'summary'
-  setActiveResultsTab: (value: 'data' | 'summary') => void
+  activeResultsTab: 'data' | 'summary' | 'chat'
+  setActiveResultsTab: (value: 'data' | 'summary' | 'chat') => void
   error: string | null
   setError: (value: string | null) => void
   onSubmit: (comboPrompt?: string) => void
@@ -382,6 +382,11 @@ export function QueryPanel({
   const [selectedColumns, setSelectedColumns] = useState<string[]>([])
   const [columnSelectionMode, setColumnSelectionMode] = useState<'auto' | 'all' | 'specific'>('auto')
   const isInitializingFromSavedQuery = useRef(false)
+
+  // Chat state
+  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
+  const [chatInput, setChatInput] = useState('')
+  const [isChatSending, setIsChatSending] = useState(false)
 
   // Auto-expand column selector only when user is actively typing, keep collapsed after search
   useEffect(() => {
@@ -1457,6 +1462,17 @@ export function QueryPanel({
                       Summary
                     </button>
                   )}
+                  <button
+                    onClick={() => setActiveResultsTab('chat')}
+                    className={`px-4 py-2 text-sm font-medium transition-colors ${
+                      activeResultsTab === 'chat'
+                        ? 'border-b-2 border-primary text-primary bg-background'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <span className="h-4 w-4 mr-2 inline">💬</span>
+                    Chat
+                  </button>
                 </div>
 
                 {/* Results Content */}
@@ -1506,7 +1522,7 @@ export function QueryPanel({
                   </div>
                 )}
                   </>
-                ) : (
+                ) : activeResultsTab === 'summary' ? (
                   /* Summary Tab Content */
                   <div className="flex-1 overflow-auto p-6">
                     <div className="prose prose-sm max-w-none">
@@ -1520,6 +1536,70 @@ export function QueryPanel({
                         </div>
                       </div>
                     </div>
+                  </div>
+                ) : (
+                  // Chat Tab Content
+                  <div className="flex flex-col flex-1 min-h-0">
+                    <div className="flex-1 overflow-auto p-4 space-y-3">
+                      {chatMessages.length === 0 && (
+                        <div className="text-sm text-muted-foreground">Start asking follow-up questions about the current results (e.g., "Is satisfaction higher in Pediatrics than ER?").</div>
+                      )}
+                      {chatMessages.map((m, idx) => (
+                        <div key={idx} className={`max-w-3xl ${m.role === 'assistant' ? 'self-start' : 'self-end'} p-3 rounded border ${m.role === 'assistant' ? 'bg-card' : 'bg-primary/10'}`}>
+                          <div className="text-xs mb-1 text-muted-foreground">{m.role === 'assistant' ? 'Assistant' : 'You'}</div>
+                          <div className="whitespace-pre-wrap text-sm">{m.content}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault()
+                        if (!chatInput.trim()) return
+                        const userMsg = chatInput.trim()
+                        setChatMessages(prev => [...prev, { role: 'user', content: userMsg }])
+                        setChatInput('')
+                        setIsChatSending(true)
+                        try {
+                          const res = await fetch('/api/data-chat', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              history: [...chatMessages, { role: 'user', content: userMsg }],
+                              context: {
+                                question,
+                                sql: sqlQuery,
+                                results: queryResults,
+                                columns: columns.map(c => c.name)
+                              }
+                            })
+                          })
+                          const data = await res.json()
+                          const answer = data?.answer || 'Sorry, I could not generate an answer.'
+                          setChatMessages(prev => [...prev, { role: 'assistant', content: answer }])
+                        } catch (err) {
+                          setChatMessages(prev => [...prev, { role: 'assistant', content: 'Error answering. Please try again.' }])
+                        } finally {
+                          setIsChatSending(false)
+                        }
+                      }}
+                      className="border-t p-3 flex items-center gap-2"
+                    >
+                      <Textarea
+                        value={chatInput}
+                        onChange={e => setChatInput(e.target.value)}
+                        placeholder="Ask a follow-up question about these results..."
+                        className="flex-1"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault()
+                            ;(e.currentTarget.form as HTMLFormElement)?.requestSubmit()
+                          }
+                        }}
+                      />
+                      <Button type="submit" disabled={isChatSending || !queryResults || queryResults.length === 0}>
+                        {isChatSending ? 'Sending...' : 'Send'}
+                      </Button>
+                    </form>
                   </div>
                 )}
               </div>

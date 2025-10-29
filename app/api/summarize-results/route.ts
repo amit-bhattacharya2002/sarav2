@@ -56,10 +56,10 @@ async function generateResultSummary(
   
   try {
     // For now, return a fallback summary since we need to set up OpenAI properly
-    return generateFallbackSummary(dataSummary, queryType)
+    return generateFallbackSummary(dataSummary, queryType, originalQuery, results)
   } catch (error) {
     console.error('Summary generation error:', error)
-    return generateFallbackSummary(dataSummary, queryType)
+    return generateFallbackSummary(dataSummary, queryType, originalQuery, results)
   }
 }
 
@@ -164,6 +164,52 @@ function categorizeQuery(query: string): string {
   }
 }
 
+// Compute Pearson correlation coefficient for two numeric keys
+function computeCorrelation(pairs: Array<{x: number, y: number}>): number | null {
+  const n = pairs.length
+  if (n < 2) return null
+  let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0
+  for (const { x, y } of pairs) {
+    if (typeof x !== 'number' || typeof y !== 'number') return null
+    sumX += x
+    sumY += y
+    sumXY += x * y
+    sumX2 += x * x
+    sumY2 += y * y
+  }
+  const numerator = n * sumXY - sumX * sumY
+  const denom = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY))
+  if (!denom || !isFinite(denom)) return null
+  return numerator / denom
+}
+
+function computeSlope(pairs: Array<{x: number, y: number}>): number | null {
+  const n = pairs.length
+  if (n < 2) return null
+  let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0
+  for (const { x, y } of pairs) {
+    if (typeof x !== 'number' || typeof y !== 'number') return null
+    sumX += x
+    sumY += y
+    sumXY += x * y
+    sumX2 += x * x
+  }
+  const denom = n * sumX2 - sumX * sumX
+  if (!denom) return null
+  return (n * sumXY - sumX * sumY) / denom
+}
+
+function pickKeyByHints(keys: string[], hints: string[]): string | undefined {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const normalizedKeys = keys.map(k => ({ k, n: norm(k) }))
+  for (const hint of hints) {
+    const h = norm(hint)
+    const hit = normalizedKeys.find(({ n }) => n.includes(h))
+    if (hit) return hit.k
+  }
+  return undefined
+}
+
 function createSummaryPrompt(
   originalQuery: string, 
   sql: string, 
@@ -179,13 +225,13 @@ function createSummaryPrompt(
   
   if (insights.length > 0) {
     prompt += `KEY METRICS FOUND:\n`
-    insights.forEach(insight => {
+    insights.forEach((insight: any) => {
       if (insight.average !== undefined) {
         prompt += `- ${insight.column}: Average ${insight.average.toFixed(2)}, Range ${insight.min}-${insight.max}\n`
       } else if (insight.distribution) {
         prompt += `- ${insight.column}: ${insight.uniqueValues} unique values\n`
         if (insight.distribution.length > 0) {
-          prompt += `  Top values: ${insight.distribution.slice(0, 3).map(([val, count]) => `${val} (${count})`).join(', ')}\n`
+          prompt += `  Top values: ${insight.distribution.slice(0, 3).map(([val, count]: [string, number]) => `${val} (${count})`).join(', ')}\n`
         }
       }
     })
@@ -202,71 +248,84 @@ function createSummaryPrompt(
   return prompt
 }
 
-function generateFallbackSummary(dataSummary: any, queryType: string): string {
+function generateFallbackSummary(dataSummary: any, queryType: string, originalQuery?: string, results?: any[]): string {
   const { count, insights } = dataSummary
   
-  let summary = `Analysis of ${count} healthcare staff records reveals the following insights:\n\n`
-  
-  if (insights.length > 0) {
-    summary += `Key Findings:\n`
-    
-    // Find satisfaction insights
-    const satisfactionInsight = insights.find((i: any) => i.column.toLowerCase().includes('satisfaction'))
-    const experienceInsight = insights.find((i: any) => i.column.toLowerCase().includes('experience'))
-    const overtimeInsight = insights.find((i: any) => i.column.toLowerCase().includes('overtime'))
-    const departmentInsight = insights.find((i: any) => i.column.toLowerCase().includes('department'))
-    
-    if (satisfactionInsight && experienceInsight) {
-      summary += `• Satisfaction vs Experience: Average satisfaction is ${satisfactionInsight.average.toFixed(1)}/5.0, with experience ranging from ${experienceInsight.min} to ${experienceInsight.max} years\n`
-      
-      // Add correlation insights
-      if (satisfactionInsight.average > 4.0) {
-        summary += `• High Performance: Staff show strong satisfaction levels (${satisfactionInsight.average.toFixed(1)}/5.0), indicating good workplace conditions\n`
-      } else if (satisfactionInsight.average < 3.0) {
-        summary += `• Attention Needed: Satisfaction levels are concerning (${satisfactionInsight.average.toFixed(1)}/5.0), suggesting areas for improvement\n`
-      } else {
-        summary += `• Moderate Performance: Satisfaction levels are moderate (${satisfactionInsight.average.toFixed(1)}/5.0), with room for improvement\n`
-      }
-      
-      // Add correlation analysis
-      const satisfactionRange = satisfactionInsight.max - satisfactionInsight.min
-      const experienceRange = experienceInsight.max - experienceInsight.min
-      summary += `• Data Range: Satisfaction varies by ${satisfactionRange.toFixed(1)} points, experience spans ${experienceRange} years\n`
-    }
-    
-    if (overtimeInsight) {
-      if (overtimeInsight.average > 10) {
-        summary += `• High Overtime: Staff average ${overtimeInsight.average.toFixed(1)} overtime hours, indicating potential workload issues\n`
-      } else if (overtimeInsight.average < 5) {
-        summary += `• Balanced Workload: Overtime levels are reasonable at ${overtimeInsight.average.toFixed(1)} hours average\n`
-      } else {
-        summary += `• Moderate Overtime: Staff work ${overtimeInsight.average.toFixed(1)} overtime hours on average\n`
+  let summary = ''
+
+  // Question-aware answer first
+  if (queryType === 'correlation' && results && results.length > 0) {
+    const keys = Object.keys(results[0] || {})
+    // Prefer exact schema columns when available
+    const experienceKey =
+      pickKeyByHints(keys, ['Years_of_Experience', 'Years of Experience', 'experience', 'years'])
+    const satisfactionKey =
+      pickKeyByHints(keys, ['Satisfaction_Score', 'Satisfaction Score', 'satisfaction'])
+
+    const aKey = experienceKey || pickKeyByHints(keys, ['experience', 'years'])
+    const bKey = satisfactionKey || pickKeyByHints(keys, ['satisfaction', 'score'])
+
+    if (aKey && bKey && aKey !== bKey) {
+      const pairs = results
+        .map((r: any) => ({ x: r[aKey], y: r[bKey] }))
+        .filter(p => typeof p.x === 'number' && typeof p.y === 'number')
+
+      const r = computeCorrelation(pairs)
+      const slope = computeSlope(pairs)
+      const pretty = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+
+      if (typeof r === 'number') {
+        const strength = Math.abs(r)
+        const label = r > 0 ? 'positive' : 'negative'
+        const strengthLabel = strength >= 0.7 ? 'strong' : strength >= 0.4 ? 'moderate' : strength >= 0.2 ? 'weak' : 'very weak'
+        const slopeText = typeof slope === 'number' ? `, and each +1 unit in ${pretty(aKey)} is associated with ${slope >= 0 ? '+' : ''}${slope.toFixed(2)} change in ${pretty(bKey)}` : ''
+        summary += `Answer: There is a ${strengthLabel} ${label} correlation (r = ${r.toFixed(2)}) between ${pretty(aKey)} and ${pretty(bKey)} across ${pairs.length} records${slopeText}.\n\n`
       }
     }
-    
-    if (departmentInsight && departmentInsight.distribution) {
-      const topDept = departmentInsight.distribution[0]
-      const secondDept = departmentInsight.distribution[1]
-      summary += `• Department Distribution: ${topDept[0]} leads with ${topDept[1]} staff`
-      if (secondDept) {
-        summary += `, followed by ${secondDept[0]} with ${secondDept[1]} staff`
-      }
-      summary += `\n`
-    }
-    
-    // Add specific insights based on query type
-    if (queryType === 'correlation') {
-      summary += `\nCorrelation Analysis: This data shows the relationship between different staff metrics. Look for patterns in how variables change together.\n`
-    } else if (queryType === 'ranking') {
-      summary += `\nTop Performers: These results highlight the highest-performing staff members based on your criteria.\n`
-    } else if (queryType === 'aggregation') {
-      summary += `\nDepartmental Overview: This analysis provides insights into how different departments compare across key metrics.\n`
-    }
-  } else {
-    summary += `• No detailed metrics available for analysis\n`
+  }
+
+  if (!summary) {
+    summary = `Answer: Based on ${count} records, here are the key findings relevant to your question.\n\n`
   }
   
-  summary += `\nThis analysis provides valuable insights into healthcare workforce patterns and can help inform management decisions.`
+  summary += `Key Findings:\n`
   
+  // Find satisfaction insights
+  const satisfactionInsight = insights?.find((i: any) => i.column.toLowerCase().includes('satisfaction'))
+  const experienceInsight = insights?.find((i: any) => i.column.toLowerCase().includes('experience'))
+  const overtimeInsight = insights?.find((i: any) => i.column.toLowerCase().includes('overtime'))
+  const departmentInsight = insights?.find((i: any) => i.column.toLowerCase().includes('department'))
+  
+  if (
+    satisfactionInsight &&
+    typeof satisfactionInsight.average === 'number' &&
+    experienceInsight &&
+    typeof experienceInsight.min === 'number' &&
+    typeof experienceInsight.max === 'number'
+  ) {
+    summary += `• Satisfaction avg ${satisfactionInsight.average.toFixed(1)}/5.0; experience range ${experienceInsight.min}-${experienceInsight.max} years\n`
+    if (typeof satisfactionInsight.max === 'number' && typeof satisfactionInsight.min === 'number') {
+      const satisfactionRange = satisfactionInsight.max - satisfactionInsight.min
+      summary += `• Satisfaction varies by ${satisfactionRange.toFixed(1)} points across the sample\n`
+    }
+  }
+  
+  if (overtimeInsight && typeof overtimeInsight.average === 'number') {
+    summary += `• Overtime avg ${overtimeInsight.average.toFixed(1)} hours\n`
+  }
+  
+  if (departmentInsight && Array.isArray(departmentInsight.distribution) && departmentInsight.distribution.length > 0) {
+    const topDept: [string, number] = departmentInsight.distribution[0] as [string, number]
+    const secondDept: [string, number] | undefined = departmentInsight.distribution[1] as [string, number] | undefined
+    summary += `• Dept mix: ${topDept[0]} (${topDept[1]})${secondDept ? `, ${secondDept[0]} (${secondDept[1]})` : ''}\n`
+  }
+  
+  // Close with guidance tied to query type
+  if (queryType === 'correlation') {
+    summary += `\nInterpretation: Positive r suggests higher ${originalQuery?.includes('experience') ? 'experience' : 'X'} tends to align with higher ${originalQuery?.includes('satisfaction') ? 'satisfaction' : 'Y'}; negative r suggests the opposite.`
+  } else if (queryType === 'aggregation') {
+    summary += `\nInterpretation: Averages help compare groups; consider outliers and sample sizes.`
+  }
+
   return summary
 }

@@ -286,7 +286,7 @@ export default function Dashboard() {
   const [queryResults, setQueryResults] = useState<any[] | null>(null)
   const [columns, setColumns] = useState<{ key: string; name: string }[]>([])
   const [summary, setSummary] = useState<string | null>(null)
-  const [activeResultsTab, setActiveResultsTab] = useState<'data' | 'summary'>('data')
+  const [activeResultsTab, setActiveResultsTab] = useState<'data' | 'summary' | 'chat'>('data')
   const [error, setError] = useState<string | null>(null)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   
