@@ -24,7 +24,6 @@ const basePrisma = globalForPrisma.prisma ?? new PrismaClient({
   // Disable connection during build
   ...(isBuildTime && {
     errorFormat: 'minimal',
-    rejectOnNotFound: false,
   })
 })
 
