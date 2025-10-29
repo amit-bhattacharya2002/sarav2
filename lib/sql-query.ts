@@ -11,11 +11,7 @@ export interface QueryResult {
 export async function executeSQLQuery(sql: string, originalQuestion?: string, userSortPreference?: 'asc' | 'desc'): Promise<QueryResult> {
   try {
     // Check if we're in build mode - return mock data
-    const isBuildTime = process.env.NODE_ENV === 'production' && (
-      !process.env.VERCEL_ENV || 
-      process.env.VERCEL_ENV === 'preview' || 
-      typeof window === 'undefined' && !process.env.SARAV2_DATABASE_URL
-    )
+    const isBuildTime = !process.env.SARAV2_DATABASE_URL || process.env.SARAV2_DATABASE_URL.includes('placeholder')
 
     if (isBuildTime) {
       console.log('🏗️ Build time detected - returning mock data')

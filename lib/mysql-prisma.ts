@@ -5,11 +5,7 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 // Check if we're in build mode or Vercel build environment
-const isBuildTime = process.env.NODE_ENV === 'production' && (
-  !process.env.VERCEL_ENV || 
-  process.env.VERCEL_ENV === 'preview' || 
-  typeof window === 'undefined' && !process.env.SARAV2_DATABASE_URL
-)
+const isBuildTime = !process.env.SARAV2_DATABASE_URL || process.env.SARAV2_DATABASE_URL.includes('placeholder')
 
 // Create the base Prisma client with connection pooling optimization
 // This connects to your new SARA v2 database (completely separate from production)
@@ -21,10 +17,6 @@ const basePrisma = globalForPrisma.prisma ?? new PrismaClient({
   },
   // Connection pooling optimization
   log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-  // Disable connection during build
-  ...(isBuildTime && {
-    errorFormat: 'minimal',
-  })
 })
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = basePrisma
