@@ -14,19 +14,20 @@ SARA v2 uses **one separate database** to ensure complete isolation from your ex
 
 ## 📋 Prerequisites
 
-- One separate MySQL database (completely different from your production database)
+- One separate SQL Server database (completely different from your production database)
 - Database credentials for the new database
 - Access to create tables and manage permissions
+- SQL Server ODBC Driver installed
 
 ## 🗄️ Database Setup
 
 ### Step 1: Create Your Database
 
-Create one separate database on your MySQL server:
+Create one separate database on your SQL Server:
 
 ```sql
 -- Create the SARA v2 database (completely separate from production)
-CREATE DATABASE sarav2_database CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE saradb_vih;
 ```
 
 ### Step 2: Set Up Database User (Recommended)
@@ -35,23 +36,23 @@ Create a user with appropriate permissions:
 
 ```sql
 -- SARA v2 database user
-CREATE USER 'sarav2_user'@'%' IDENTIFIED BY 'your_secure_password';
-GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, ALTER ON sarav2_database.* TO 'sarav2_user'@'%';
-
--- Apply changes
-FLUSH PRIVILEGES;
+CREATE LOGIN sarav2_user WITH PASSWORD = 'your_secure_password';
+CREATE USER sarav2_user FOR LOGIN sarav2_user;
+ALTER ROLE db_datareader ADD MEMBER sarav2_user;
+ALTER ROLE db_datawriter ADD MEMBER sarav2_user;
+ALTER ROLE db_ddladmin ADD MEMBER sarav2_user;
 ```
 
 ### Step 3: Import Your Business Data
 
-Import your business data into the `sarav2_database` database:
+Import your business data into the `saradb_vih` database:
 
 ```bash
 # Export from your current database (if needed)
-mysqldump -u username -p current_database_name > business_data_backup.sql
+sqlcmd -S your_server -d current_database -E -Q "SELECT * FROM your_table" -o business_data_backup.sql
 
 # Import into the new SARA v2 database
-mysql -u sarav2_user -p sarav2_database < business_data_backup.sql
+sqlcmd -S your_server -d saradb_vih -E -i business_data_backup.sql
 ```
 
 ## ⚙️ Environment Configuration
@@ -70,10 +71,10 @@ Edit `.env.local` with your new database connection:
 
 ```env
 # SARA v2 Database Configuration
-SARAV2_DATABASE_URL="mysql://sarav2_user:your_password@your_host:3306/sarav2_database"
+SARAV2_DATABASE_URL="sqlserver://milc.database.windows.net:1433;database=saradb_vih;user=your_user_name;password=your_password;encrypt=true;trustServerCertificate=false;connectionTimeout=30;authentication=ActiveDirectoryIntegrated"
 
 # Optional: Legacy database reference (if you need to access old data)
-# LEGACY_DATABASE_URL="mysql://username:password@host:3306/legacy_database"
+# LEGACY_DATABASE_URL="sqlserver://server:port;database=legacy_db;user=user;password=pass;encrypt=true"
 ```
 
 ## 🚀 Application Setup
