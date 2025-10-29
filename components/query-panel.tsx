@@ -214,67 +214,27 @@ const validateQuery = (query: string): { isValid: boolean; errors: string[]; war
 
 // Database schema columns - all available columns from the database (sorted alphabetically)
 const DATABASE_COLUMNS = [
-  // Gifts table columns
-  { key: 'g.ACCOUNTID', name: 'Account ID', table: 'gifts' },
-  { key: 'g.APPEAL', name: 'Appeal', table: 'gifts' },
-  { key: 'g.DESIGNATION', name: 'Designation', table: 'gifts' },
-  { key: 'g.GIFTDATE', name: 'Gift Date', table: 'gifts' },
-  { key: 'g.GIFTAMOUNT', name: 'Gift Amount', table: 'gifts' },
-  { key: 'g.GIFTID', name: 'Gift ID', table: 'gifts' },
-  { key: 'g.GIFTTYPE', name: 'Gift Type', table: 'gifts' },
-  { key: 'g.GIVINGLEVEL', name: 'Giving Level', table: 'gifts' },
-  { key: 'g.PAYMENTMETHOD', name: 'Payment Method', table: 'gifts' },
-  { key: 'g.PLEDGEID', name: 'Pledge ID', table: 'gifts' },
-  { key: 'g.PURPOSECATEGORY', name: 'Purpose Category', table: 'gifts' },
-  { key: 'g.SOFTCREDITAMOUNT', name: 'Soft Credit Amount', table: 'gifts' },
-  { key: 'g.SOFTCREDITID', name: 'Soft Credit ID', table: 'gifts' },
-  { key: 'g.SOFTCREDITINDICATOR', name: 'Soft Credit Indicator', table: 'gifts' },
-  { key: 'g.SOURCECODE', name: 'Source Code', table: 'gifts' },
-  { key: 'g.TRANSACTIONTYPE', name: 'Transaction Type', table: 'gifts' },
-  { key: 'g.UNIT', name: 'Unit', table: 'gifts' },
-  { key: 'g.UUID', name: 'UUID', table: 'gifts' },
-
-  // Constituents table columns
-  { key: 'c.AGE', name: 'Age', table: 'constituents' },
-  { key: 'c.ALUMNITYPE', name: 'Alumni Type', table: 'constituents' },
-  { key: 'c.ASSIGNEDACCOUNT', name: 'Assigned Account', table: 'constituents' },
-  { key: 'c.DECEASED', name: 'Deceased', table: 'constituents' },
-  { key: 'c.DONOTEMAIL', name: 'Do Not Email', table: 'constituents' },
-  { key: 'c.DONOTMAIL', name: 'Do Not Mail', table: 'constituents' },
-  { key: 'c.DONOTPHONE', name: 'Do Not Phone', table: 'constituents' },
-  { key: 'c.DONORTYPE1', name: 'Donor Type', table: 'constituents' },
-  { key: 'c.EMAIL', name: 'Email', table: 'constituents' },
-  { key: 'c.EVENTS', name: 'Events', table: 'constituents' },
-  { key: 'c.EVENTSATTENDED', name: 'Events Attended', table: 'constituents' },
-  { key: 'c.FULLADDRESS', name: 'Full Address', table: 'constituents' },
-  { key: 'c.FULLNAME', name: 'Full Name', table: 'constituents' },
-  { key: 'c.GENDER', name: 'Gender', table: 'constituents' },
-  { key: 'c.GEPSTATUS', name: 'GEP Status', table: 'constituents' },
-  { key: 'c.GRADUATEDEGREE1', name: 'Graduate Degree', table: 'constituents' },
-  { key: 'c.GRADUATEGRADUATIONYEAR1', name: 'Graduate Year', table: 'constituents' },
-  { key: 'c.GRADUATEPREFERREDCLASSYEAR1', name: 'Graduate Preferred Class Year', table: 'constituents' },
-  { key: 'c.GRADUATESCHOOL1', name: 'Graduate School', table: 'constituents' },
-  { key: 'c.HOMETELEPHONE', name: 'Home Telephone', table: 'constituents' },
-  { key: 'c.LOOKUPID', name: 'Lookup ID', table: 'constituents' },
-  { key: 'c.MARRIEDTOALUM', name: 'Married To Alum', table: 'constituents' },
-  { key: 'c.PERSONORGANIZATIONINDICATOR', name: 'Person/Organization', table: 'constituents' },
-  { key: 'c.PMFULLNAME', name: 'PM Full Name', table: 'constituents' },
-  { key: 'c.SOLICITATIONRESTRICTIONS', name: 'Solicitation Restrictions', table: 'constituents' },
-  { key: 'c.SPOUSEID', name: 'Spouse ID', table: 'constituents' },
-  { key: 'c.SPOUSELOOKUPID', name: 'Spouse Lookup ID', table: 'constituents' },
-  { key: 'c.TYPE', name: 'Type', table: 'constituents' },
-  { key: 'c.UNDERGRADUATEDEGREE1', name: 'Undergraduate Degree', table: 'constituents' },
-  { key: 'c.UNDERGRADUATIONYEAR1', name: 'Undergraduate Year', table: 'constituents' },
-  { key: 'c.UNDERGRADUATEPREFERREDCLASSYEAR1', name: 'Preferred Class Year', table: 'constituents' },
-  { key: 'c.UNDERGRADUATESCHOOL1', name: 'Undergraduate School', table: 'constituents' },
-  { key: 'c.VOLUNTEER', name: 'Volunteer', table: 'constituents' },
-  { key: 'c.WEALTHSCORE', name: 'Wealth Score', table: 'constituents' },
+  // Healthcare Staff Schedule table columns
+  { key: 'h.Staff_ID', name: 'Staff ID', table: 'healthstaff' },
+  { key: 'h.Department', name: 'Department', table: 'healthstaff' },
+  { key: 'h.Shift_Duration_Hours', name: 'Shift Duration Hours', table: 'healthstaff' },
+  { key: 'h.Patient_Load', name: 'Patient Load', table: 'healthstaff' },
+  { key: 'h.Workdays_per_Month', name: 'Workdays per Month', table: 'healthstaff' },
+  { key: 'h.Overtime_Hours', name: 'Overtime Hours', table: 'healthstaff' },
+  { key: 'h.Years_of_Experience', name: 'Years of Experience', table: 'healthstaff' },
+  { key: 'h.Absenteeism_Days', name: 'Absenteeism Days', table: 'healthstaff' },
+  { key: 'h.Satisfaction_Score', name: 'Satisfaction Score', table: 'healthstaff' },
+  { key: 'h.Previous_Satisfaction_Rating', name: 'Previous Satisfaction Rating', table: 'healthstaff' },
 
   // Common calculated/aggregated columns
-  { key: 'AVG(CAST(g.GIFTAMOUNT AS DECIMAL(15,2)))', name: 'Average Amount', table: 'calculated' },
-  { key: 'COUNT(*)', name: 'Count', table: 'calculated' },
-  { key: 'SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2)))', name: 'Total Amount', table: 'calculated' },
-  { key: 'YEAR(g.GIFTDATE)', name: 'Year', table: 'calculated' }
+  { key: 'AVG(h.Satisfaction_Score)', name: 'Average Satisfaction', table: 'calculated' },
+  { key: 'AVG(h.Overtime_Hours)', name: 'Average Overtime', table: 'calculated' },
+  { key: 'AVG(h.Patient_Load)', name: 'Average Patient Load', table: 'calculated' },
+  { key: 'AVG(h.Years_of_Experience)', name: 'Average Experience', table: 'calculated' },
+  { key: 'COUNT(*)', name: 'Staff Count', table: 'calculated' },
+  { key: 'SUM(h.Overtime_Hours)', name: 'Total Overtime', table: 'calculated' },
+  { key: 'MAX(h.Satisfaction_Score)', name: 'Max Satisfaction', table: 'calculated' },
+  { key: 'MIN(h.Satisfaction_Score)', name: 'Min Satisfaction', table: 'calculated' }
 ]
 
 
@@ -1189,37 +1149,14 @@ export function QueryPanel({
                   {/* Categorized Column Grid - Scrollable */}
                   <div className="px-4 flex-1 py-2 overflow-y-scroll scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
                     <div className="space-y-3">
-                      {/* Gifts Table */}
+                      {/* Healthcare Staff Table */}
                       <div>
                         <h4 className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
                           <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                          Gifts & Donations
+                          Healthcare Staff
                         </h4>
                         <div className="flex flex-wrap gap-1.5">
-                          {DATABASE_COLUMNS.filter(col => col.table === 'gifts').map((col) => (
-                            <button
-                              key={col.key}
-                              onClick={() => handleColumnSelection(col.name)}
-                              className={`px-2 py-1 text-xs font-medium rounded-md border transition-all duration-200 hover:shadow-sm text-left ${selectedColumns.includes(col.name)
-                                  ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                                  : 'bg-secondary text-secondary-foreground border-border hover:bg-accent hover:text-accent-foreground'
-                                }`}
-                              title={`${col.name} (${col.table})`}
-                            >
-                              {col.name}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Constituents Table */}
-                      <div>
-                        <h4 className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
-                          <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                          Constituents & Donors
-                        </h4>
-                        <div className="flex flex-wrap gap-1.5">
-                          {DATABASE_COLUMNS.filter(col => col.table === 'constituents').map((col) => (
+                          {DATABASE_COLUMNS.filter(col => col.table === 'healthstaff').map((col) => (
                             <button
                               key={col.key}
                               onClick={() => handleColumnSelection(col.name)}
