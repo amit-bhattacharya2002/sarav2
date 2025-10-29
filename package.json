@@ -30,6 +30,7 @@
     "test-sqlserver": "node scripts/test-sqlserver-connection.js",
     "inspect-db": "node scripts/inspect-database.js",
     "test-healthstaff": "node scripts/test-healthstaff-data.js",
+    "clear-app-data": "node scripts/clear-application-data.js",
     "debug-prisma": "node scripts/debug-prisma-vercel.js",
     "vercel-setup": "node scripts/vercel-build-setup.js",
     "deploy": "npm run pre-deploy && npx vercel --prod",

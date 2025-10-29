@@ -93,10 +93,10 @@ function fastPathSQL(q: string): string | null {
       case 'satisfaction':
       case 'satisfaction_score':
         selectColumns = `
-  h.Staff_ID AS \`Staff ID\`,
-  h.Department AS \`Department\`,
-  h.Satisfaction_Score AS \`Satisfaction Score\`,
-  h.Patient_Load AS \`Patient Load\``
+  h.Staff_ID AS 'Staff ID',
+  h.Department AS 'Department',
+  h.Satisfaction_Score AS 'Satisfaction Score',
+  h.Patient_Load AS 'Patient Load'`
         orderByClause = `
   h.Satisfaction_Score ${sortOrder},
   h.Staff_ID ASC`
@@ -105,10 +105,10 @@ function fastPathSQL(q: string): string | null {
       case 'experience':
       case 'years_of_experience':
         selectColumns = `
-  h.Staff_ID AS \`Staff ID\`,
-  h.Department AS \`Department\`,
-  h.Years_of_Experience AS \`Years of Experience\`,
-  h.Satisfaction_Score AS \`Satisfaction Score\``
+  h.Staff_ID AS 'Staff ID',
+  h.Department AS 'Department',
+  h.Years_of_Experience AS 'Years of Experience',
+  h.Satisfaction_Score AS 'Satisfaction Score'`
         orderByClause = `
   h.Years_of_Experience ${sortOrder},
   h.Staff_ID ASC`
@@ -117,10 +117,10 @@ function fastPathSQL(q: string): string | null {
       case 'patient_load':
       case 'patients':
         selectColumns = `
-  h.Staff_ID AS \`Staff ID\`,
-  h.Department AS \`Department\`,
-  h.Patient_Load AS \`Patient Load\`,
-  h.Satisfaction_Score AS \`Satisfaction Score\``
+  h.Staff_ID AS 'Staff ID',
+  h.Department AS 'Department',
+  h.Patient_Load AS 'Patient Load',
+  h.Satisfaction_Score AS 'Satisfaction Score'`
         orderByClause = `
   h.Patient_Load ${sortOrder},
   h.Staff_ID ASC`
@@ -129,10 +129,10 @@ function fastPathSQL(q: string): string | null {
       case 'overtime':
       case 'overtime_hours':
         selectColumns = `
-  h.Staff_ID AS \`Staff ID\`,
-  h.Department AS \`Department\`,
-  h.Overtime_Hours AS \`Overtime Hours\`,
-  h.Satisfaction_Score AS \`Satisfaction Score\``
+  h.Staff_ID AS 'Staff ID',
+  h.Department AS 'Department',
+  h.Overtime_Hours AS 'Overtime Hours',
+  h.Satisfaction_Score AS 'Satisfaction Score'`
         orderByClause = `
   h.Overtime_Hours ${sortOrder},
   h.Staff_ID ASC`
@@ -141,20 +141,19 @@ function fastPathSQL(q: string): string | null {
       default:
         // For unknown sort fields, default to satisfaction sorting
         selectColumns = `
-  h.Staff_ID AS \`Staff ID\`,
-  h.Department AS \`Department\`,
-  h.Satisfaction_Score AS \`Satisfaction Score\`,
-  h.Patient_Load AS \`Patient Load\``
+  h.Staff_ID AS 'Staff ID',
+  h.Department AS 'Department',
+  h.Satisfaction_Score AS 'Satisfaction Score',
+  h.Patient_Load AS 'Patient Load'`
         orderByClause = `
   h.Satisfaction_Score ${sortOrder},
   h.Staff_ID ASC`
     }
     
     return `
-SELECT${selectColumns}
+SELECT TOP ${n}${selectColumns}
 FROM healthstaff_schedule h
-ORDER BY${orderByClause}
-LIMIT ${n}`.trim()
+ORDER BY${orderByClause}`.trim()
   }
   
   // Pattern 2: "top N staff" (basic, no specific sorting)
@@ -162,16 +161,15 @@ LIMIT ${n}`.trim()
   if (m2 && !q.match(/\b(?:and\s+)?(?:sort|by|satisfaction|experience|patient|overtime|department)\b/i)) {
     const n = Math.min(parseInt(m2[1],10), 100)
     return `
-SELECT
-  h.Staff_ID AS \`Staff ID\`,
-  h.Department AS \`Department\`,
-  h.Satisfaction_Score AS \`Satisfaction Score\`,
-  h.Patient_Load AS \`Patient Load\`
+SELECT TOP ${n}
+  h.Staff_ID AS 'Staff ID',
+  h.Department AS 'Department',
+  h.Satisfaction_Score AS 'Satisfaction Score',
+  h.Patient_Load AS 'Patient Load'
 FROM healthstaff_schedule h
 ORDER BY
   h.Satisfaction_Score DESC,
-  h.Staff_ID ASC
-LIMIT ${n}`.trim()
+  h.Staff_ID ASC`.trim()
   }
   
   // Pattern 2b: "show me top staff" (without explicit number, defaults to 10)
@@ -179,16 +177,15 @@ LIMIT ${n}`.trim()
   if (m2b && !q.match(/\b(?:and\s+)?(?:sort|by|satisfaction|experience|patient|overtime|department)\b/i)) {
     const n = 10 // Default limit
     return `
-SELECT
-  h.Staff_ID AS \`Staff ID\`,
-  h.Department AS \`Department\`,
-  h.Satisfaction_Score AS \`Satisfaction Score\`,
-  h.Patient_Load AS \`Patient Load\`
+SELECT TOP ${n}
+  h.Staff_ID AS 'Staff ID',
+  h.Department AS 'Department',
+  h.Satisfaction_Score AS 'Satisfaction Score',
+  h.Patient_Load AS 'Patient Load'
 FROM healthstaff_schedule h
 ORDER BY
   h.Satisfaction_Score DESC,
-  h.Staff_ID ASC
-LIMIT ${n}`.trim()
+  h.Staff_ID ASC`.trim()
   }
   
   // Pattern 3: "staff by department"
@@ -196,18 +193,17 @@ LIMIT ${n}`.trim()
   if (m3) {
     const department = m3[1]
     return `
-SELECT
-  h.Staff_ID AS \`Staff ID\`,
-  h.Department AS \`Department\`,
-  h.Satisfaction_Score AS \`Satisfaction Score\`,
-  h.Patient_Load AS \`Patient Load\`,
-  h.Years_of_Experience AS \`Years of Experience\`
+SELECT TOP 50
+  h.Staff_ID AS 'Staff ID',
+  h.Department AS 'Department',
+  h.Satisfaction_Score AS 'Satisfaction Score',
+  h.Patient_Load AS 'Patient Load',
+  h.Years_of_Experience AS 'Years of Experience'
 FROM healthstaff_schedule h
 WHERE h.Department = '${department}'
-ORDER BY
+ORDER BY 
   h.Satisfaction_Score DESC,
-  h.Staff_ID ASC
-LIMIT 50`.trim()
+  h.Staff_ID ASC`.trim()
   }
 
   // Pattern 4: "average satisfaction by department"
@@ -215,10 +211,10 @@ LIMIT 50`.trim()
   if (m4) {
     return `
 SELECT
-  h.Department AS \`Department\`,
-  AVG(h.Satisfaction_Score) AS \`Average Satisfaction\`,
-  COUNT(h.Staff_ID) AS \`Staff Count\`,
-  AVG(h.Patient_Load) AS \`Average Patient Load\`
+  h.Department AS 'Department',
+  AVG(h.Satisfaction_Score) AS 'Average Satisfaction',
+  COUNT(h.Staff_ID) AS 'Staff Count',
+  AVG(h.Patient_Load) AS 'Average Patient Load'
 FROM healthstaff_schedule h
 WHERE h.Department IS NOT NULL
 GROUP BY h.Department
@@ -232,12 +228,12 @@ ORDER BY
   if (m4b) {
     return `
 SELECT
-  h.Department AS \`Department\`,
-  COUNT(h.Staff_ID) AS \`Staff Count\`,
-  AVG(h.Satisfaction_Score) AS \`Average Satisfaction\`,
-  AVG(h.Patient_Load) AS \`Average Patient Load\`,
-  AVG(h.Years_of_Experience) AS \`Average Experience\`,
-  AVG(h.Overtime_Hours) AS \`Average Overtime\`
+  h.Department AS 'Department',
+  COUNT(h.Staff_ID) AS 'Staff Count',
+  AVG(h.Satisfaction_Score) AS 'Average Satisfaction',
+  AVG(h.Patient_Load) AS 'Average Patient Load',
+  AVG(h.Years_of_Experience) AS 'Average Experience',
+  AVG(h.Overtime_Hours) AS 'Average Overtime'
 FROM healthstaff_schedule h
 WHERE h.Department IS NOT NULL
 GROUP BY h.Department
@@ -304,12 +300,12 @@ Rules:
 - Donors (people/accounts) → aggregate by ACCOUNTID (GROUP BY). Donations (transactions) → NO GROUP BY.
 - Amounts: use CAST(g.GIFTAMOUNT AS DECIMAL(15,2)).
 - Dates: year Y → g.GIFTDATE >= 'Y-01-01' AND g.GIFTDATE < 'Y+1-01-01'; if range provided, use it; else no date filter.
-- FULLNAME display (CRITICAL): Use COALESCE(NULLIF(TRIM(c.FULLNAME), ''), CONCAT('[Account ', ACCOUNTID, ']')) AS \`Full Name\` to handle missing/empty names.
+- FULLNAME display (CRITICAL): Use COALESCE(NULLIF(TRIM(c.FULLNAME), ''), CONCAT('[Account ', ACCOUNTID, ']')) AS 'Full Name' to handle missing/empty names.
   - AGE display:
   CASE WHEN TRIM(c.AGE) IS NOT NULL AND TRIM(c.AGE) != '' AND CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) IS NOT NULL
        THEN CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED)
-       ELSE NULL END AS \`Age\`
-  - ALWAYS include dt.total_amount AS \`Total Amount\` in donor queries (top_donors, list_donors).
+       ELSE NULL END AS 'Age'
+  - ALWAYS include dt.total_amount AS 'Total Amount' in donor queries (top_donors, list_donors).
 - AGE filters: filters.donor.age.min → CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) >= min, filters.donor.age.max → CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) <= max
 - If sorting by age, use the same CASE expression in ORDER BY: CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) IS NULL, CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) {ASC|DESC}.
 - Never invent columns. Do not mix donor aggregates with individual gift fields in the same SELECT.
@@ -332,7 +328,7 @@ Example for "top 10 donors of 2021, sort by age ascending":
 ORDER BY CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) IS NULL, CAST(NULLIF(TRIM(c.AGE), '') AS UNSIGNED) ASC, dt.total_amount DESC, tie-breakers
 
 Example for "top 10 donors of 2021, sort by amount ascending":
-SELECT c.FULLNAME AS \`Full Name\`, dt.total_amount AS \`Total Amount\`
+SELECT c.FULLNAME AS 'Full Name', dt.total_amount AS 'Total Amount'
 FROM (
   SELECT g.ACCOUNTID, SUM(CAST(g.GIFTAMOUNT AS DECIMAL(15,2))) AS total_amount
   FROM gifts g
@@ -435,10 +431,11 @@ INTELLIGENT SQL GENERATION RULES:
 
 5. OUTPUT REQUIREMENTS:
    - Output ONLY valid SQL - no explanations, no comments, no semicolons
-   - Always include LIMIT clause (default 10 if not specified, max 100)
+   - Always include TOP clause (default 10 if not specified, max 100)
    - Ensure SQL is syntactically correct for SQL Server
    - MANDATORY: Use human-readable aliases for ALL columns (e.g., h.Staff_ID AS 'Staff ID')
    - NEVER use raw database column names in SELECT statements without aliases
+   - Use TOP instead of LIMIT for SQL Server compatibility
 
 6. DYNAMIC VALIDATION & ERROR RECOVERY:
    - CRITICAL: ONLY use column names that exist in the provided schema above
@@ -472,7 +469,7 @@ INTELLIGENT SQL GENERATION RULES:
 INTELLIGENT QUERY EXAMPLES:
 
 1. STAFF QUERIES:
-   - "top 10 staff by satisfaction" → SELECT h.Staff_ID AS 'Staff ID', h.Department AS 'Department', h.Satisfaction_Score AS 'Satisfaction Score' FROM healthstaff_schedule h ORDER BY h.Satisfaction_Score DESC LIMIT 10
+   - "top 10 staff by satisfaction" → SELECT TOP 10 h.Staff_ID AS 'Staff ID', h.Department AS 'Department', h.Satisfaction_Score AS 'Satisfaction Score' FROM healthstaff_schedule h ORDER BY h.Satisfaction_Score DESC
    - "staff with high experience" → Use Years_of_Experience field
    - "staff by department" → GROUP BY Department
 
@@ -645,8 +642,8 @@ export async function POST(req: NextRequest) {
     console.log('Generated SQL:', sqlQuery)
     console.log('=== END SQL ===\n')
 
-    // Optional: tiny sanity checks before returning (no semicolon, must start with SELECT, has LIMIT)
-    if (/;/.test(sqlQuery) || !/^\s*select\b/i.test(sqlQuery) || !/\blimit\s+\d+/i.test(sqlQuery)) {
+    // Optional: tiny sanity checks before returning (no semicolon, must start with SELECT, has TOP or LIMIT)
+    if (/;/.test(sqlQuery) || !/^\s*select\b/i.test(sqlQuery) || (!/\btop\s+\d+/i.test(sqlQuery) && !/\blimit\s+\d+/i.test(sqlQuery))) {
       return NextResponse.json({
         error: 'SQL validation failed',
         sql: sqlQuery
